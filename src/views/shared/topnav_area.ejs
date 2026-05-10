@@ -1,0 +1,50 @@
+<div id="topnav-area" class="topnav-item" data-controller="topnav-area" data-topnav-area-areas-data-value='<%- areasJson %>'>
+  <label for="location-selector-btn">Location</label>
+  <button type="button" id="location-selector-btn" class="dropdown-btn location-selector-btn" data-action="click->topnav-area#toggleMenu">
+    <span class="dropdown-value" data-topnav-area-target="selectionText"><%= params.area %></span>
+    <span class="dropdown-arrow">▼</span>
+  </button>
+  <div class="area-menu" data-topnav-area-target="menu">
+    <div class="location-step visible" data-step="region">
+      <div class="step-header">
+        <button type="button" class="step-close" data-action="topnav-area#closeMenu">×</button>
+        <h3></h3>
+        <button type="button" class="step-back" data-action="topnav-area#backToStep" style="visibility: hidden;">←</button>
+      </div>
+      <div class="step-options">
+        <% regions.forEach((region) => { %>
+          <button type="button" class="step-option" data-region="<%= region %>" data-action="topnav-area#selectRegion">
+            <span class="option-text"><%= region.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) %></span>
+            <span class="option-arrow">→</span>
+          </button>
+        <% }) %>
+      </div>
+    </div>
+    <div class="location-step" data-step="areaType">
+      <div class="step-header">
+        <button type="button" class="step-back" data-action="topnav-area#backToStep">←</button>
+        <h3 data-topnav-area-target="areaTypeTitle">Select Area Type</h3>
+        <button type="button" class="step-close" data-action="topnav-area#closeMenu">×</button>
+      </div>
+      <div class="step-options" data-topnav-area-target="areaTypeOptions"></div>
+    </div>
+    <div class="location-step visible" data-step="areas">
+      <div class="step-header">
+        <button type="button" class="step-back" data-action="topnav-area#backToStep">←</button>
+        <h3 data-topnav-area-target="areaTitle">Select Areas</h3>
+        <button type="button" class="step-close" data-action="topnav-area#closeMenu">×</button>
+      </div>
+      <div class="step-areas" data-topnav-area-target="areaOptions">
+        <div class="dropdown-option">
+          <input type="checkbox" class="dropdown-checkbox" id="area-all" value="all" data-topnav-area-target="allCheckbox" data-action="change->topnav-area#toggleArea">
+          <label class="dropdown-label" for="area-all">All areas</label>
+        </div>
+        <div class="dropdown-option-divider"></div>
+        <div class="individual-areas"></div>
+      </div>
+      <div class="step-actions">
+        <button type="button" class="action-btn apply" data-action="topnav-area#applySelection">Apply</button>
+      </div>
+    </div>
+  </div>
+</div>

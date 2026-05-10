@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title><%= pageTitle || 'intermittent.energy' %></title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <% if (typeof dashboardType !== 'undefined' && dashboardType) { %>
+      <meta name="twitter:card" content="summary_large_image">
+      <meta name="twitter:title" content="<%= pageTitle %>">
+      <meta name="twitter:description" content="High resolution graphs of electricity grid data. Powered by @TimescaleDB">
+      <meta property="og:title" content="<%= pageTitle %>">
+      <meta property="og:description" content="High resolution graphs of electricity grid data. Powered by @TimescaleDB">
+    <% } %>
+    <link rel="stylesheet" href="/assets/application.css">
+    <link rel="stylesheet" href="/assets/topnav.css">
+    <link rel="stylesheet" href="/assets/topnav-area.css">
+    <link rel="stylesheet" href="/assets/topnav-dashboard.css">
+    <link rel="stylesheet" href="/assets/topnav-date.css">
+    <script type="module" src="/assets/app.bundle.js" defer></script>
+    <%- include('google_analytics') %>
+  </head>
+  <body>

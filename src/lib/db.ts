@@ -1,21 +1,46 @@
+import "dotenv/config";
 import pg from "pg";
 
-export const smallPool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL,
-  max: 4,
-  application_name: "power-charts-small",
-});
+function databaseUrl() {
+  const url = process.env.DATABASE_URL;
 
-export const chartPool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL,
-  max: 2,
-  application_name: "power-charts-chart",
-});
+  if (!url) {
+    throw new Error("DATABASE_URL is not set");
+  }
+
+  return url;
+}
+
+function poolConfig(max: number, applicationName: string): pg.PoolConfig {
+  const schemaSearchPath = process.env.PGSCHEMA || process.env.DATABASE_SCHEMA || "intermittency,public";
+
+  return {
+    connectionString: databaseUrl(),
+    max,
+    application_name: applicationName,
+    options: `-c search_path=${schemaSearchPath}`,
+  };
+}
+
+let smallPool: pg.Pool | undefined;
+let chartPool: pg.Pool | undefined;
+
+export function getSmallPool() {
+  smallPool ||= new pg.Pool(poolConfig(4, "power-charts-small"));
+
+  return smallPool;
+}
+
+export function getChartPool() {
+  chartPool ||= new pg.Pool(poolConfig(2, "power-charts-chart"));
+
+  return chartPool;
+}
 
 export async function querySmall<T = unknown>(
   text: string,
   values: unknown[] = [],
 ): Promise<T[]> {
-  const result = await smallPool.query(text, values);
+  const result = await getSmallPool().query(text, values);
   return result.rows as T[];
 }

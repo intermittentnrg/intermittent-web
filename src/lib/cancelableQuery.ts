@@ -1,13 +1,13 @@
 import type { FastifyRequest } from "fastify";
 import type pg from "pg";
-import { chartPool } from "./db.js";
+import { getChartPool } from "./db.js";
 
 export async function cancelableChartQuery<T = unknown>(
   req: FastifyRequest,
   text: string,
   values: unknown[] = [],
 ): Promise<T[] | null> {
-  const client = await chartPool.connect();
+  const client = await getChartPool().connect();
 
   let aborted = false;
   let released = false;

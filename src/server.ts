@@ -1,12 +1,10 @@
+import "dotenv/config";
 import path from "node:path";
 import Fastify from "fastify";
 import view from "@fastify/view";
 import staticFiles from "@fastify/static";
 import ejs from "ejs";
-import dotenv from "dotenv";
-import { cancelableChartQuery } from "./lib/cancelableQuery.js";
-
-dotenv.config();
+import { registerRoutes } from "./routes.js";
 
 const app = Fastify({
   logger: true,
@@ -25,14 +23,7 @@ app.register(staticFiles, {
   prefix: "/assets/",
 });
 
-app.get("/", async (_req, reply) => {
-  return reply.view("index.ejs", {
-    state: {
-      type: "wind",
-      range: "7d",
-    },
-  });
-});
+app.register(registerRoutes);
 
 const port = Number(process.env.PORT || 3000);
 

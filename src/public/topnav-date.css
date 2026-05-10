@@ -1,0 +1,170 @@
+.topnav-date-wrapper {
+  display: contents;
+}
+
+#topnav-date-preset {
+  flex-shrink: 0;
+}
+
+#topnav-date-range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.date-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.interval-selector {
+  flex: 0 0 auto;
+}
+
+.date-preset-btn {
+  width: 162px;
+}
+
+.interval-btn {
+  width: 80px;
+}
+
+.date-preset-menu {
+  position: fixed;
+  top: 74px;
+  width: 180px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  z-index: 1201;
+  display: none;
+  overflow: hidden;
+}
+
+.date-preset-menu.open {
+  display: block;
+}
+
+.date-preset-options {
+  padding: 8px;
+}
+
+.date-preset-option {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-bottom: 4px;
+  transition: all 0.15s;
+  text-align: left;
+}
+
+.date-preset-option:hover {
+  background: #f3f4f6;
+}
+
+.date-preset-option.selected {
+  background: #3b82f6;
+  color: white;
+}
+
+.date-input {
+  padding: 4px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 12px;
+  width: 120px;
+  height: 28px;
+  box-sizing: border-box;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.date-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.date-input.preset-mode {
+  background-color: #f3f4f6;
+  color: #6b7280;
+  font-style: italic;
+  border-color: #d1d5db;
+}
+
+.interval-btn {
+  width: 80px;
+}
+
+.interval-menu {
+  position: fixed;
+  top: 74px;
+  width: 100px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  z-index: 1201;
+  display: none;
+  overflow: hidden;
+}
+
+.interval-menu.open {
+  display: block;
+}
+
+.interval-options {
+  padding: 8px;
+}
+
+.interval-option {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-bottom: 4px;
+  transition: all 0.15s;
+  text-align: left;
+}
+
+.interval-option:hover {
+  background: #f3f4f6;
+}
+
+.interval-option.selected {
+  background: #3b82f6;
+  color: white;
+}
+
+@media (max-width: 768px) {
+  .date-preset-btn {
+    width: 110px;
+  }
+
+  .date-input {
+    width: 80px;
+  }
+
+  .interval-btn {
+    width: 65px;
+  }
+
+  .date-preset-menu {
+    width: 130px;
+  }
+
+  .dropdown-value {
+    font-size: 11px;
+  }
+}

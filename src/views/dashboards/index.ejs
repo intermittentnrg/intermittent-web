@@ -1,0 +1,9 @@
+<%- include('../shared/head') %>
+<%- include('../shared/topnav') %>
+<main id="main-content">
+  <div id="main-chart" data-controller="chart" data-chart-target="chart"></div>
+  <div data-chart-target="error" style="display: none; padding: 20px; color: #dc2626; background: #fef2f2; border: 1px solid #dc2626; border-radius: 4px; margin-top: 10px;"></div>
+
+  <script type="application/json" id="initial-state"><%- JSON.stringify({ params, dashboardType, areasData, regions }) %></script>
+</main>
+<%- include('../shared/footer') %>
