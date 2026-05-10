@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+
+  <title>Power Charts</title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 2rem;
+    }
+
+    nav {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .tab {
+      text-decoration: none;
+      color: #666;
+    }
+
+    .tab.active {
+      color: black;
+      font-weight: bold;
+    }
+
+    #chart {
+      border: 1px solid #ddd;
+      height: 420px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+  </style>
+
+  <script type="module" src="/assets/app.js" defer></script>
+</head>
+
+<body>
+  <nav>
+    <a
+      href="/wind"
+      class="tab <%= state.type === 'wind' ? 'active' : '' %>"
+      data-spa-link
+      data-active-key="type"
+      data-active-value="wind">
+      Wind
+    </a>
+
+    <a
+      href="/solar"
+      class="tab <%= state.type === 'solar' ? 'active' : '' %>"
+      data-spa-link
+      data-active-key="type"
+      data-active-value="solar">
+      Solar
+    </a>
+  </nav>
+
+  <div id="chart">
+    Initial server-rendered chart placeholder
+  </div>
+
+  <script type="application/json" id="initial-state">
+    <%- JSON.stringify(state) %>
+  </script>
+</body>
+</html>
