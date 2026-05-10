@@ -14,29 +14,98 @@
     <%- include('topnav_date') %>
     <%- include('topnav_dashboard') %>
 
-    <div class="topnav-item production-type-selector" style="display: <%= productionDashboards.has(dashboardType) ? 'flex' : 'none' %>;">
+    <div class="topnav-item production-type-selector" data-dashboard-options-target="productionTypeSection"
+     style="display: <%= productionDashboards.has(dashboardType) ? 'flex' : 'none' %>;">
       <label>Production Type</label>
-      <button type="button" class="dropdown-btn"><span class="dropdown-value"><%= productionType || 'All' %></span><span class="dropdown-arrow">▼</span></button>
+      <button type="button" class="dropdown-btn" data-action="click->dashboard-options#toggleMenu">
+        <span class="dropdown-value" data-dashboard-options-target="selectedText"><%= productionType || 'All' %></span>
+        <span class="dropdown-arrow">▼</span>
+      </button>
+      <div class="dropdown-menu" data-dashboard-options-target="menu">
+        <div class="step-areas" data-dashboard-options-target="productionTypeOptions"></div>
+        <div class="step-actions">
+          <button type="button" class="action-btn apply" data-action="dashboard-options#applyProductionType">Apply</button>
+        </div>
+      </div>
     </div>
 
-    <div id="topnav-prices" class="topnav-item" style="display: <%= ['electricity_mix', 'generation'].includes(dashboardType) ? 'flex' : 'none' %>;">
+    <div class="topnav-item multiplier-selector" data-dashboard-options-target="simulationsSection"
+         style="display: <%= dashboardType === 'simulations' ? 'flex' : 'none' %>;">
+      <label>Multipliers</label>
+      <button type="button" class="dropdown-btn" data-action="click->dashboard-options#toggleMultiplierMenu">
+        <span class="dropdown-value" data-dashboard-options-target="multiplierSelectedText">Edit</span>
+        <span class="dropdown-arrow">▼</span>
+      </button>
+      <div class="dropdown-menu" data-dashboard-options-target="multiplierMenu">
+        <div class="multiplier-options">
+          <div class="multiplier-row"><label>Nuclear</label><input type="number" class="multiplier-input" value="1.0" step="0.1" min="0" max="10" data-dashboard-options-target="nuclearInput"></div>
+          <div class="multiplier-row"><label>Wind</label><input type="number" class="multiplier-input" value="1.0" step="0.1" min="0" max="10" data-dashboard-options-target="windInput"></div>
+          <div class="multiplier-row"><label>Solar</label><input type="number" class="multiplier-input" value="1.0" step="0.1" min="0" max="10" data-dashboard-options-target="solarInput"></div>
+          <div class="multiplier-row"><label>Demand</label><input type="number" class="multiplier-input" value="1.0" step="0.1" min="0" max="10" data-dashboard-options-target="demandInput"></div>
+        </div>
+        <div class="step-actions"><button type="button" class="action-btn apply" data-action="click->dashboard-options#applyMultipliers">Apply</button></div>
+      </div>
+    </div>
+
+    <div id="topnav-prices" class="topnav-item" data-dashboard-options-target="electricityMixSection"
+         style="display: <%= ['electricity_mix', 'generation'].includes(dashboardType) ? 'flex' : 'none' %>;">
       <label>Prices</label>
-      <div class="checkbox-wrapper"><input type="checkbox" <%= prices ? 'checked' : '' %>></div>
+      <div class="checkbox-wrapper"><input type="checkbox" <%= prices ? 'checked' : '' %> data-action="change->dashboard-options#togglePrices"></div>
     </div>
 
-    <div id="topnav-temps" class="topnav-item" style="display: <%= dashboardType === 'generation' ? 'flex' : 'none' %>;">
+    <div id="topnav-temps" class="topnav-item" data-dashboard-options-target="tempsSection"
+         style="display: <%= dashboardType === 'generation' ? 'flex' : 'none' %>;">
       <label>Temps</label>
-      <div class="checkbox-wrapper"><input type="checkbox" <%= temps ? 'checked' : '' %>></div>
+      <div class="checkbox-wrapper"><input type="checkbox" <%= temps ? 'checked' : '' %> data-action="change->dashboard-options#toggleTemps"></div>
     </div>
 
-    <div id="topnav-load" class="topnav-item" style="display: <%= dashboardType === 'generation' ? 'flex' : 'none' %>;">
+    <div id="topnav-load" class="topnav-item" data-dashboard-options-target="loadSection"
+         style="display: <%= dashboardType === 'generation' ? 'flex' : 'none' %>;">
       <label>Load</label>
-      <div class="checkbox-wrapper"><input type="checkbox" <%= load ? 'checked' : '' %>></div>
+      <div class="checkbox-wrapper"><input type="checkbox" <%= load ? 'checked' : '' %> data-action="change->dashboard-options#toggleLoad"></div>
     </div>
 
-    <div id="topnav-production-types" class="topnav-item per-unit-production-type-selector" style="display: <%= perUnitDashboards.has(dashboardType) ? 'flex' : 'none' %>;">
+    <div id="topnav-transmission" class="topnav-item transmission-selector" data-dashboard-options-target="transmissionSection"
+         style="display: <%= dashboardType === 'transmission' ? 'flex' : 'none' %>;">
+      <label>Transmission Line</label>
+      <button type="button" class="dropdown-btn" data-action="click->dashboard-options#toggleTransmissionMenu">
+        <span class="dropdown-value" data-dashboard-options-target="transmissionSelectedText">Select line</span>
+        <span class="dropdown-arrow">▼</span>
+      </button>
+      <div class="dropdown-menu" data-dashboard-options-target="transmissionMenu">
+        <div class="step-areas" data-dashboard-options-target="transmissionOptions"></div>
+        <div class="step-actions"><button type="button" class="action-btn apply" data-action="dashboard-options#applyTransmission">Apply</button></div>
+      </div>
+    </div>
+
+    <div id="topnav-production-types" class="topnav-item per-unit-production-type-selector" data-dashboard-options-target="perUnitSection"
+         style="display: <%= perUnitDashboards.has(dashboardType) ? 'flex' : 'none' %>;">
       <label>Production Type</label>
-      <button type="button" class="dropdown-btn"><span class="dropdown-value"><%= productionType || 'All' %></span><span class="dropdown-arrow">▼</span></button>
+      <button type="button" class="dropdown-btn" data-action="click->dashboard-options#togglePerUnitProductionTypeMenu">
+        <span class="dropdown-value" data-dashboard-options-target="perUnitProductionTypeSelectedText"><%= productionType || 'All' %></span>
+        <span class="dropdown-arrow">▼</span>
+      </button>
+      <div class="dropdown-menu" data-dashboard-options-target="perUnitProductionTypeMenu">
+        <div class="step-areas" data-dashboard-options-target="perUnitProductionTypeOptions"></div>
+        <div class="step-actions"><button type="button" class="action-btn apply" data-action="dashboard-options#applyPerUnitProductionType">Apply</button></div>
+      </div>
+    </div>
+
+    <div id="topnav-units" class="topnav-item unit-selector" data-dashboard-options-target="perUnitSection"
+         style="display: <%= perUnitDashboards.has(dashboardType) ? 'flex' : 'none' %>;">
+      <label>Units</label>
+      <button type="button" class="dropdown-btn" data-action="click->dashboard-options#toggleUnitMenu">
+        <span class="dropdown-value" data-dashboard-options-target="unitSelectedText"><%= params.units ? `${params.units.split(',').length} units` : 'All units' %></span>
+        <span class="dropdown-arrow">▼</span>
+      </button>
+      <div class="dropdown-menu" data-dashboard-options-target="unitMenu">
+        <div class="step-areas" data-dashboard-options-target="unitOptions">
+          <div class="dropdown-option"><input type="checkbox" class="dropdown-checkbox unit-checkbox" id="unit-all" value="all" data-action="change->dashboard-options#toggleUnit"><label class="dropdown-label" for="unit-all">All units</label></div>
+          <div class="dropdown-option-divider"></div>
+          <div class="individual-units"></div>
+        </div>
+        <div class="step-actions"><button type="button" class="action-btn apply" data-action="dashboard-options#applyUnits">Apply</button></div>
+      </div>
     </div>
 
     <div id="topnav-export" class="topnav-item export-btn">

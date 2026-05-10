@@ -65,23 +65,23 @@ const pricesSql = `
 `;
 
 const generationTotalSql = `
-  SELECT EXTRACT(EPOCH FROM time_bucket('1d', time) AT TIME ZONE $5) * 1000 AS time, CONCAT_WS('/', area, production_type) AS metric, SUM(value)*1000 AS value
+  SELECT EXTRACT(EPOCH FROM time_bucket('1d', time) AT TIME ZONE $4) * 1000 AS time, CONCAT_WS('/', area, production_type) AS metric, SUM(value)*1000 AS value
   FROM (
     SELECT time_bucket_gapfill('1h', time) AS time, a.code AS area, pt.name AS production_type, AVG(GREATEST(0, value)) AS value
     FROM generation
     INNER JOIN areas a ON(area_id = a.id)
     INNER JOIN production_types pt ON(production_type_id = pt.id)
-    WHERE time BETWEEN $2 AND $3 AND production_type_id = ANY($6::int[]) AND area_id = ANY($4::int[])
+    WHERE time BETWEEN $1 AND $2 AND production_type_id = ANY($5::int[]) AND area_id = ANY($3::int[])
     GROUP BY 1, 2, 3
     UNION
     SELECT time_bucket_gapfill('1h', time) AS time, a.code AS area, CONCAT(pt.name, '_negative') AS production_type, AVG(LEAST(0, value)) AS value
     FROM generation
     INNER JOIN areas a ON(area_id = a.id)
     INNER JOIN production_types pt ON(production_type_id = pt.id)
-    WHERE time BETWEEN $2 AND $3 AND production_type_id = ANY($6::int[]) AND area_id = ANY($4::int[])
+    WHERE time BETWEEN $1 AND $2 AND production_type_id = ANY($5::int[]) AND area_id = ANY($3::int[])
     GROUP BY 1, 2, 3
   ) AS hourly_data
-  WHERE time BETWEEN $2 AND $3
+  WHERE time BETWEEN $1 AND $2
   GROUP BY 1, 2
   HAVING SUM(value) <> 0
   ORDER BY 2, 1
@@ -115,11 +115,23 @@ export async function prices(request: FastifyRequest<{ Params: DashboardParams; 
 export async function generationTotal(request: FastifyRequest<{ Params: DashboardParams; Querystring: Query }>, reply: FastifyReply) {
   const ctx = await getAreaContext(request.params);
   const ptIds = await getProductionTypeIds(ctx.areaIds, request.query.production_type);
-  const rows = await querySmall<Row>(generationTotalSql, ["unused", ctx.from, ctx.to, ctx.areaIds, ctx.timezone, ptIds]);
+  const rows = await querySmall<Row>(generationTotalSql, [ctx.from, ctx.to, ctx.areaIds, ctx.timezone, ptIds]);
   const series = buildBasicSeries(rows, "bar", true, "energy");
   const productionTypes = await getProductionTypeOptions(ctx.areaIds);
   const options = buildChartOptions(series, "Generation Total (Daily)", "energy");
   return reply.header("Cache-Control", "public, max-age=3600").send({ options, height: 567, timezone: ctx.timezoneAbbreviation, production_types: productionTypes });
+}
+
+export async function emptyDashboard(request: FastifyRequest<{ Params: DashboardParams & { endpoint?: string }; Querystring: Query }>, reply: FastifyReply) {
+  const ctx = await getAreaContext(request.params);
+  const endpoint = request.params.endpoint || request.params.date_range;
+  const title = titleize(endpoint.replace(/_/g, " "));
+  return reply.header("Cache-Control", "public, max-age=300").send({
+    options: buildChartOptions([], title, "default"),
+    height: 567,
+    timezone: ctx.timezoneAbbreviation,
+    notice: `The ${endpoint} dashboard route is wired, but its SQL has not been ported yet.`,
+  });
 }
 
 async function sendChart(reply: FastifyReply, series: Series[], title: string, timezone: string, extra = {}) {
