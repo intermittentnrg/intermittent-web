@@ -112,6 +112,7 @@ export async function dashboardSpa(request: FastifyRequest<{ Params: DashboardPa
 
   return reply.view("dashboards/index.ejs", {
     pageTitle: `${dashboardType} - ${params.area}`,
+    imageUrl: absoluteUrl(request, dashboardImagePath(params, dashboardType, query)),
     params: { ...params, ...query },
     dashboardType,
     productionType: query.production_type,
@@ -135,19 +136,20 @@ export async function dashboardSpa(request: FastifyRequest<{ Params: DashboardPa
   });
 }
 
-export async function apiStub(request: FastifyRequest<{ Params: DashboardParams & { endpoint: string } }>, reply: FastifyReply) {
-  reply.code(501);
-  return {
-    error: "not_implemented",
-    endpoint: request.params.endpoint,
-    params: request.params,
-    message: "Stub copied from Rails route; port the matching Api::*Controller query next.",
-  };
+function dashboardImagePath(params: DashboardParams, dashboardType: string, query: Record<string, string | undefined>) {
+  const path = `/${params.region}/${params.area_type}/${params.area}/${params.date_range}/${dashboardType}/image.webp`;
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value != null && value !== "") search.set(key, value);
+  }
+  const queryString = search.toString();
+  return queryString ? `${path}?${queryString}` : path;
 }
 
-export async function imageStub(request: FastifyRequest<{ Params: DashboardParams }>, reply: FastifyReply) {
-  reply.code(501);
-  return reply.send({ error: "not_implemented", message: "Dashboard image rendering stub", params: request.params });
+function absoluteUrl(request: FastifyRequest, path: string) {
+  const proto = String(request.headers["x-forwarded-proto"] || "http").split(",")[0];
+  const host = String(request.headers["x-forwarded-host"] || request.headers.host || `localhost:${process.env.PORT || 3000}`).split(",")[0];
+  return `${proto}://${host}${path}`;
 }
 
 export async function nordpool(_request: FastifyRequest, reply: FastifyReply) {
