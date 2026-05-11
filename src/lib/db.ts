@@ -12,7 +12,11 @@ function databaseUrl() {
 }
 
 function poolConfig(max: number, applicationName: string): pg.PoolConfig {
-  const schemaSearchPath = process.env.PGSCHEMA || process.env.DATABASE_SCHEMA || "intermittency,public";
+  const schemaSearchPath = process.env.PGSCHEMA;
+
+  if (!schemaSearchPath) {
+    throw new Error("PGSCHEMA is not set");
+  }
 
   return {
     connectionString: databaseUrl(),

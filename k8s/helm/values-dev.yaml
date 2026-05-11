@@ -1,0 +1,29 @@
+---
+secrets:
+  secret:
+    stringData:
+      DATABASE_URL: postgres://postgres:SyWC6rP9F8HJBw@timescaledb.monitoring:5432/postgres
+      PGSCHEMA: intermittency,public
+      GOOGLE_ANALYTICS_ID: ""
+
+ingress:
+  main:
+    hosts:
+      - host: intermittentnrg.int.mog.se
+        paths:
+          - path: /
+            pathType: Prefix
+            service:
+              identifier: main
+              port: http
+      - host: preview.intermittent.energy
+        paths:
+          - path: /
+            pathType: Prefix
+            service:
+              identifier: main
+              port: http
+    tls:
+      - hosts:
+          - intermittentnrg.int.mog.se
+        secretName: intermittentnrg.int.mog.se-tls

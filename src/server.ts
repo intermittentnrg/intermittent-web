@@ -6,28 +6,41 @@ import staticFiles from "@fastify/static";
 import ejs from "ejs";
 import { registerRoutes } from "./routes.js";
 
-const app = Fastify({
-  logger: true,
-});
+export function buildApp() {
+  const app = Fastify({
+    logger: process.env.NODE_ENV === "test" ? false : true,
+  });
 
-app.register(view, {
-  engine: {
-    ejs,
-  },
+  app.register(view, {
+    engine: {
+      ejs,
+    },
 
-  root: path.join(process.cwd(), "src/views"),
-});
+    root: path.join(process.cwd(), "src/views"),
+  });
 
-app.register(staticFiles, {
-  root: path.join(process.cwd(), "src/public"),
-  prefix: "/assets/",
-});
+  app.register(staticFiles, {
+    root: path.join(process.cwd(), "src/public"),
+    prefix: "/assets/",
+  });
 
-app.register(registerRoutes);
+  app.register(registerRoutes);
 
-const port = Number(process.env.PORT || 3000);
+  return app;
+}
 
-app.listen({
-  host: "0.0.0.0",
-  port,
-});
+export async function startServer(options: { port?: number; host?: string } = {}) {
+  const app = buildApp();
+  const port = options.port ?? Number(process.env.PORT || 3000);
+  const host = options.host ?? "0.0.0.0";
+
+  await app.listen({ host, port });
+  return app;
+}
+
+if (require.main === module) {
+  startServer().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}

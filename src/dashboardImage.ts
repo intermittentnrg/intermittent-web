@@ -40,7 +40,6 @@ export function makeDashboardImageHandler(handlers: Record<string, DashboardData
 
     const width = 1200;
     const height = 630;
-    const format = request.url.endsWith(".png") ? "png" : "webp";
 
     const fakeReply = new FakeReply();
     const fakeRequest = { ...request, params: request.params, query: request.query } as unknown as FastifyRequest;
@@ -52,20 +51,12 @@ export function makeDashboardImageHandler(handlers: Record<string, DashboardData
     }
 
     const svg = renderEchartsSvg(payload.options, width, height);
-    const png = await sharp(Buffer.from(svg)).png().toBuffer();
-
-    if (format === "webp") {
-      const webp = await sharp(png).webp({ quality: 90 }).toBuffer();
-      return reply
-        .header("Content-Type", "image/webp")
-        .header("Cache-Control", "public, max-age=3600")
-        .send(webp);
-    }
+    const webp = await sharp(Buffer.from(svg)).webp({ quality: 90 }).toBuffer();
 
     return reply
-      .header("Content-Type", "image/png")
+      .header("Content-Type", "image/webp")
       .header("Cache-Control", "public, max-age=3600")
-      .send(png);
+      .send(webp);
   };
 }
 
