@@ -1,24 +1,47 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { querySmall } from "../lib/db.js";
-import { calculateInterval, getAreaContext, buildDualAxisOptions, type DashboardParams } from "./shared.js";
-import { buildChartOptions, getProductionTypeOptions } from "../sharedCharts.js";
+import {
+  calculateInterval,
+  getAreaContext,
+  buildDualAxisOptions,
+  type DashboardParams,
+} from "./shared.js";
+import {
+  buildChartOptions,
+  getProductionTypeOptions,
+} from "../sharedCharts.js";
 
-type Query = { width?: string; min_interval?: string; production_type?: string; units?: string };
+type Query = {
+  width?: string;
+  min_interval?: string;
+  production_type?: string;
+  units?: string;
+};
 type Row = Record<string, any>;
 
 async function resolveUnitIds(areaIds: number[], q: Query) {
-  if (q.units && q.units !== 'all') return q.units.split(',').map(Number).filter(Boolean);
-  if (q.production_type && q.production_type !== 'all') {
-    const rows = await querySmall<{id:number}>(`SELECT u.id FROM units u INNER JOIN production_types pt ON u.production_type_id=pt.id WHERE pt.name = ANY($1::text[]) AND u.area_id = ANY($2::int[])`, [q.production_type.split(','), areaIds]);
-    return rows.map(r=>r.id);
+  if (q.units && q.units !== "all")
+    return q.units.split(",").map(Number).filter(Boolean);
+  if (q.production_type && q.production_type !== "all") {
+    const rows = await querySmall<{ id: number }>(
+      `SELECT u.id FROM units u INNER JOIN production_types pt ON u.production_type_id=pt.id WHERE pt.name = ANY($1::text[]) AND u.area_id = ANY($2::int[])`,
+      [q.production_type.split(","), areaIds],
+    );
+    return rows.map((r) => r.id);
   }
-  const rows = await querySmall<{id:number}>(`SELECT id FROM units WHERE area_id = ANY($1::int[]) LIMIT 200`, [areaIds]);
-  return rows.map(r=>r.id);
+  const rows = await querySmall<{ id: number }>(
+    `SELECT id FROM units WHERE area_id = ANY($1::int[]) LIMIT 200`,
+    [areaIds],
+  );
+  return rows.map((r) => r.id);
 }
 
 async function unitMeta(areaIds: number[]) {
   const production_types = await getProductionTypeOptions(areaIds);
-  const units = await querySmall<Row>(`SELECT u.id, COALESCE(u.name,u.internal_id) AS name, u.internal_id, pt.name AS production_type, a.code AS area FROM units u INNER JOIN production_types pt ON u.production_type_id=pt.id INNER JOIN areas a ON u.area_id=a.id WHERE u.area_id = ANY($1::int[]) ORDER BY pt.name,a.code,u.name`, [areaIds]);
+  const units = await querySmall<Row>(
+    `SELECT u.id, COALESCE(u.name,u.internal_id) AS name, u.internal_id, pt.name AS production_type, a.code AS area FROM units u INNER JOIN production_types pt ON u.production_type_id=pt.id INNER JOIN areas a ON u.area_id=a.id WHERE u.area_id = ANY($1::int[]) ORDER BY pt.name,a.code,u.name`,
+    [areaIds],
+  );
   return { production_types, units };
 }
 
@@ -26,17 +49,256 @@ const perUnitSql = `SELECT EXTRACT(EPOCH FROM time AT TIME ZONE $5) * 1000 AS ti
 const perUnitTotalSql = `SELECT EXTRACT(EPOCH FROM time_bucket('1d', time) AT TIME ZONE $4) * 1000 AS time, CONCAT_WS('/', a.code, pt.name, COALESCE(u.name, u.internal_id))||CASE WHEN SUM(value) < 0 THEN '_negative' ELSE '' END AS metric, SUM(value) AS value FROM (SELECT time_bucket_gapfill('1h', time) AS time, unit_id, AVG(value) AS value FROM generation_unit g WHERE time BETWEEN $1 AND $2 AND unit_id = ANY($3::int[]) GROUP BY 1,2 ORDER BY 1,2) s INNER JOIN units u ON(unit_id=u.id) INNER JOIN areas a ON(u.area_id=a.id) INNER JOIN production_types pt ON(u.production_type_id=pt.id) WHERE time BETWEEN $1 AND $2 GROUP BY 1,a.code,pt.name,u.name,u.internal_id HAVING SUM(value)<>0 ORDER BY 2,1`;
 const perUnitPeakSql = `WITH _gen AS (SELECT time_bucket_gapfill($1::interval, time) AS time, unit_id, INTERPOLATE(AVG(value)) AS value FROM generation_unit g WHERE time BETWEEN $2 AND $3 AND unit_id = ANY($4::int[]) GROUP BY 1,2), _peak AS (SELECT unit_id, MAX(value) AS peak_value FROM generation_unit g WHERE unit_id = ANY($4::int[]) AND time BETWEEN ($3::timestamptz - INTERVAL '1 year') AND $3::timestamptz GROUP BY 1) SELECT EXTRACT(EPOCH FROM g.time AT TIME ZONE $5) * 1000 AS time, COALESCE(u.name,u.internal_id) AS metric, g.value / NULLIF(p.peak_value,0) AS value FROM _gen g INNER JOIN _peak p ON g.unit_id=p.unit_id INNER JOIN units u ON g.unit_id=u.id WHERE g.value > 0 ORDER BY 2,1`;
 
-export async function perUnit(req: FastifyRequest<{Params:DashboardParams; Querystring:Query}>, reply: FastifyReply) { const ctx=await getAreaContext(req.params); const unitIds=await resolveUnitIds(ctx.areaIds, req.query); const interval=calculateInterval(ctx.from,ctx.to,req.query.width,req.query.min_interval); const rows=await querySmall<Row>(perUnitSql,[`${interval} seconds`,ctx.from,ctx.to,unitIds,ctx.timezone]); return reply.send({options:buildChartOptions(lineSeries(rows,'power',1000),'Per Unit','power'),height:567,timezone:ctx.timezoneAbbreviation,...await unitMeta(ctx.areaIds)}); }
-export async function perUnitTotal(req: FastifyRequest<{Params:DashboardParams; Querystring:Query}>, reply: FastifyReply) { const ctx=await getAreaContext(req.params); const unitIds=await resolveUnitIds(ctx.areaIds, req.query); const rows=await querySmall<Row>(perUnitTotalSql,[ctx.from,ctx.to,unitIds,ctx.timezone]); return reply.send({options:buildChartOptions(barSeries(rows),'Per Unit Total (Daily)','energy'),height:567,timezone:ctx.timezoneAbbreviation,...await unitMeta(ctx.areaIds)}); }
-export async function perUnitPeak(req: FastifyRequest<{Params:DashboardParams; Querystring:Query}>, reply: FastifyReply) { const ctx=await getAreaContext(req.params); const unitIds=await resolveUnitIds(ctx.areaIds, req.query); const interval=calculateInterval(ctx.from,ctx.to,req.query.width,req.query.min_interval); const rows=await querySmall<Row>(perUnitPeakSql,[`${interval} seconds`,ctx.from,ctx.to,unitIds,ctx.timezone]); return reply.send({options:heatmap(rows),height:567,timezone:ctx.timezoneAbbreviation,...await unitMeta(ctx.areaIds)}); }
+export async function perUnit(
+  req: FastifyRequest<{ Params: DashboardParams; Querystring: Query }>,
+  reply: FastifyReply,
+) {
+  const ctx = await getAreaContext(req.params);
+  const unitIds = await resolveUnitIds(ctx.areaIds, req.query);
+  const interval = calculateInterval(
+    ctx.from,
+    ctx.to,
+    req.query.width,
+    req.query.min_interval,
+  );
+  const rows = await querySmall<Row>(perUnitSql, [
+    `${interval} seconds`,
+    ctx.from,
+    ctx.to,
+    unitIds,
+    ctx.timezone,
+  ]);
+  return reply.send({
+    options: buildChartOptions(
+      lineSeries(rows, "power", 1000),
+      "Per Unit",
+      "power",
+    ),
+    height: 567,
+    timezone: ctx.timezoneAbbreviation,
+    ...(await unitMeta(ctx.areaIds)),
+  });
+}
+export async function perUnitTotal(
+  req: FastifyRequest<{ Params: DashboardParams; Querystring: Query }>,
+  reply: FastifyReply,
+) {
+  const ctx = await getAreaContext(req.params);
+  const unitIds = await resolveUnitIds(ctx.areaIds, req.query);
+  const rows = await querySmall<Row>(perUnitTotalSql, [
+    ctx.from,
+    ctx.to,
+    unitIds,
+    ctx.timezone,
+  ]);
+  return reply.send({
+    options: buildChartOptions(
+      barSeries(rows),
+      "Per Unit Total (Daily)",
+      "energy",
+    ),
+    height: 567,
+    timezone: ctx.timezoneAbbreviation,
+    ...(await unitMeta(ctx.areaIds)),
+  });
+}
+export async function perUnitPeak(
+  req: FastifyRequest<{ Params: DashboardParams; Querystring: Query }>,
+  reply: FastifyReply,
+) {
+  const ctx = await getAreaContext(req.params);
+  const unitIds = await resolveUnitIds(ctx.areaIds, req.query);
+  const interval = calculateInterval(
+    ctx.from,
+    ctx.to,
+    req.query.width,
+    req.query.min_interval,
+  );
+  const rows = await querySmall<Row>(perUnitPeakSql, [
+    `${interval} seconds`,
+    ctx.from,
+    ctx.to,
+    unitIds,
+    ctx.timezone,
+  ]);
+  return reply.send({
+    options: heatmap(rows),
+    height: 567,
+    timezone: ctx.timezoneAbbreviation,
+    ...(await unitMeta(ctx.areaIds)),
+  });
+}
 
-function lineSeries(rows: Row[], unit='power', mul=1) { const m=new Map<string,any>(); for(const r of rows){const k=String(r.metric||''); if(!m.has(k))m.set(k,{name:k,type:'line',unit,stack:k.endsWith('_negative')?'negative':'total',symbol:'none',areaStyle:{opacity:.75},lineStyle:{width:0},data:[]}); m.get(k).data.push([Number(r.time), r.value==null?null:Number(r.value)*mul]);} return [...m.values()];}
-function barSeries(rows: Row[]) { const m=new Map<string,any>(); for(const r of rows){const k=String(r.metric||''); if(!m.has(k))m.set(k,{name:k,type:'bar',unit:'energy',stack:k.endsWith('_negative')?'negative':'positive',data:[]}); m.get(k).data.push([Number(r.time), r.value==null?null:Number(r.value)]);} return [...m.values()];}
-function heatmap(rows: Row[]) { const units=[...new Set(rows.map(r=>String(r.metric)))]; const times=[...new Set(rows.map(r=>Number(r.time)))].sort((a,b)=>a-b); const data:any[]=[]; for(const r of rows){data.push([times.indexOf(Number(r.time)), units.indexOf(String(r.metric)), r.value==null?null:Math.round(Number(r.value)*1000)/10]);} return {title:{text:'Unit % of Peak Output',left:'center',top:10},tooltip:{position:'top'},grid:{left:'3%',right:'4%',bottom:'10%',top:'15%',containLabel:true},xAxis:{type:'category',data:times,splitArea:{show:true},axisLabel:{formatter:{type:'date'}}},yAxis:{type:'category',data:units,splitArea:{show:true},inverse:true},visualMap:{min:0,max:100,calculable:true,orient:'horizontal',left:'center',bottom:'0%',inRange:{color:['#FFFFB2','#FECC5C','#FD8D3C','#F03B20','#BD0026']}},series:[{name:'Peak %',type:'heatmap',data,label:{show:false}}]};}
+function lineSeries(rows: Row[], unit = "power", mul = 1) {
+  const m = new Map<string, any>();
+  for (const r of rows) {
+    const k = String(r.metric || "");
+    if (!m.has(k))
+      m.set(k, {
+        name: k,
+        type: "line",
+        unit,
+        stack: k.endsWith("_negative") ? "negative" : "total",
+        symbol: "none",
+        areaStyle: { opacity: 0.75 },
+        lineStyle: { width: 0 },
+        data: [],
+      });
+    m.get(k).data.push([
+      Number(r.time),
+      r.value == null ? null : Number(r.value) * mul,
+    ]);
+  }
+  return [...m.values()];
+}
+function barSeries(rows: Row[]) {
+  const m = new Map<string, any>();
+  for (const r of rows) {
+    const k = String(r.metric || "");
+    if (!m.has(k))
+      m.set(k, {
+        name: k,
+        type: "bar",
+        unit: "energy",
+        stack: k.endsWith("_negative") ? "negative" : "positive",
+        data: [],
+      });
+    m.get(k).data.push([
+      Number(r.time),
+      r.value == null ? null : Number(r.value),
+    ]);
+  }
+  return [...m.values()];
+}
+function heatmap(rows: Row[]) {
+  const units = [...new Set(rows.map((r) => String(r.metric)))];
+  const times = [...new Set(rows.map((r) => Number(r.time)))].sort(
+    (a, b) => a - b,
+  );
+  const data: any[] = [];
+  for (const r of rows) {
+    data.push([
+      times.indexOf(Number(r.time)),
+      units.indexOf(String(r.metric)),
+      r.value == null ? null : Math.round(Number(r.value) * 1000) / 10,
+    ]);
+  }
+  return {
+    title: { text: "Unit % of Peak Output", left: "center", top: 10 },
+    tooltip: { position: "top" },
+    grid: {
+      left: "3%",
+      right: "4%",
+      bottom: "10%",
+      top: "15%",
+      containLabel: true,
+    },
+    xAxis: {
+      type: "category",
+      data: times,
+      splitArea: { show: true },
+      axisLabel: { formatter: { type: "date" } },
+    },
+    yAxis: {
+      type: "category",
+      data: units,
+      splitArea: { show: true },
+      inverse: true,
+    },
+    visualMap: {
+      min: 0,
+      max: 100,
+      calculable: true,
+      orient: "horizontal",
+      left: "center",
+      bottom: "0%",
+      inRange: {
+        color: ["#FFFFB2", "#FECC5C", "#FD8D3C", "#F03B20", "#BD0026"],
+      },
+    },
+    series: [{ name: "Peak %", type: "heatmap", data, label: { show: false } }],
+  };
+}
 
 const movingCapSql = `WITH cap AS (SELECT unit_id,LAST(value,time) AS value FROM generation_unit_capacities WHERE time BETWEEN $1 AND $2 AND unit_id=ANY($3::int[]) GROUP BY unit_id), g AS (SELECT time_bucket_gapfill('1h', time) AS time, unit_id, COALESCE(AVG(value),0) AS value FROM generation_unit WHERE time BETWEEN $1 AND $2 AND unit_id=ANY($3::int[]) GROUP BY 1,2) SELECT EXTRACT(EPOCH FROM time_bucket($4::interval,time) AT TIME ZONE $5)*1000 AS time, CONCAT_WS(' - ',u.internal_id,u.name) AS metric, AVG(AVG(g.value)) OVER w / NULLIF(AVG(cap.value),0) AS moving_capacity FROM g INNER JOIN cap USING(unit_id) INNER JOIN units u ON(unit_id=u.id) WHERE time BETWEEN $1 AND $2 GROUP BY unit_id,time_bucket($4::interval,time),2 WINDOW w AS (PARTITION BY unit_id ORDER BY time_bucket($4::interval,time) RANGE '12 month' PRECEDING) ORDER BY 2,1`;
 const movingOutputSql = `SELECT EXTRACT(EPOCH FROM time AT TIME ZONE $5)*1000 AS time, metric, value FROM (SELECT time_bucket_gapfill($1::interval,time) AS time, CONCAT_WS(' - ',u.internal_id,u.name,'output') AS metric, AVG(value) AS value FROM generation_unit g INNER JOIN units u ON(unit_id=u.id) WHERE time BETWEEN $2 AND $3 AND unit_id=ANY($4::int[]) GROUP BY 1,u.internal_id,u.name ORDER BY 2,1) s`;
-export async function perUnitMovingCapacity(req:FastifyRequest<{Params:DashboardParams;Querystring:Query}>,reply:FastifyReply){const ctx=await getAreaContext(req.params); const unitIds=await resolveUnitIds(ctx.areaIds,req.query); const interval=calculateInterval(ctx.from,ctx.to,req.query.width,req.query.min_interval); const from12=new Date(ctx.from); from12.setMonth(from12.getMonth()-12); const cap=await querySmall<Row>(movingCapSql,[from12,ctx.to,unitIds,`${interval} seconds`,ctx.timezone]); const out=await querySmall<Row>(movingOutputSql,[`${interval} seconds`,ctx.from,ctx.to,unitIds,ctx.timezone]); const series=[...capSeries(cap),...outputSeries(out)]; return reply.send({options:buildDualAxisOptions(series,'Per Unit Moving Capacity Factor & Output'),height:567,timezone:ctx.timezoneAbbreviation,...await unitMeta(ctx.areaIds)});}
-function capSeries(rows:Row[]){const m=new Map<string,any>(); for(const r of rows){const k=String(r.metric); if(!m.has(k))m.set(k,{name:`${k} (capacity %)`,type:'line',unit:'percent',symbol:'none',lineStyle:{width:2},data:[]}); m.get(k).data.push([Number(r.time),r.moving_capacity==null?null:Number(r.moving_capacity)]);} return [...m.values()];}
-function outputSeries(rows:Row[]){const m=new Map<string,any>(); for(const r of rows){const k=String(r.metric); if(!m.has(k))m.set(k,{name:k,type:'line',unit:'power',symbol:'none',lineStyle:{width:2,type:'dashed'},yAxisIndex:1,data:[]}); m.get(k).data.push([Number(r.time),r.value==null?null:Number(r.value)*1000]);} return [...m.values()];}
-
+export async function perUnitMovingCapacity(
+  req: FastifyRequest<{ Params: DashboardParams; Querystring: Query }>,
+  reply: FastifyReply,
+) {
+  const ctx = await getAreaContext(req.params);
+  const unitIds = await resolveUnitIds(ctx.areaIds, req.query);
+  const interval = calculateInterval(
+    ctx.from,
+    ctx.to,
+    req.query.width,
+    req.query.min_interval,
+  );
+  const from12 = new Date(ctx.from);
+  from12.setMonth(from12.getMonth() - 12);
+  const cap = await querySmall<Row>(movingCapSql, [
+    from12,
+    ctx.to,
+    unitIds,
+    `${interval} seconds`,
+    ctx.timezone,
+  ]);
+  const out = await querySmall<Row>(movingOutputSql, [
+    `${interval} seconds`,
+    ctx.from,
+    ctx.to,
+    unitIds,
+    ctx.timezone,
+  ]);
+  const series = [...capSeries(cap), ...outputSeries(out)];
+  return reply.send({
+    options: buildDualAxisOptions(
+      series,
+      "Per Unit Moving Capacity Factor & Output",
+    ),
+    height: 567,
+    timezone: ctx.timezoneAbbreviation,
+    ...(await unitMeta(ctx.areaIds)),
+  });
+}
+function capSeries(rows: Row[]) {
+  const m = new Map<string, any>();
+  for (const r of rows) {
+    const k = String(r.metric);
+    if (!m.has(k))
+      m.set(k, {
+        name: `${k} (capacity %)`,
+        type: "line",
+        unit: "percent",
+        symbol: "none",
+        lineStyle: { width: 2 },
+        data: [],
+      });
+    m.get(k).data.push([
+      Number(r.time),
+      r.moving_capacity == null ? null : Number(r.moving_capacity),
+    ]);
+  }
+  return [...m.values()];
+}
+function outputSeries(rows: Row[]) {
+  const m = new Map<string, any>();
+  for (const r of rows) {
+    const k = String(r.metric);
+    if (!m.has(k))
+      m.set(k, {
+        name: k,
+        type: "line",
+        unit: "power",
+        symbol: "none",
+        lineStyle: { width: 2, type: "dashed" },
+        yAxisIndex: 1,
+        data: [],
+      });
+    m.get(k).data.push([
+      Number(r.time),
+      r.value == null ? null : Number(r.value) * 1000,
+    ]);
+  }
+  return [...m.values()];
+}

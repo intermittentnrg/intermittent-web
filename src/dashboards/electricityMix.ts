@@ -1,6 +1,11 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { querySmall } from "../lib/db.js";
-import { calculateInterval, getAreaContext, buildDualAxisOptions, type DashboardParams } from "./shared.js";
+import {
+  calculateInterval,
+  getAreaContext,
+  buildDualAxisOptions,
+  type DashboardParams,
+} from "./shared.js";
 
 type Params = DashboardParams;
 type Query = { width?: string; min_interval?: string; prices?: string };
@@ -98,11 +103,20 @@ const SQL_TRANS = `
   ORDER BY 1
 `;
 
-export async function electricityMix(request: FastifyRequest<{ Params: Params; Querystring: Query }>, reply: FastifyReply) {
+export async function electricityMix(
+  request: FastifyRequest<{ Params: Params; Querystring: Query }>,
+  reply: FastifyReply,
+) {
   const ctx = await getAreaContext(request.params);
-  if (ctx.areaIds.length === 0) return reply.code(400).send({ error: "No valid areas found" });
+  if (ctx.areaIds.length === 0)
+    return reply.code(400).send({ error: "No valid areas found" });
 
-  const interval = calculateInterval(ctx.from, ctx.to, request.query.width, request.query.min_interval);
+  const interval = calculateInterval(
+    ctx.from,
+    ctx.to,
+    request.query.width,
+    request.query.min_interval,
+  );
   const intervalSql = `${interval} seconds`;
   const args = [intervalSql, ctx.from, ctx.to, ctx.areaIds, ctx.timezone];
 
@@ -121,14 +135,23 @@ export async function electricityMix(request: FastifyRequest<{ Params: Params; Q
 }
 
 function buildSeriesFromData(data: DataRow[]) {
-  const timestamps = [...new Set(data.map((row) => Number(row.time)).filter((time) => Number.isFinite(time)))].sort((a, b) => a - b);
+  const timestamps = [
+    ...new Set(
+      data
+        .map((row) => Number(row.time))
+        .filter((time) => Number.isFinite(time)),
+    ),
+  ].sort((a, b) => a - b);
   const seriesMap = new Map<string, ReturnType<typeof newSeries>>();
 
   for (const row of data) {
     const timestamp = Number(row.time);
     if (!Number.isFinite(timestamp)) continue;
 
-    for (const [key, raw] of [["import", row.import], ["export", row.export]] as const) {
+    for (const [key, raw] of [
+      ["import", row.import],
+      ["export", row.export],
+    ] as const) {
       if (raw !== undefined && raw !== null) {
         if (!seriesMap.has(key)) seriesMap.set(key, newSeries(key));
         seriesMap.get(key)!.data.push([timestamp, Number(raw) * 1000]);
@@ -138,13 +161,19 @@ function buildSeriesFromData(data: DataRow[]) {
     if (row.metric) {
       const key = row.metric;
       if (!seriesMap.has(key)) seriesMap.set(key, newSeries(key));
-      seriesMap.get(key)!.data.push([timestamp, row.value == null ? null : Number(row.value) * 1000]);
+      seriesMap
+        .get(key)!
+        .data.push([
+          timestamp,
+          row.value == null ? null : Number(row.value) * 1000,
+        ]);
     }
   }
 
   for (const series of seriesMap.values()) {
     const existing = new Set(series.data.map((point) => point[0]));
-    for (const ts of timestamps) if (!existing.has(ts)) series.data.push([ts, null]);
+    for (const ts of timestamps)
+      if (!existing.has(ts)) series.data.push([ts, null]);
     series.data.sort((a, b) => a[0] - b[0]);
   }
 
@@ -166,20 +195,21 @@ function newSeries(key: string) {
 }
 
 function getColorForMetric(metric: string) {
-  return ({
-    "01_biomass_and_waste": "rgb(128, 224, 167)",
-    "02_nuclear": "rgb(213, 0, 50)",
-    "03_lignite": "rgb(92, 26, 35)",
-    "04_hard_coal": "rgb(137, 137, 137)",
-    "05_gas": "rgb(198, 163, 201)",
-    "06_hydro": "rgb(2, 77, 188)",
-    "07_other": "rgb(241, 194, 27)",
-    "08_other_renewable": "rgb(199, 156, 148)",
-    "09_wind": "rgb(152, 205, 251)",
-    "09_wind_onshore": "rgb(152, 205, 251)",
-    "11_solar": "rgb(236, 232, 26)",
-    import: "rgb(124, 46, 163)",
-    export: "rgb(124, 46, 163)",
-  } as Record<string, string>)[metric];
+  return (
+    {
+      "01_biomass_and_waste": "rgb(128, 224, 167)",
+      "02_nuclear": "rgb(213, 0, 50)",
+      "03_lignite": "rgb(92, 26, 35)",
+      "04_hard_coal": "rgb(137, 137, 137)",
+      "05_gas": "rgb(198, 163, 201)",
+      "06_hydro": "rgb(2, 77, 188)",
+      "07_other": "rgb(241, 194, 27)",
+      "08_other_renewable": "rgb(199, 156, 148)",
+      "09_wind": "rgb(152, 205, 251)",
+      "09_wind_onshore": "rgb(152, 205, 251)",
+      "11_solar": "rgb(236, 232, 26)",
+      import: "rgb(124, 46, 163)",
+      export: "rgb(124, 46, 163)",
+    } as Record<string, string>
+  )[metric];
 }
-
