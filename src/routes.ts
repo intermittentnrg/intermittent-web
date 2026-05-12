@@ -1,33 +1,14 @@
 import type { FastifyInstance } from "fastify";
 import { dashboardSpa, geoipRedirect, health, nordpool } from "./controllers.js";
 import { legacyDashboardRedirect } from "./legacyRedirectController.js";
-import { electricityMix } from "./electricityMix.js";
-import { demand, emptyDashboard, generation, generationTotal, prices } from "./basicDashboards.js";
-import { demandMinMax, demandYoy, generationMinMax, generationYoy, transmission } from "./moreDashboards.js";
-import { perUnit, perUnitPeak, perUnitTotal } from "./perUnitDashboards.js";
-import { capturePrice, maps, perUnitMovingCapacity, simulations, sweden } from "./specialDashboards.js";
+import { electricityMix } from "./dashboards/electricityMix.js";
+import { generation, generationMinMax, generationTotal, generationYoy, simulations } from "./dashboards/generation.js";
+import { demand, demandMinMax, demandYoy } from "./dashboards/demand.js";
+import { transmission } from "./dashboards/transmission.js";
+import { perUnit, perUnitMovingCapacity, perUnitPeak, perUnitTotal } from "./dashboards/perUnit.js";
+import { capturePrice, prices } from "./dashboards/prices.js";
+import { maps, sweden } from "./dashboards/misc.js";
 import { makeDashboardImageHandler } from "./dashboardImage.js";
-
-const dashboardDataEndpoints = [
-  "electricity_mix",
-  "generation",
-  "generation_min_max",
-  "generation_total",
-  "generation_yoy",
-  "demand",
-  "demand_min_max",
-  "demand_yoy",
-  "transmission",
-  "per_unit",
-  "per_unit_peak",
-  "per_unit_total",
-  "per_unit_moving_capacity",
-  "capture_price",
-  "prices",
-  "simulations",
-  "maps",
-  "sweden",
-];
 
 export async function registerRoutes(app: FastifyInstance) {
   app.get("/health", health);
@@ -57,14 +38,6 @@ export async function registerRoutes(app: FastifyInstance) {
 
   for (const [endpoint, handler] of Object.entries(dataHandlers)) {
     app.get(`/:region/:area_type/:area/:date_range/${endpoint}/data`, handler as never);
-  }
-
-  const implementedEndpoints = new Set(["electricity_mix", "generation", "generation_total", "generation_min_max", "generation_yoy", "demand", "demand_min_max", "demand_yoy", "transmission", "per_unit", "per_unit_peak", "per_unit_total", "per_unit_moving_capacity", "capture_price", "simulations", "maps", "sweden", "prices"]);
-  for (const endpoint of dashboardDataEndpoints.filter((name) => !implementedEndpoints.has(name))) {
-    app.get(`/:region/:area_type/:area/:date_range/${endpoint}/data`, async (request, reply) => {
-      (request.params as Record<string, string>).endpoint = endpoint;
-      return emptyDashboard(request as never, reply);
-    });
   }
 
   const dashboardImageHandler = makeDashboardImageHandler(dataHandlers as never);
