@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { dashboardSpa, geoipRedirect, health, nordpool } from "./controllers.js";
+import { legacyDashboardRedirect } from "./legacyRedirectController.js";
 import { electricityMix } from "./electricityMix.js";
 import { demand, emptyDashboard, generation, generationTotal, prices } from "./basicDashboards.js";
 import { demandMinMax, demandYoy, generationMinMax, generationYoy, transmission } from "./moreDashboards.js";
@@ -31,6 +32,7 @@ const dashboardDataEndpoints = [
 export async function registerRoutes(app: FastifyInstance) {
   app.get("/health", health);
   app.get("/nordpool", nordpool);
+  app.get("/d/:uid/:dashboard", legacyDashboardRedirect as never);
 
   const dataHandlers = {
     electricity_mix: electricityMix,
