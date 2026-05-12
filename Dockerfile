@@ -7,8 +7,9 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 
-COPY tsconfig.json vite.config.ts index.html ./
+COPY tsconfig.json vite.config.ts ./
 COPY src ./src
+COPY public ./public
 
 RUN npm run build
 
@@ -22,14 +23,14 @@ WORKDIR /app
 RUN apk add --no-cache fontconfig ttf-dejavu
 
 COPY package*.json ./
-RUN npm ci --omit=dev \
-  && npm cache clean --force \
-  && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx \
-    /usr/local/lib/node_modules/corepack /usr/local/bin/corepack
+RUN npm ci \
+  && npm cache clean --force
 
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/src/views ./src/views
-COPY --from=builder /app/src/public ./src/public
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/public ./public
+COPY wdio.conf.js tsconfig.json ./
+COPY test ./test
 
 EXPOSE 3000
 

@@ -66,9 +66,10 @@ spec:
       stage('test app') {
         timeout(time: 10, unit: 'MINUTES') {
           try {
-            sh 'cd /app ; node --version ; npm --version || true'
-            sh 'cd /app ; HEADLESS=1 E2E_PORT=3100 WDIO_MAX_INSTANCES=1 npm run test:e2e'
+            sh 'cd /app ; npm run test:e2e'
           } finally {
+            sh 'cp -r /app/tmp .'
+            junit testResults: 'tmp/test-results.xml', allowEmptyResults: true
             archiveArtifacts artifacts: 'tmp/wdio-screenshots/*.png', allowEmptyArchive: true
           }
         }
