@@ -20,8 +20,14 @@ export function buildApp() {
   });
 
   app.register(staticFiles, {
-    root: path.join(process.cwd(), "src/public"),
+    root: path.join(process.cwd(), "public"),
     prefix: "/assets/",
+  });
+
+  app.register(staticFiles, {
+    root: path.join(process.cwd(), "dist/public"),
+    prefix: "/assets-build/",
+    decorateReply: false,
   });
 
   app.register(registerRoutes);

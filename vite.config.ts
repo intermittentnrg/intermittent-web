@@ -2,10 +2,10 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   build: {
-    outDir: "src/public",
-    emptyOutDir: false,
+    outDir: "dist/public",
+    emptyOutDir: true,
     rollupOptions: {
-      input: "src/public/app.js",
+      input: "public/app.js",
       output: {
         entryFileNames: "app.bundle.js",
         chunkFileNames: "chunks/[name]-[hash].js",

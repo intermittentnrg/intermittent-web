@@ -54,7 +54,7 @@ exports.config = {
     'spec',
     ['junit', {
         outputDir: './',
-        outputFileFormat: () => `test-results.xml`
+        outputFileFormat: () => `tmp/test-results.xml`
     }]
   ],
 
