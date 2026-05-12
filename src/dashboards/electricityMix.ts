@@ -4,6 +4,7 @@ import { calculateInterval } from "./shared/intervals.js";
 import { getAreaContext } from "./shared/context.js";
 import { buildDualAxisOptions } from "./shared/chartOptions.js";
 import { sendChartOptions } from "./shared/chartResponse.js";
+import { getPriceSeries } from "./shared/prices.js";
 import type {
   DashboardParams,
   DashboardQuery,
@@ -112,7 +113,13 @@ export async function electricityMix(
     request.query.min_interval,
   );
   const intervalSql = `${interval} seconds`;
-  const args = [intervalSql, ctx.from, ctx.to, ctx.areaIds, ctx.timezone];
+  const args: [string, Date, Date, number[], string] = [
+    intervalSql,
+    ctx.from,
+    ctx.to,
+    ctx.areaIds,
+    ctx.timezone,
+  ];
 
   const transData = await chartQuery<DataRow>(request, SQL_TRANS, args);
   const evenHourOffset = true; // Good enough for initial port; Rails uses TZInfo current offset.
@@ -120,6 +127,11 @@ export async function electricityMix(
   const genData = await chartQuery<DataRow>(request, genSql, args);
 
   const series = buildSeriesFromData([...transData, ...genData]);
+
+  if (request.query.prices)
+    (series as Array<ReturnType<typeof newSeries> | Awaited<ReturnType<typeof getPriceSeries>>[number]>).push(
+      ...(await getPriceSeries(request, args)),
+    );
 
   return sendChartOptions(
     reply,

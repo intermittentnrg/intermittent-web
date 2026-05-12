@@ -18,10 +18,12 @@ import {
   sendChartOptions,
   sendDualAxisChart,
 } from "./shared/chartResponse.js";
+import { getPriceSeries } from "./shared/prices.js";
 import type {
   AnyRow,
   DashboardParams,
   DashboardQuery,
+  Series,
   TimeMetricValueRow,
 } from "./shared/types.js";
 
@@ -86,18 +88,24 @@ export async function generation(
     ctx.areaIds,
     request.query.production_type,
   );
-  const rows = await chartQuery<TimeMetricValueRow>(request, generationSql, [
-    `${interval} seconds`,
+  const intervalSql = `${interval} seconds`;
+  const priceArgs: [string, Date, Date, number[], string] = [
+    intervalSql,
     ctx.from,
     ctx.to,
     ctx.areaIds,
     ctx.timezone,
+  ];
+  const rows = await chartQuery<TimeMetricValueRow>(request, generationSql, [
+    ...priceArgs,
     ptIds,
   ]);
+  const series: Series[] = buildPowerLineSeries(rows, metricColor);
+  if (request.query.prices) series.push(...(await getPriceSeries(request, priceArgs)));
   const productionTypes = await getProductionTypeOptions(ctx.areaIds);
   return sendDualAxisChart(
     reply,
-    buildPowerLineSeries(rows, metricColor),
+    series,
     "Generation",
     ctx.timezoneAbbreviation,
     { production_types: productionTypes },

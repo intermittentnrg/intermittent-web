@@ -36,6 +36,29 @@ export function buildDualAxisOptions(
   series: Array<{ name: string; yAxisIndex?: number }>,
   title: string,
 ) {
+  const hasSecondary = series.some((s) => s.yAxisIndex === 1);
+  const priceSeries = series.some((s) => s.name?.includes("price"));
+  const tempSeries = series.some((s) => s.name?.includes("temp"));
+  const secondaryFormatter = priceSeries
+    ? { type: "price" }
+    : tempSeries
+      ? { unit: "°C" }
+      : undefined;
+  const yAxis = [
+    { type: "value", axisLabel: { formatter: { type: "power" } } },
+    ...(hasSecondary
+      ? [
+          {
+            type: "value",
+            position: "right",
+            axisLabel: secondaryFormatter
+              ? { formatter: secondaryFormatter }
+              : {},
+          },
+        ]
+      : []),
+  ];
+
   return {
     useUTC: true,
     title: { text: title, left: "center", top: 10 },
@@ -52,13 +75,13 @@ export function buildDualAxisOptions(
     },
     grid: {
       left: "3%",
-      right: "4%",
+      right: hasSecondary ? "6%" : "4%",
       bottom: "3%",
       top: "18%",
       containLabel: true,
     },
     xAxis: { type: "time", boundaryGap: false },
-    yAxis: [{ type: "value", axisLabel: { formatter: { type: "power" } } }],
+    yAxis,
     series,
   };
 }

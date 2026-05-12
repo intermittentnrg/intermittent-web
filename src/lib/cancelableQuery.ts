@@ -1,6 +1,6 @@
 import type { FastifyRequest } from "fastify";
 import type pg from "pg";
-import { getChartPool } from "./db.js";
+import { getChartPool, logSqlQuery } from "./db.js";
 
 export async function cancelableChartQuery<T = unknown>(
   req: FastifyRequest,
@@ -22,13 +22,14 @@ export async function cancelableChartQuery<T = unknown>(
     client.release(true);
   }
 
-  req.raw.once("close", destroyClient);
   req.raw.once("aborted", destroyClient);
 
   try {
     await client.query("SET statement_timeout = '60s'");
 
+    const start = process.hrtime.bigint();
     const result = await client.query(text, values);
+    logSqlQuery(req.log, text, values, start, result.rowCount ?? result.rows.length);
 
     if (aborted) return null;
 
@@ -46,7 +47,6 @@ export async function cancelableChartQuery<T = unknown>(
 
     throw error;
   } finally {
-    req.raw.off("close", destroyClient);
     req.raw.off("aborted", destroyClient);
   }
 }
