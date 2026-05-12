@@ -5,19 +5,31 @@ import { getAreaContext } from "./shared/context.js";
 import { buildDualAxisOptions } from "./shared/chartOptions.js";
 import type { AnyRow, DashboardParams, DashboardQuery } from "./shared/types.js";
 
-const transmissionSql = (filtered: boolean) => `
+const transmissionSql = (filtered: boolean) => {
+  const forwardWhere = filtered
+    ? "from_area_id=$1 AND to_area_id=$2"
+    : "(from_area_id = ANY($1::int[]) OR to_area_id = ANY($1::int[]))";
+  const reverseWhere = filtered
+    ? "from_area_id=$2 AND to_area_id=$1"
+    : forwardWhere;
+  const fromParam = filtered ? "$3" : "$2";
+  const toParam = filtered ? "$4" : "$3";
+  const timezoneParam = filtered ? "$5" : "$4";
+
+  return `
 WITH _transmission AS (
   SELECT time_bucket_gapfill('1h', time) AS time, from_area_id, to_area_id, INTERPOLATE(AVG(value)) AS value
   FROM transmission_data t INNER JOIN areas_areas aa ON(areas_area_id=aa.id)
-  WHERE from_area_id = ANY($1::int[]) AND to_area_id = ANY($1::int[]) ${filtered ? "AND from_area_id=$5 AND to_area_id=$6" : ""} AND time BETWEEN $2 AND $3 GROUP BY 1,2,3
+  WHERE ${forwardWhere} AND time BETWEEN ${fromParam} AND ${toParam} GROUP BY 1,2,3
 UNION
   SELECT time_bucket_gapfill('1h', time) AS time, to_area_id AS from_area_id, from_area_id AS to_area_id, INTERPOLATE(-AVG(value)) AS value
   FROM transmission_data t INNER JOIN areas_areas aa ON(areas_area_id=aa.id)
-  WHERE from_area_id = ANY($1::int[]) AND to_area_id = ANY($1::int[]) ${filtered ? "AND from_area_id=$5 AND to_area_id=$6" : ""} AND time BETWEEN $2 AND $3 GROUP BY 1,2,3
+  WHERE ${reverseWhere} AND time BETWEEN ${fromParam} AND ${toParam} GROUP BY 1,2,3
 )
-SELECT EXTRACT(EPOCH FROM time AT TIME ZONE $4) * 1000 AS time, fa.code AS from_area, ta.code AS to_area, SUM(value) AS value
+SELECT EXTRACT(EPOCH FROM time AT TIME ZONE ${timezoneParam}) * 1000 AS time, fa.code AS from_area, ta.code AS to_area, SUM(value) AS value
 FROM _transmission INNER JOIN areas fa ON(from_area_id=fa.id) INNER JOIN areas ta ON(to_area_id=ta.id)
 GROUP BY 1,2,3 ORDER BY 2,3,1`;
+};
 
 export async function transmission(
   req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
@@ -27,8 +39,9 @@ export async function transmission(
   const parts =
     req.query.transmission?.split("-").map(Number).filter(Boolean) || [];
   const filtered = parts.length === 2;
-  const args: any[] = [ctx.areaIds, ctx.from, ctx.to, ctx.timezone];
-  if (filtered) args.push(parts[0], parts[1]);
+  const args: any[] = filtered
+    ? [parts[0], parts[1], ctx.from, ctx.to, ctx.timezone]
+    : [ctx.areaIds, ctx.from, ctx.to, ctx.timezone];
   const rows = await chartQuery<AnyRow>(req, transmissionSql(filtered), args);
   const lines = await querySmall<AnyRow>(
     `SELECT DISTINCT fa.code AS from_code, ta.code AS to_code, fa.id AS from_area_id, ta.id AS to_area_id FROM areas_areas aa INNER JOIN areas fa ON(aa.from_area_id=fa.id) INNER JOIN areas ta ON(aa.to_area_id=ta.id) WHERE from_area_id = ANY($1::int[]) OR to_area_id = ANY($1::int[]) ORDER BY from_code,to_code`,
