@@ -1,22 +1,16 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { querySmall } from "../lib/db.js";
-import {
-  calculateInterval,
-  getAreaContext,
-  buildDualAxisOptions,
-  type DashboardParams,
-} from "./shared.js";
+import { chartQuery } from "./shared/chartQuery.js";
+import { calculateInterval } from "./shared/intervals.js";
+import { getAreaContext } from "./shared/context.js";
+import { buildDualAxisOptions } from "./shared/chartOptions.js";
+import { sendChartOptions } from "./shared/chartResponse.js";
+import type {
+  DashboardParams,
+  DashboardQuery,
+  ElectricityMixRow,
+} from "./shared/types.js";
 
-type Params = DashboardParams;
-type Query = { width?: string; min_interval?: string; prices?: string };
-
-type DataRow = {
-  time: string | number | null;
-  metric?: string | null;
-  value?: string | number | null;
-  import?: string | number | null;
-  export?: string | number | null;
-};
+type DataRow = ElectricityMixRow;
 
 const SQL_GEN = `
   WITH _g AS (
@@ -104,7 +98,7 @@ const SQL_TRANS = `
 `;
 
 export async function electricityMix(
-  request: FastifyRequest<{ Params: Params; Querystring: Query }>,
+  request: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
 ) {
   const ctx = await getAreaContext(request.params);
@@ -120,18 +114,18 @@ export async function electricityMix(
   const intervalSql = `${interval} seconds`;
   const args = [intervalSql, ctx.from, ctx.to, ctx.areaIds, ctx.timezone];
 
-  const transData = await querySmall<DataRow>(SQL_TRANS, args);
+  const transData = await chartQuery<DataRow>(request, SQL_TRANS, args);
   const evenHourOffset = true; // Good enough for initial port; Rails uses TZInfo current offset.
   const genSql = interval >= 3600 && evenHourOffset ? SQL_GEN_HOURLY : SQL_GEN;
-  const genData = await querySmall<DataRow>(genSql, args);
+  const genData = await chartQuery<DataRow>(request, genSql, args);
 
   const series = buildSeriesFromData([...transData, ...genData]);
 
-  return reply.header("Cache-Control", "public, max-age=3600").send({
-    options: buildDualAxisOptions(series, "Electricity Mix"),
-    height: 567,
-    timezone: ctx.timezoneAbbreviation,
-  });
+  return sendChartOptions(
+    reply,
+    buildDualAxisOptions(series, "Electricity Mix"),
+    ctx.timezoneAbbreviation,
+  );
 }
 
 function buildSeriesFromData(data: DataRow[]) {

@@ -1,25 +1,18 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { querySmall } from "../lib/db.js";
-import {
-  calculateInterval,
-  getAreaContext,
-  buildDualAxisOptions,
-  type DashboardParams,
-} from "./shared.js";
+import { chartQuery } from "./shared/chartQuery.js";
+import { calculateInterval } from "./shared/intervals.js";
+import { getAreaContext } from "./shared/context.js";
 import {
   buildChartOptions,
-  getProductionTypeOptions,
-} from "../sharedCharts.js";
+  buildDualAxisOptions,
+} from "./shared/chartOptions.js";
+import { buildBasicSeries, buildFieldSeries } from "./shared/series.js";
+import { getProductionTypeOptions } from "./shared/productionTypes.js";
+import type { AnyRow, DashboardParams, DashboardQuery } from "./shared/types.js";
 
-type Query = {
-  width?: string;
-  min_interval?: string;
-  production_type?: string;
-  units?: string;
-};
-type Row = Record<string, any>;
 
-async function resolveUnitIds(areaIds: number[], q: Query) {
+async function resolveUnitIds(areaIds: number[], q: DashboardQuery) {
   if (q.units && q.units !== "all")
     return q.units.split(",").map(Number).filter(Boolean);
   if (q.production_type && q.production_type !== "all") {
@@ -38,7 +31,7 @@ async function resolveUnitIds(areaIds: number[], q: Query) {
 
 async function unitMeta(areaIds: number[]) {
   const production_types = await getProductionTypeOptions(areaIds);
-  const units = await querySmall<Row>(
+  const units = await querySmall<AnyRow>(
     `SELECT u.id, COALESCE(u.name,u.internal_id) AS name, u.internal_id, pt.name AS production_type, a.code AS area FROM units u INNER JOIN production_types pt ON u.production_type_id=pt.id INNER JOIN areas a ON u.area_id=a.id WHERE u.area_id = ANY($1::int[]) ORDER BY pt.name,a.code,u.name`,
     [areaIds],
   );
@@ -50,7 +43,7 @@ const perUnitTotalSql = `SELECT EXTRACT(EPOCH FROM time_bucket('1d', time) AT TI
 const perUnitPeakSql = `WITH _gen AS (SELECT time_bucket_gapfill($1::interval, time) AS time, unit_id, INTERPOLATE(AVG(value)) AS value FROM generation_unit g WHERE time BETWEEN $2 AND $3 AND unit_id = ANY($4::int[]) GROUP BY 1,2), _peak AS (SELECT unit_id, MAX(value) AS peak_value FROM generation_unit g WHERE unit_id = ANY($4::int[]) AND time BETWEEN ($3::timestamptz - INTERVAL '1 year') AND $3::timestamptz GROUP BY 1) SELECT EXTRACT(EPOCH FROM g.time AT TIME ZONE $5) * 1000 AS time, COALESCE(u.name,u.internal_id) AS metric, g.value / NULLIF(p.peak_value,0) AS value FROM _gen g INNER JOIN _peak p ON g.unit_id=p.unit_id INNER JOIN units u ON g.unit_id=u.id WHERE g.value > 0 ORDER BY 2,1`;
 
 export async function perUnit(
-  req: FastifyRequest<{ Params: DashboardParams; Querystring: Query }>,
+  req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
 ) {
   const ctx = await getAreaContext(req.params);
@@ -61,7 +54,7 @@ export async function perUnit(
     req.query.width,
     req.query.min_interval,
   );
-  const rows = await querySmall<Row>(perUnitSql, [
+  const rows = await chartQuery<AnyRow>(req, perUnitSql, [
     `${interval} seconds`,
     ctx.from,
     ctx.to,
@@ -70,7 +63,10 @@ export async function perUnit(
   ]);
   return reply.send({
     options: buildChartOptions(
-      lineSeries(rows, "power", 1000),
+      buildBasicSeries(rows, "line", true, "power", {
+        stackForMetric: (metric) =>
+          metric.endsWith("_negative") ? "negative" : "total",
+      }),
       "Per Unit",
       "power",
     ),
@@ -80,12 +76,12 @@ export async function perUnit(
   });
 }
 export async function perUnitTotal(
-  req: FastifyRequest<{ Params: DashboardParams; Querystring: Query }>,
+  req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
 ) {
   const ctx = await getAreaContext(req.params);
   const unitIds = await resolveUnitIds(ctx.areaIds, req.query);
-  const rows = await querySmall<Row>(perUnitTotalSql, [
+  const rows = await chartQuery<AnyRow>(req, perUnitTotalSql, [
     ctx.from,
     ctx.to,
     unitIds,
@@ -93,7 +89,7 @@ export async function perUnitTotal(
   ]);
   return reply.send({
     options: buildChartOptions(
-      barSeries(rows),
+      buildBasicSeries(rows, "bar", true, "energy"),
       "Per Unit Total (Daily)",
       "energy",
     ),
@@ -103,7 +99,7 @@ export async function perUnitTotal(
   });
 }
 export async function perUnitPeak(
-  req: FastifyRequest<{ Params: DashboardParams; Querystring: Query }>,
+  req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
 ) {
   const ctx = await getAreaContext(req.params);
@@ -114,7 +110,7 @@ export async function perUnitPeak(
     req.query.width,
     req.query.min_interval,
   );
-  const rows = await querySmall<Row>(perUnitPeakSql, [
+  const rows = await chartQuery<AnyRow>(req, perUnitPeakSql, [
     `${interval} seconds`,
     ctx.from,
     ctx.to,
@@ -129,48 +125,7 @@ export async function perUnitPeak(
   });
 }
 
-function lineSeries(rows: Row[], unit = "power", mul = 1) {
-  const m = new Map<string, any>();
-  for (const r of rows) {
-    const k = String(r.metric || "");
-    if (!m.has(k))
-      m.set(k, {
-        name: k,
-        type: "line",
-        unit,
-        stack: k.endsWith("_negative") ? "negative" : "total",
-        symbol: "none",
-        areaStyle: { opacity: 0.75 },
-        lineStyle: { width: 0 },
-        data: [],
-      });
-    m.get(k).data.push([
-      Number(r.time),
-      r.value == null ? null : Number(r.value) * mul,
-    ]);
-  }
-  return [...m.values()];
-}
-function barSeries(rows: Row[]) {
-  const m = new Map<string, any>();
-  for (const r of rows) {
-    const k = String(r.metric || "");
-    if (!m.has(k))
-      m.set(k, {
-        name: k,
-        type: "bar",
-        unit: "energy",
-        stack: k.endsWith("_negative") ? "negative" : "positive",
-        data: [],
-      });
-    m.get(k).data.push([
-      Number(r.time),
-      r.value == null ? null : Number(r.value),
-    ]);
-  }
-  return [...m.values()];
-}
-function heatmap(rows: Row[]) {
+function heatmap(rows: AnyRow[]) {
   const units = [...new Set(rows.map((r) => String(r.metric)))];
   const times = [...new Set(rows.map((r) => Number(r.time)))].sort(
     (a, b) => a - b,
@@ -223,7 +178,7 @@ function heatmap(rows: Row[]) {
 const movingCapSql = `WITH cap AS (SELECT unit_id,LAST(value,time) AS value FROM generation_unit_capacities WHERE time BETWEEN $1 AND $2 AND unit_id=ANY($3::int[]) GROUP BY unit_id), g AS (SELECT time_bucket_gapfill('1h', time) AS time, unit_id, COALESCE(AVG(value),0) AS value FROM generation_unit WHERE time BETWEEN $1 AND $2 AND unit_id=ANY($3::int[]) GROUP BY 1,2) SELECT EXTRACT(EPOCH FROM time_bucket($4::interval,time) AT TIME ZONE $5)*1000 AS time, CONCAT_WS(' - ',u.internal_id,u.name) AS metric, AVG(AVG(g.value)) OVER w / NULLIF(AVG(cap.value),0) AS moving_capacity FROM g INNER JOIN cap USING(unit_id) INNER JOIN units u ON(unit_id=u.id) WHERE time BETWEEN $1 AND $2 GROUP BY unit_id,time_bucket($4::interval,time),2 WINDOW w AS (PARTITION BY unit_id ORDER BY time_bucket($4::interval,time) RANGE '12 month' PRECEDING) ORDER BY 2,1`;
 const movingOutputSql = `SELECT EXTRACT(EPOCH FROM time AT TIME ZONE $5)*1000 AS time, metric, value FROM (SELECT time_bucket_gapfill($1::interval,time) AS time, CONCAT_WS(' - ',u.internal_id,u.name,'output') AS metric, AVG(value) AS value FROM generation_unit g INNER JOIN units u ON(unit_id=u.id) WHERE time BETWEEN $2 AND $3 AND unit_id=ANY($4::int[]) GROUP BY 1,u.internal_id,u.name ORDER BY 2,1) s`;
 export async function perUnitMovingCapacity(
-  req: FastifyRequest<{ Params: DashboardParams; Querystring: Query }>,
+  req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
 ) {
   const ctx = await getAreaContext(req.params);
@@ -236,21 +191,32 @@ export async function perUnitMovingCapacity(
   );
   const from12 = new Date(ctx.from);
   from12.setMonth(from12.getMonth() - 12);
-  const cap = await querySmall<Row>(movingCapSql, [
+  const cap = await chartQuery<AnyRow>(req, movingCapSql, [
     from12,
     ctx.to,
     unitIds,
     `${interval} seconds`,
     ctx.timezone,
   ]);
-  const out = await querySmall<Row>(movingOutputSql, [
+  const out = await chartQuery<AnyRow>(req, movingOutputSql, [
     `${interval} seconds`,
     ctx.from,
     ctx.to,
     unitIds,
     ctx.timezone,
   ]);
-  const series = [...capSeries(cap), ...outputSeries(out)];
+  const series = [
+    ...buildFieldSeries(cap, "moving_capacity", "percent", {
+      nameField: "metric",
+      suffix: " (capacity %)",
+    }),
+    ...buildFieldSeries(out, "value", "power", {
+      nameField: "metric",
+      multiplier: 1000,
+      yAxisIndex: 1,
+      lineStyle: { width: 2, type: "dashed" },
+    }),
+  ];
   return reply.send({
     options: buildDualAxisOptions(
       series,
@@ -260,45 +226,4 @@ export async function perUnitMovingCapacity(
     timezone: ctx.timezoneAbbreviation,
     ...(await unitMeta(ctx.areaIds)),
   });
-}
-function capSeries(rows: Row[]) {
-  const m = new Map<string, any>();
-  for (const r of rows) {
-    const k = String(r.metric);
-    if (!m.has(k))
-      m.set(k, {
-        name: `${k} (capacity %)`,
-        type: "line",
-        unit: "percent",
-        symbol: "none",
-        lineStyle: { width: 2 },
-        data: [],
-      });
-    m.get(k).data.push([
-      Number(r.time),
-      r.moving_capacity == null ? null : Number(r.moving_capacity),
-    ]);
-  }
-  return [...m.values()];
-}
-function outputSeries(rows: Row[]) {
-  const m = new Map<string, any>();
-  for (const r of rows) {
-    const k = String(r.metric);
-    if (!m.has(k))
-      m.set(k, {
-        name: k,
-        type: "line",
-        unit: "power",
-        symbol: "none",
-        lineStyle: { width: 2, type: "dashed" },
-        yAxisIndex: 1,
-        data: [],
-      });
-    m.get(k).data.push([
-      Number(r.time),
-      r.value == null ? null : Number(r.value) * 1000,
-    ]);
-  }
-  return [...m.values()];
 }

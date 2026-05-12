@@ -1,24 +1,9 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { querySmall } from "../lib/db.js";
-import {
-  calculateInterval,
-  getAreaContext,
-  buildDualAxisOptions,
-  type DashboardParams,
-} from "./shared.js";
-import {
-  buildChartOptions,
-  getProductionTypeIds,
-  getProductionTypeOptions,
-} from "../sharedCharts.js";
-
-type Query = {
-  width?: string;
-  min_interval?: string;
-  production_type?: string;
-  transmission?: string;
-};
-type Row = Record<string, any>;
+import { chartQuery } from "./shared/chartQuery.js";
+import { getAreaContext } from "./shared/context.js";
+import { buildDualAxisOptions } from "./shared/chartOptions.js";
+import type { AnyRow, DashboardParams, DashboardQuery } from "./shared/types.js";
 
 const transmissionSql = (filtered: boolean) => `
 WITH _transmission AS (
@@ -35,7 +20,7 @@ FROM _transmission INNER JOIN areas fa ON(from_area_id=fa.id) INNER JOIN areas t
 GROUP BY 1,2,3 ORDER BY 2,3,1`;
 
 export async function transmission(
-  req: FastifyRequest<{ Params: DashboardParams; Querystring: Query }>,
+  req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
 ) {
   const ctx = await getAreaContext(req.params);
@@ -44,8 +29,8 @@ export async function transmission(
   const filtered = parts.length === 2;
   const args: any[] = [ctx.areaIds, ctx.from, ctx.to, ctx.timezone];
   if (filtered) args.push(parts[0], parts[1]);
-  const rows = await querySmall<Row>(transmissionSql(filtered), args);
-  const lines = await querySmall<Row>(
+  const rows = await chartQuery<AnyRow>(req, transmissionSql(filtered), args);
+  const lines = await querySmall<AnyRow>(
     `SELECT DISTINCT fa.code AS from_code, ta.code AS to_code, fa.id AS from_area_id, ta.id AS to_area_id FROM areas_areas aa INNER JOIN areas fa ON(aa.from_area_id=fa.id) INNER JOIN areas ta ON(aa.to_area_id=ta.id) WHERE from_area_id = ANY($1::int[]) OR to_area_id = ANY($1::int[]) ORDER BY from_code,to_code`,
     [ctx.areaIds],
   );
@@ -63,7 +48,7 @@ export async function transmission(
   });
 }
 
-function buildTransmissionSeries(rows: Row[]) {
+function buildTransmissionSeries(rows: AnyRow[]) {
   const m = new Map<string, any>();
   for (const r of rows) {
     const k = `${r.from_area}-${r.to_area}`;

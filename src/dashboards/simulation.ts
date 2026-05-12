@@ -1,31 +1,21 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { querySmall } from "../lib/db.js";
-import {
-  calculateInterval,
-  getAreaContext,
-  buildDualAxisOptions,
-  type DashboardParams,
-} from "./shared.js";
+import { chartQuery } from "./shared/chartQuery.js";
+import { calculateInterval } from "./shared/intervals.js";
+import { getAreaContext } from "./shared/context.js";
 import {
   buildChartOptions,
+  buildDualAxisOptions,
+} from "./shared/chartOptions.js";
+import { buildStackedPowerLineSeries } from "./shared/series.js";
+import {
   getProductionTypeIds,
   getProductionTypeOptions,
-} from "../sharedCharts.js";
+} from "./shared/productionTypes.js";
+import type { AnyRow, DashboardParams, DashboardQuery } from "./shared/types.js";
 
-type Query = {
-  width?: string;
-  min_interval?: string;
-  production_type?: string;
-  units?: string;
-  nuclear_multiplier?: string;
-  wind_multiplier?: string;
-  solar_multiplier?: string;
-  demand_multiplier?: string;
-};
-type Row = Record<string, any>;
 
 export async function simulations(
-  req: FastifyRequest<{ Params: DashboardParams; Querystring: Query }>,
+  req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
 ) {
   const ctx = await getAreaContext(req.params);
@@ -52,15 +42,15 @@ export async function simulations(
     ctx.areaIds,
     ctx.timezone,
   ];
-  const gen = await querySmall<Row>(genSql, [
+  const gen = await chartQuery<AnyRow>(req, genSql, [
     ...args,
     mult.nuclear,
     mult.wind,
     mult.solar,
     pt,
   ]);
-  const demand = await querySmall<Row>(demandSql, [...args, mult.demand]);
-  const trans = await querySmall<Row>(transSql, args);
+  const demand = await chartQuery<AnyRow>(req, demandSql, [...args, mult.demand]);
+  const trans = await chartQuery<AnyRow>(req, transSql, args);
   const options = simulationOptions(gen, demand, trans);
   return reply.send({
     options,
@@ -70,40 +60,17 @@ export async function simulations(
   });
 }
 
-function simSeries(rows: Row[]) {
-  const m = new Map<string, any>();
-  for (const r of rows) {
-    const k = String(r.metric);
-    if (!m.has(k))
-      m.set(k, {
-        name: k,
-        type: "line",
-        unit: "power",
-        stack: k.endsWith("_negative") ? "negative" : "total",
-        symbol: "none",
-        areaStyle: { opacity: 0.75 },
-        lineStyle: { width: 0 },
-        data: [],
-      });
-    m.get(k).data.push([
-      Number(r.time),
-      r.value == null ? null : Number(r.value) * 1000,
-    ]);
-  }
-  return [...m.values()];
-}
-
 function simulationOptions(
-  genRows: Row[],
-  demandRows: Row[],
-  transRows: Row[],
+  genRows: AnyRow[],
+  demandRows: AnyRow[],
+  transRows: AnyRow[],
 ) {
-  const genSeries = simSeries(genRows).map((s) => ({
+  const genSeries = buildStackedPowerLineSeries(genRows).map((s) => ({
     ...s,
     xAxisIndex: 0,
     yAxisIndex: 0,
   }));
-  const demandSeries = simSeries(demandRows).map((s) => ({
+  const demandSeries = buildStackedPowerLineSeries(demandRows).map((s) => ({
     ...s,
     name: "demand",
     stack: undefined,
@@ -113,7 +80,7 @@ function simulationOptions(
     xAxisIndex: 0,
     yAxisIndex: 0,
   }));
-  const transSeries = simSeries(transRows).map((s) => ({
+  const transSeries = buildStackedPowerLineSeries(transRows).map((s) => ({
     ...s,
     xAxisIndex: 0,
     yAxisIndex: 0,

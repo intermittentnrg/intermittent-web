@@ -1,32 +1,19 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { querySmall } from "../lib/db.js";
-import {
-  calculateInterval,
-  getAreaContext,
-  buildDualAxisOptions,
-  type DashboardParams,
-} from "./shared.js";
+import { chartQuery } from "./shared/chartQuery.js";
+import { calculateInterval } from "./shared/intervals.js";
+import { getAreaContext } from "./shared/context.js";
 import {
   buildChartOptions,
-  getProductionTypeIds,
-  getProductionTypeOptions,
-} from "../sharedCharts.js";
-
-type Query = {
-  width?: string;
-  min_interval?: string;
-  production_type?: string;
-  units?: string;
-  nuclear_multiplier?: string;
-  wind_multiplier?: string;
-  solar_multiplier?: string;
-  demand_multiplier?: string;
-};
-type Row = Record<string, any>;
+  buildDualAxisOptions,
+} from "./shared/chartOptions.js";
+import { buildStackedPowerLineSeries } from "./shared/series.js";
+import { getProductionTypeIds } from "./shared/productionTypes.js";
+import type { AnyRow, DashboardParams, DashboardQuery } from "./shared/types.js";
 
 const mapSql = `WITH _gen AS (SELECT time_bucket_gapfill('1h',time) AS time, area_id, production_type_id, INTERPOLATE(AVG(value)) AS value FROM generation g INNER JOIN areas a ON(area_id=a.id) WHERE area_id=ANY($1::int[]) AND electricitymaps_id IS NOT NULL AND production_type_id=ANY($2::int[]) AND time BETWEEN $3 AND $4 GROUP BY 1,2,3), _gen_sum AS (SELECT time,area_id,SUM(value) AS value FROM _gen GROUP BY 1,2), _peak AS (SELECT area_id,production_type_id,MAX(value) AS value FROM generation g INNER JOIN areas a ON(area_id=a.id) WHERE area_id=ANY($1::int[]) AND electricitymaps_id IS NOT NULL AND production_type_id=ANY($2::int[]) AND time BETWEEN ($3::timestamptz - '1 year'::interval) AND $4::timestamptz GROUP BY 1,2), _peak_sum AS (SELECT area_id,SUM(value) AS value FROM _peak GROUP BY 1) SELECT EXTRACT(EPOCH FROM time AT TIME ZONE $5)*1000 AS time, a.electricitymaps_id AS metric, g.value/NULLIF(peak.value,0) AS value FROM _gen_sum g INNER JOIN _peak_sum peak ON(g.area_id=peak.area_id) INNER JOIN areas a ON(g.area_id=a.id) WHERE time BETWEEN $3 AND $4 ORDER BY 1`;
 export async function maps(
-  req: FastifyRequest<{ Params: DashboardParams; Querystring: Query }>,
+  req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
 ) {
   const ctx = await getAreaContext(req.params);
@@ -51,7 +38,7 @@ export async function maps(
       ],
     )
   ).map((r) => r.id);
-  const rows = await querySmall<Row>(mapSql, [
+  const rows = await chartQuery<AnyRow>(req, mapSql, [
     areas,
     pt,
     ctx.from,
@@ -67,7 +54,7 @@ export async function maps(
     timezone: ctx.timezoneAbbreviation,
   });
 }
-function buildFrames(rows: Row[]) {
+function buildFrames(rows: AnyRow[]) {
   const map = new Map<number, any>();
   for (const r of rows) {
     const t = Number(r.time);
@@ -128,31 +115,8 @@ function mapOptions(frames: any[]) {
   };
 }
 
-function simSeries(rows: Row[]) {
-  const m = new Map<string, any>();
-  for (const r of rows) {
-    const k = String(r.metric);
-    if (!m.has(k))
-      m.set(k, {
-        name: k,
-        type: "line",
-        unit: "power",
-        stack: k.endsWith("_negative") ? "negative" : "total",
-        symbol: "none",
-        areaStyle: { opacity: 0.75 },
-        lineStyle: { width: 0 },
-        data: [],
-      });
-    m.get(k).data.push([
-      Number(r.time),
-      r.value == null ? null : Number(r.value) * 1000,
-    ]);
-  }
-  return [...m.values()];
-}
-
 export async function sweden(
-  req: FastifyRequest<{ Params: DashboardParams; Querystring: Query }>,
+  req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
 ) {
   const ctx = await getAreaContext({
@@ -168,7 +132,7 @@ export async function sweden(
     req.query.min_interval,
   );
   const sql = `SELECT EXTRACT(EPOCH FROM time AT TIME ZONE $5)*1000 AS time, metric, SUM(value) AS value FROM (SELECT time_bucket_gapfill($1::interval,time) AS time, a.code||'/load' AS metric, INTERPOLATE(AVG(l.value)) AS value FROM load l INNER JOIN areas a ON(l.area_id=a.id) WHERE time BETWEEN $2 AND $3 AND area_id=ANY($4::int[]) GROUP BY 1,2 UNION SELECT time_bucket_gapfill($1::interval,time) AS time, a.code||'/'||pt.name AS metric, INTERPOLATE(AVG(g.value)) AS value FROM generation g INNER JOIN areas a ON(g.area_id=a.id) INNER JOIN production_types pt ON(g.production_type_id=pt.id) WHERE time BETWEEN $2 AND $3 AND area_id=ANY($4::int[]) GROUP BY 1,2) s GROUP BY 1,metric ORDER BY 2,1`;
-  const rows = await querySmall<Row>(sql, [
+  const rows = await chartQuery<AnyRow>(req, sql, [
     `${interval} seconds`,
     ctx.from,
     ctx.to,
@@ -176,7 +140,7 @@ export async function sweden(
     ctx.timezone,
   ]);
   return reply.send({
-    options: buildChartOptions(simSeries(rows), "Sweden", "power"),
+    options: buildChartOptions(buildStackedPowerLineSeries(rows), "Sweden", "power"),
     height: 768,
     timezone: ctx.timezoneAbbreviation,
   });
