@@ -29,6 +29,7 @@ exports.config = {
   hostname: process.env.SELENIUM_HOST || 'selenium-hub.monitoring.int.mog.se',
   port: Number(process.env.SELENIUM_PORT || 4444),
   path: process.env.SELENIUM_PATH || '/wd/hub',
+  autoXvfb: false,
 
   specs: ['./test/e2e/**/*.spec.js'],
   maxInstances: Number(process.env.WDIO_MAX_INSTANCES || 1),
@@ -49,7 +50,13 @@ exports.config = {
   connectionRetryCount: Number(process.env.WDIO_CONNECTION_RETRY_COUNT || 3),
 
   framework: 'mocha',
-  reporters: ['spec'],
+  reporters: [
+    'spec',
+    ['junit', {
+        outputDir: './',
+        outputFileFormat: () => `test-results.xml`
+    }]
+  ],
 
   mochaOpts: {
     ui: 'bdd',
@@ -84,5 +91,5 @@ exports.config = {
 
   async onComplete() {
     if (app) await app.close();
-  }, 
+  },
 };
