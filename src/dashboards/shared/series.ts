@@ -16,11 +16,14 @@ export function divergentSeries<T extends Pick<Series, "data">>(input: T[]): T[]
       const posSeries = { ...series };
       const negSeries = series;
       posSeries.data = posSeries.data.map(v => [v[0], Math.max(v[1], 0)]);
+      posSeries.stack = 'pos';
       negSeries.data = negSeries.data.map(v => [v[0], Math.min(v[1], 0)]);
+      negSeries.stack = 'neg';
       negSeries.name += "_negative";
       output.push(posSeries);
       output.push(negSeries);
     } else {
+      series.stack = hasNegative ? 'neg' : 'pos';
       output.push(series);
     }
   }

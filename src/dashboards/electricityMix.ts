@@ -10,6 +10,9 @@ import type {
   DashboardQuery,
   ElectricityMixRow,
 } from "./shared/types.js";
+import {
+  divergentSeries,
+} from "./shared/series.js";
 
 type DataRow = ElectricityMixRow;
 
@@ -135,7 +138,7 @@ export async function electricityMix(
 
   return sendChartOptions(
     reply,
-    buildDualAxisOptions(series, "Electricity Mix"),
+    buildDualAxisOptions(divergentSeries(series), "Electricity Mix"),
     ctx.timezoneAbbreviation,
   );
 }
