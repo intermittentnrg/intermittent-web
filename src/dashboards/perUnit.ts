@@ -7,7 +7,7 @@ import {
   buildChartOptions,
   buildDualAxisOptions,
 } from "./shared/chartOptions.js";
-import { buildBasicSeries, buildFieldSeries } from "./shared/series.js";
+import { buildBasicSeries, buildFieldSeries, divergentSeries } from "./shared/series.js";
 import { getProductionTypeOptions } from "./shared/productionTypes.js";
 import type { AnyRow, DashboardParams, DashboardQuery } from "./shared/types.js";
 
@@ -42,8 +42,26 @@ async function unitMeta(areaIds: number[]) {
   return { production_types, units };
 }
 
-const perUnitTotalSql = `SELECT EXTRACT(EPOCH FROM time_bucket('1d', time) AT TIME ZONE $4) * 1000 AS time, CONCAT_WS('/', a.code, pt.name, COALESCE(u.name, u.internal_id))||CASE WHEN SUM(value) < 0 THEN '_negative' ELSE '' END AS metric, SUM(value) AS value FROM (SELECT time_bucket_gapfill('1h', time) AS time, unit_id, AVG(value) AS value FROM generation_unit g WHERE time BETWEEN $1 AND $2 AND unit_id = ANY($3::int[]) GROUP BY 1,2 ORDER BY 1,2) s INNER JOIN units u ON(unit_id=u.id) INNER JOIN areas a ON(u.area_id=a.id) INNER JOIN production_types pt ON(u.production_type_id=pt.id) WHERE time BETWEEN $1 AND $2 GROUP BY 1,a.code,pt.name,u.name,u.internal_id HAVING SUM(value)<>0 ORDER BY 2,1`;
-const perUnitPeakSql = `WITH _gen AS (SELECT time_bucket_gapfill($1::interval, time) AS time, unit_id, INTERPOLATE(AVG(value)) AS value FROM generation_unit g WHERE time BETWEEN $2 AND $3 AND unit_id = ANY($4::int[]) GROUP BY 1,2), _peak AS (SELECT unit_id, MAX(value) AS peak_value FROM generation_unit g WHERE unit_id = ANY($4::int[]) AND time BETWEEN ($3::timestamptz - INTERVAL '1 year') AND $3::timestamptz GROUP BY 1) SELECT EXTRACT(EPOCH FROM g.time AT TIME ZONE $5) * 1000 AS time, COALESCE(u.name,u.internal_id) AS metric, g.value / NULLIF(p.peak_value,0) AS value FROM _gen g INNER JOIN _peak p ON g.unit_id=p.unit_id INNER JOIN units u ON g.unit_id=u.id WHERE g.value > 0 ORDER BY 2,1`;
+const perUnitSql = `
+  SELECT
+    EXTRACT(EPOCH FROM time AT TIME ZONE $5) * 1000 AS time,
+    COALESCE(u.name, u.internal_id) AS metric,
+    value
+  FROM (
+    SELECT
+      time_bucket_gapfill($1::interval, time) AS time,
+      unit_id,
+      INTERPOLATE(AVG(value)) AS value
+    FROM generation_unit g
+    WHERE
+      time BETWEEN $2 AND $3 AND
+      unit_id = ANY($4::int[])
+    GROUP BY 1,2
+    ORDER BY 1,2
+  ) s
+  INNER JOIN units u ON(unit_id=u.id)
+  ORDER BY 2, 1
+`;
 
 export async function perUnit(
   req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
@@ -57,26 +75,6 @@ export async function perUnit(
     req.query.width,
     req.query.min_interval,
   );
-  const perUnitSql = `
-    SELECT
-      EXTRACT(EPOCH FROM time AT TIME ZONE $5) * 1000 AS time,
-      COALESCE(u.name, u.internal_id) AS metric,
-      value
-    FROM (
-      SELECT
-        time_bucket_gapfill($1::interval, time) AS time,
-        unit_id,
-        INTERPOLATE(AVG(value)) AS value
-      FROM generation_unit g
-      WHERE
-        time BETWEEN $2 AND $3 AND
-        unit_id = ANY($4::int[])
-      GROUP BY 1,2
-      ORDER BY 1,2
-    ) s
-    INNER JOIN units u ON(unit_id=u.id)
-    ORDER BY 2, 1
-  `;
   const rows = await chartQuery<AnyRow>(req, perUnitSql, [
     `${interval} seconds`,
     ctx.from,
@@ -86,10 +84,10 @@ export async function perUnit(
   ]);
   return reply.send({
     options: buildChartOptions(
-      buildBasicSeries(rows, "line", true, "power", {
+      divergentSeries(buildBasicSeries(rows, "line", true, "power", {
         stackForMetric: (metric) =>
           metric.endsWith("_negative") ? "negative" : "total",
-      }),
+      })),
       "Per Unit",
       "power",
     ),
@@ -98,6 +96,8 @@ export async function perUnit(
     ...(await unitMeta(ctx.areaIds)),
   });
 }
+
+const perUnitTotalSql = `SELECT EXTRACT(EPOCH FROM time_bucket('1d', time) AT TIME ZONE $4) * 1000 AS time, CONCAT_WS('/', a.code, pt.name, COALESCE(u.name, u.internal_id))||CASE WHEN SUM(value) < 0 THEN '_negative' ELSE '' END AS metric, SUM(value) AS value FROM (SELECT time_bucket_gapfill('1h', time) AS time, unit_id, AVG(value) AS value FROM generation_unit g WHERE time BETWEEN $1 AND $2 AND unit_id = ANY($3::int[]) GROUP BY 1,2 ORDER BY 1,2) s INNER JOIN units u ON(unit_id=u.id) INNER JOIN areas a ON(u.area_id=a.id) INNER JOIN production_types pt ON(u.production_type_id=pt.id) WHERE time BETWEEN $1 AND $2 GROUP BY 1,a.code,pt.name,u.name,u.internal_id HAVING SUM(value)<>0 ORDER BY 2,1`;
 
 export async function perUnitTotal(
   req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
@@ -122,6 +122,9 @@ export async function perUnitTotal(
     ...(await unitMeta(ctx.areaIds)),
   });
 }
+
+const perUnitPeakSql = `WITH _gen AS (SELECT time_bucket_gapfill($1::interval, time) AS time, unit_id, INTERPOLATE(AVG(value)) AS value FROM generation_unit g WHERE time BETWEEN $2 AND $3 AND unit_id = ANY($4::int[]) GROUP BY 1,2), _peak AS (SELECT unit_id, MAX(value) AS peak_value FROM generation_unit g WHERE unit_id = ANY($4::int[]) AND time BETWEEN ($3::timestamptz - INTERVAL '1 year') AND $3::timestamptz GROUP BY 1) SELECT EXTRACT(EPOCH FROM g.time AT TIME ZONE $5) * 1000 AS time, COALESCE(u.name,u.internal_id) AS metric, g.value / NULLIF(p.peak_value,0) AS value FROM _gen g INNER JOIN _peak p ON g.unit_id=p.unit_id INNER JOIN units u ON g.unit_id=u.id WHERE g.value > 0 ORDER BY 2,1`;
+
 export async function perUnitPeak(
   req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
