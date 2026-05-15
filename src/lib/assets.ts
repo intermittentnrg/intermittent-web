@@ -1,0 +1,68 @@
+import fs from "node:fs";
+import path from "node:path";
+
+const base = "/assets-build/";
+
+type ManifestEntry = {
+  file: string;
+  css?: string[];
+  imports?: string[];
+};
+
+type Manifest = Record<string, ManifestEntry>;
+
+let manifest: Manifest | undefined;
+let manifestLoaded = false;
+
+function loadManifest() {
+  if (manifestLoaded) return manifest;
+  manifestLoaded = true;
+
+  const manifestPath = path.join(process.cwd(), "dist/public/client/.vite/manifest.json");
+  try {
+    manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as Manifest;
+  } catch {
+    manifest = undefined;
+  }
+
+  return manifest;
+}
+
+function assetUrl(file: string) {
+  return `${base}${file}`;
+}
+
+function productionAssetTags(entrypoint: string) {
+  const manifest = loadManifest();
+  const entry = manifest?.[entrypoint];
+  if (!entry?.file) return undefined;
+
+  const tags: string[] = [];
+  const seen = new Set<string>();
+
+  function addStyles(manifestEntry: ManifestEntry | undefined) {
+    for (const file of manifestEntry?.css ?? []) {
+      if (seen.has(file)) continue;
+      seen.add(file);
+      tags.push(`<link rel="stylesheet" href="${assetUrl(file)}">`);
+    }
+  }
+
+  for (const importedEntrypoint of entry.imports ?? []) {
+    const importedEntry = manifest?.[importedEntrypoint];
+    if (!importedEntry?.file || seen.has(importedEntry.file)) continue;
+    seen.add(importedEntry.file);
+    tags.push(`<link rel="modulepreload" href="${assetUrl(importedEntry.file)}">`);
+    addStyles(importedEntry);
+  }
+
+  addStyles(entry);
+  tags.push(`<script type="module" src="${assetUrl(entry.file)}" defer></script>`);
+
+  return tags.join("\n");
+}
+
+export function viteAssets(entrypoint = "public/app.js") {
+  return productionAssetTags(entrypoint)
+    ?? `<script type="module" src="${base}${entrypoint}" defer></script>`;
+}

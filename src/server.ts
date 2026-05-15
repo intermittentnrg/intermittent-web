@@ -3,10 +3,13 @@ import path from "node:path";
 import Fastify from "fastify";
 import view from "@fastify/view";
 import staticFiles from "@fastify/static";
+import type {} from "@fastify/vite";
 import ejs from "ejs";
 import { registerRoutes } from "./routes.js";
+import { viteAssets } from "./lib/assets.js";
 
-export function buildApp() {
+export async function buildApp() {
+  const { default: fastifyVite } = await import("@fastify/vite");
   const app = Fastify({
     logger: process.env.NODE_ENV === "test" ? false : { base: null },
   });
@@ -17,6 +20,9 @@ export function buildApp() {
     },
 
     root: path.join(process.cwd(), "src/views"),
+    defaultContext: {
+      viteAssets,
+    },
   });
 
   app.register(staticFiles, {
@@ -24,11 +30,12 @@ export function buildApp() {
     prefix: "/assets/",
   });
 
-  app.register(staticFiles, {
-    root: path.join(process.cwd(), "dist/public"),
-    prefix: "/assets-build/",
-    decorateReply: false,
+  await app.register(fastifyVite, {
+    root: process.cwd(),
+    distDir: "dist/public",
+    spa: true,
   });
+  await app.vite.ready();
 
   app.register(registerRoutes);
 
@@ -36,7 +43,7 @@ export function buildApp() {
 }
 
 export async function startServer(options: { port?: number; host?: string } = {}) {
-  const app = buildApp();
+  const app = await buildApp();
   const port = options.port ?? Number(process.env.PORT || 3000);
   const host = options.host ?? "0.0.0.0";
 
