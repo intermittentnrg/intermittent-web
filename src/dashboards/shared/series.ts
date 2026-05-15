@@ -1,30 +1,34 @@
 import type { AnyRow, Series, TimeMetricValueRow } from "./types.js";
 
-export function divergentSeries<T extends Pick<Series, "data">>(input: T[]): T[] {
+export function divergentSeries<T extends Series>(input: T[]): T[] {
   const output: T[] = [];
   for (const series of input) {
     let hasPositive = false;
     let hasNegative = false;
 
-    for (const value of series.data) {
-      if (value[1] > 0) hasPositive = true;
-      if (value[1] < 0) hasNegative = true;
+    for (const [, value] of series.data) {
+      if (value > 0) hasPositive = true;
+      if (value < 0) hasNegative = true;
       if (hasPositive && hasNegative) break;
     }
 
     if (hasPositive && hasNegative) {
-      const posSeries = { ...series };
-      const negSeries = series;
-      posSeries.data = posSeries.data.map(v => [v[0], Math.max(v[1], 0)]);
-      posSeries.stack = 'pos';
-      negSeries.data = negSeries.data.map(v => [v[0], Math.min(v[1], 0)]);
-      negSeries.stack = 'neg';
-      negSeries.name += "_negative";
-      output.push(posSeries);
-      output.push(negSeries);
+      output.push({
+        ...series,
+        stack: "pos",
+        data: series.data.map(([time, value]) => [time, Math.max(value, 0)]),
+      });
+      output.push({
+        ...series,
+        name: `${series.name}_negative`,
+        stack: "neg",
+        data: series.data.map(([time, value]) => [time, Math.min(value, 0)]),
+      });
     } else {
-      series.stack = hasNegative ? 'neg' : 'pos';
-      output.push(series);
+      output.push({
+        ...series,
+        stack: hasNegative ? "neg" : "pos",
+      });
     }
   }
 
@@ -39,7 +43,7 @@ export function buildMinMaxSeries(rows: AnyRow[]): Series[] {
       stack: "confidence-band",
       symbol: "none",
       lineStyle: { width: 0 },
-      data: rows.map((row) => [Number(row.time), Number(row.min_value)]),
+      data: rows.map((row) => [row.time, row.min_value]),
     },
     {
       name: "Max",
@@ -49,8 +53,8 @@ export function buildMinMaxSeries(rows: AnyRow[]): Series[] {
       lineStyle: { width: 0 },
       areaStyle: { color: "rgba(150, 150, 150, 0.3)" },
       data: rows.map((row) => [
-        Number(row.time),
-        Number(row.max_value) - Number(row.min_value),
+        row.time,
+        row.max_value - row.min_value,
       ]),
     },
     {
@@ -58,7 +62,7 @@ export function buildMinMaxSeries(rows: AnyRow[]): Series[] {
       type: "line",
       symbol: "none",
       lineStyle: { width: 2, color: "rgb(150, 150, 150)" },
-      data: rows.map((row) => [Number(row.time), Number(row.avg_value)]),
+      data: rows.map((row) => [row.time, row.avg_value]),
     },
   ];
 }
@@ -82,8 +86,8 @@ export function buildYoySeries(rows: AnyRow[]): Series[] {
     seriesByMetric
       .get(metric)!
       .data.push([
-        Number(row.time),
-        row.value == null ? null : Number(row.value) * 1000,
+        row.time,
+        row.value * 1000,
       ]);
   }
 
@@ -133,10 +137,8 @@ export function buildBasicSeries(
     byKey
       .get(key)!
       .data.push([
-        Number(row.time),
-        row.value == null
-          ? null
-          : Number(row.value) * (unit === "power" ? 1000 : 1),
+        row.time,
+        row.value * (unit === "power" ? 1000 : 1),
       ]);
   }
 
@@ -192,8 +194,8 @@ export function buildFieldSeries(
     seriesByName
       .get(name)!
       .data.push([
-        Number(row.time),
-        row[field] == null ? null : Number(row[field]) * multiplier,
+        row.time,
+        row[field] * multiplier,
       ]);
   }
 

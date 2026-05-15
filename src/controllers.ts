@@ -32,6 +32,19 @@ const perUnitDashboards = new Set([
   "per_unit_moving_capacity",
 ]);
 
+const datePresets = [
+  { preset: "today", from: "today", to: "today", label: "Today" },
+  { preset: "yesterday", from: "yesterday", to: "yesterday", label: "Yesterday" },
+  { preset: "last_7_days", from: "7 days ago", to: "now", label: "Last 7 Days" },
+  { preset: "last_30_days", from: "30 days ago", to: "now", label: "Last 30 Days" },
+  { preset: "last_90_days", from: "90 days ago", to: "now", label: "Last 90 Days" },
+  { preset: "previous_week", from: "last week", to: "last week", label: "Previous Week" },
+  { preset: "previous_month", from: "last month", to: "last month", label: "Previous Month" },
+  { preset: "previous_year", from: "last year", to: "last year", label: "Previous Year" },
+  { preset: "last_year", from: "1 year ago", to: "now", label: "Last Year" },
+  { preset: "last_5_years", from: "5 years ago", to: "now", label: "Last 5 Years" },
+];
+
 async function loadAreasData() {
   try {
     const rows = await querySmall<AreaRow>(
@@ -110,6 +123,11 @@ export async function dashboardSpa(request: FastifyRequest<{ Params: DashboardPa
   const dashboardType = params.dashboard || "electricity_mix";
   const areas = await loadAreasData();
 
+  const [fromPath = "7_days_ago", toPath = "now"] = params.date_range.split("_to_");
+  const fromRaw = fromPath.replace(/_/g, " ");
+  const toRaw = toPath.replace(/_/g, " ");
+  const currentPreset = datePresets.find((preset) => preset.from === fromRaw && preset.to === toRaw);
+
   return reply.view("dashboards/index.ejs", {
     pageTitle: `${dashboardType} - ${params.area}`,
     imageUrl: absoluteUrl(request, dashboardImagePath(params, dashboardType, query)),
@@ -121,16 +139,11 @@ export async function dashboardSpa(request: FastifyRequest<{ Params: DashboardPa
     load: query.load === "true" || query.load === "1",
     productionDashboards,
     perUnitDashboards,
-    fromRaw: params.date_range.split("_to_")[0] || "7 days ago",
-    toRaw: params.date_range.split("_to_")[1] || "now",
+    fromRaw,
+    toRaw,
     timezoneInfo: { abbreviation: "UTC" },
-    datePresets: [
-      { preset: "last_24_hours", label: "Last 24 hours", from: "24 hours ago", to: "now" },
-      { preset: "last_7_days", label: "Last 7 days", from: "7 days ago", to: "now" },
-      { preset: "last_30_days", label: "Last 30 days", from: "30 days ago", to: "now" },
-      { preset: "custom", label: "Custom", from: params.date_range.split("_to_")[0] || "", to: params.date_range.split("_to_")[1] || "" },
-    ],
-    currentPreset: { preset: "last_7_days", label: "Last 7 days" },
+    datePresets,
+    currentPreset,
     intervals: ["5m", "15m", "30m", "1h", "6h", "12h", "1d", "1w", "1M"],
     ...areas,
   });

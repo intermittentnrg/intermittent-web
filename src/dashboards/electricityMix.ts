@@ -5,16 +5,8 @@ import { getAreaContext } from "./shared/context.js";
 import { buildDualAxisOptions } from "./shared/chartOptions.js";
 import { sendChartOptions } from "./shared/chartResponse.js";
 import { getPriceSeries } from "./shared/prices.js";
-import type {
-  DashboardParams,
-  DashboardQuery,
-  ElectricityMixRow,
-} from "./shared/types.js";
-import {
-  divergentSeries,
-} from "./shared/series.js";
-
-type DataRow = ElectricityMixRow;
+import type { DashboardParams, DashboardQuery, TimeMetricValueRow } from "./shared/types.js";
+import { divergentSeries } from "./shared/series.js";
 
 const SQL_GEN = `
   WITH _g AS (
@@ -61,6 +53,13 @@ const SQL_GEN_HOURLY = `
     ORDER BY 2, 1
   ) s
 `;
+
+type TransmissionRow = {
+  time: number;
+  import: number;
+  export: number;
+  value: number;
+};
 
 const SQL_TRANS = `
   WITH _transmission AS (
@@ -124,12 +123,15 @@ export async function electricityMix(
     ctx.timezone,
   ];
 
-  const transData = await chartQuery<DataRow>(request, SQL_TRANS, args);
+  const transData = await chartQuery<TransmissionRow>(request, SQL_TRANS, args);
   const evenHourOffset = true; // Good enough for initial port; Rails uses TZInfo current offset.
   const genSql = interval >= 3600 && evenHourOffset ? SQL_GEN_HOURLY : SQL_GEN;
-  const genData = await chartQuery<DataRow>(request, genSql, args);
+  const genData = await chartQuery<TimeMetricValueRow>(request, genSql, args);
 
-  const series = buildSeriesFromData([...transData, ...genData]);
+  const series = divergentSeries(buildSeriesFromData([
+    ...transmissionRowsToSeriesRows(transData),
+    ...genData,
+  ]));
 
   if (request.query.prices)
     (series as Array<ReturnType<typeof newSeries> | Awaited<ReturnType<typeof getPriceSeries>>[number]>).push(
@@ -138,51 +140,32 @@ export async function electricityMix(
 
   return sendChartOptions(
     reply,
-    buildDualAxisOptions(divergentSeries(series), "Electricity Mix"),
+    buildDualAxisOptions(series, "Electricity Mix"),
     ctx.timezoneAbbreviation,
   );
 }
 
-function buildSeriesFromData(data: DataRow[]) {
-  const timestamps = [
-    ...new Set(
-      data
-        .map((row) => Number(row.time))
-        .filter((time) => Number.isFinite(time)),
-    ),
-  ].sort((a, b) => a - b);
+function transmissionRowsToSeriesRows(rows: TransmissionRow[]): TimeMetricValueRow[] {
+  const output: TimeMetricValueRow[] = [];
+
+  for (const row of rows) {
+    output.push({ time: row.time, metric: "import", value: row.import });
+    output.push({ time: row.time, metric: "export", value: row.export });
+  }
+
+  return output;
+}
+
+function buildSeriesFromData(data: TimeMetricValueRow[]) {
   const seriesMap = new Map<string, ReturnType<typeof newSeries>>();
 
   for (const row of data) {
-    const timestamp = Number(row.time);
-    if (!Number.isFinite(timestamp)) continue;
-
-    for (const [key, raw] of [
-      ["import", row.import],
-      ["export", row.export],
-    ] as const) {
-      if (raw !== undefined && raw !== null) {
-        if (!seriesMap.has(key)) seriesMap.set(key, newSeries(key));
-        seriesMap.get(key)!.data.push([timestamp, Number(raw) * 1000]);
-      }
-    }
-
-    if (row.metric) {
-      const key = row.metric;
-      if (!seriesMap.has(key)) seriesMap.set(key, newSeries(key));
-      seriesMap
-        .get(key)!
-        .data.push([
-          timestamp,
-          row.value == null ? null : Number(row.value) * 1000,
-        ]);
-    }
+    const key = row.metric;
+    if (!seriesMap.has(key)) seriesMap.set(key, newSeries(key));
+    seriesMap.get(key)!.data.push([row.time, row.value * 1000]);
   }
 
   for (const series of seriesMap.values()) {
-    const existing = new Set(series.data.map((point) => point[0]));
-    for (const ts of timestamps)
-      if (!existing.has(ts)) series.data.push([ts, null]);
     series.data.sort((a, b) => a[0] - b[0]);
   }
 
@@ -199,7 +182,7 @@ function newSeries(key: string) {
     areaStyle: { opacity: 0.75 },
     lineStyle: { width: 0 },
     itemStyle: { color: getColorForMetric(key) },
-    data: [] as Array<[number, number | null]>,
+    data: [] as Array<[number, number]>,
   };
 }
 

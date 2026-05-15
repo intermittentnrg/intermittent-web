@@ -35,13 +35,12 @@ function buildPriceSeries(data: TimeMetricValueRow[]) {
   const seriesMap = new Map<string, ReturnType<typeof newPriceSeries>>();
 
   for (const row of data) {
-    const timestamp = Number(row.time);
-    if (!Number.isFinite(timestamp) || !row.metric) continue;
+    const timestamp = row.time;
 
     const key = String(row.metric);
     if (!seriesMap.has(key)) seriesMap.set(key, newPriceSeries(key));
     const series = seriesMap.get(key)!;
-    series.data!.push([timestamp, row.value == null ? null : Number(row.value)]);
+    series.data!.push([timestamp, row.value]);
   }
 
   return [...seriesMap.values()];
@@ -57,7 +56,7 @@ function newPriceSeries(key: string): Series {
     lineStyle: { width: 2, color: getColorForPrice(key) },
     itemStyle: { color: getColorForPrice(key) },
     yAxisIndex: 1,
-    data: [] as Array<[number, number | null]>,
+    data: [] as Array<[number, number]>,
   };
 }
 

@@ -6,6 +6,17 @@ export async function chartQuery<T = unknown>(
   text: string,
   values: unknown[] = [],
 ): Promise<T[]> {
-  const rows = await cancelableChartQuery<T>(request, text, values);
-  return rows ?? [];
+  const rows = await cancelableChartQuery<Record<string, unknown>>(request, text, values);
+  return (rows ?? []).map(coerceSqlNumbers) as T[];
+}
+
+function coerceSqlNumbers(row: Record<string, unknown>) {
+  return Object.fromEntries(
+    Object.entries(row).map(([key, value]) => [
+      key,
+      typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value))
+        ? Number(value)
+        : value,
+    ]),
+  );
 }

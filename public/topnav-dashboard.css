@@ -69,13 +69,11 @@
 }
 
 .dashboard-tab-group.dropdown-open .dashboard-dropdown,
-.dashboard-tab-group.has-dropdown:hover .dashboard-dropdown,
-.dashboard-tab-group.has-dropdown:focus-within .dashboard-dropdown {
+.dashboard-tab-group.has-dropdown:hover .dashboard-dropdown {
   display: block;
 }
 
-.dashboard-tab-group.has-dropdown:hover > .dashboard-tab::after,
-.dashboard-tab-group.has-dropdown:focus-within > .dashboard-tab::after {
+.dashboard-tab-group.has-dropdown:hover > .dashboard-tab::after {
   transform: rotate(180deg);
   opacity: 1;
 }

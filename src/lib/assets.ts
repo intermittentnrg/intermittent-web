@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const base = "/assets-build/";
+const isDevelopment = process.argv.includes("--dev");
 
 type ManifestEntry = {
   file: string;
@@ -15,6 +16,7 @@ let manifest: Manifest | undefined;
 let manifestLoaded = false;
 
 function loadManifest() {
+  if (isDevelopment) return undefined;
   if (manifestLoaded) return manifest;
   manifestLoaded = true;
 

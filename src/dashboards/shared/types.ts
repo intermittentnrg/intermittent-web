@@ -21,14 +21,9 @@ export type DashboardQuery = {
 export type AnyRow = Record<string, any>;
 
 export type TimeMetricValueRow = {
-  time: number | string | null;
-  metric: string | null;
-  value: number | string | null;
-};
-
-export type ElectricityMixRow = TimeMetricValueRow & {
-  import?: string | number | null;
-  export?: string | number | null;
+  time: number;
+  metric: string;
+  value: number;
 };
 
 export type Series = {
@@ -41,6 +36,6 @@ export type Series = {
   areaStyle?: Record<string, unknown>;
   lineStyle?: Record<string, unknown>;
   itemStyle?: Record<string, unknown>;
-  data: Array<[number, number | null]>;
+  data: Array<[number, number]>;
   [key: string]: unknown;
 };
