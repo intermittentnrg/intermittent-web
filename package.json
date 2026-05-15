@@ -8,6 +8,7 @@
     "dev:assets": "vite --host 0.0.0.0",
     "build": "tsc && vite build",
     "start": "node dist/server.js",
+    "test": "vitest",
     "test:e2e": "wdio run ./wdio.conf.js"
   },
   "keywords": [],
@@ -38,6 +39,7 @@
     "tsx": "^4.21.0",
     "typescript": "^6.0.3",
     "vite": "^8.0.11",
+    "vitest": "^4.1.6",
     "webdriverio": "^9.27.1"
   }
 }

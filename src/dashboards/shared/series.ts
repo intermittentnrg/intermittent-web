@@ -1,6 +1,34 @@
-import type { AnyRow, TimeMetricValueRow } from "./types.js";
+import type { AnyRow, Series, TimeMetricValueRow } from "./types.js";
 
-export function buildMinMaxSeries(rows: AnyRow[]) {
+export function divergentSeries<T extends Pick<Series, "data">>(input: T[]): T[] {
+  const output: T[] = [];
+  for (const series of input) {
+    let hasPositive = false;
+    let hasNegative = false;
+
+    for (const value of series.data) {
+      if (value[1] > 0) hasPositive = true;
+      if (value[1] < 0) hasNegative = true;
+      if (hasPositive && hasNegative) break;
+    }
+
+    if (hasPositive && hasNegative) {
+      const posSeries = { ...series };
+      const negSeries = series;
+      posSeries.data = posSeries.data.map(v => [v[0], Math.max(v[1], 0)]);
+      negSeries.data = negSeries.data.map(v => [v[0], Math.min(v[1], 0)]);
+      negSeries.name += "_negative";
+      output.push(posSeries);
+      output.push(negSeries);
+    } else {
+      output.push(series);
+    }
+  }
+
+  return output;
+}
+
+export function buildMinMaxSeries(rows: AnyRow[]): Series[] {
   return [
     {
       name: "Min",
@@ -32,8 +60,8 @@ export function buildMinMaxSeries(rows: AnyRow[]) {
   ];
 }
 
-export function buildYoySeries(rows: AnyRow[]) {
-  const seriesByMetric = new Map<string, any>();
+export function buildYoySeries(rows: AnyRow[]): Series[] {
+  const seriesByMetric = new Map<string, Series>();
 
   for (const row of rows) {
     const metric = String(row.metric);
@@ -49,7 +77,7 @@ export function buildYoySeries(rows: AnyRow[]) {
     }
 
     seriesByMetric
-      .get(metric)
+      .get(metric)!
       .data.push([
         Number(row.time),
         row.value == null ? null : Number(row.value) * 1000,
@@ -58,20 +86,6 @@ export function buildYoySeries(rows: AnyRow[]) {
 
   return [...seriesByMetric.values()];
 }
-
-export type BasicSeriesRow = TimeMetricValueRow;
-
-export type BasicSeries = {
-  name: string;
-  type: "line" | "bar";
-  unit?: string;
-  stack?: string;
-  symbol?: string;
-  areaStyle?: { opacity: number };
-  lineStyle?: Record<string, unknown>;
-  itemStyle?: Record<string, unknown>;
-  data: Array<[number, number | null]>;
-};
 
 export function buildBasicSeries(
   rows: AnyRow[],
@@ -86,8 +100,8 @@ export function buildBasicSeries(
       type: "line" | "bar",
     ) => string | undefined;
   } = {},
-): BasicSeries[] {
-  const byKey = new Map<string, BasicSeries>();
+): Series[] {
+  const byKey = new Map<string, Series>();
 
   for (const row of rows) {
     if (row.time == null) continue;
@@ -127,7 +141,7 @@ export function buildBasicSeries(
 }
 
 export function buildPowerLineSeries(
-  rows: BasicSeriesRow[],
+  rows: TimeMetricValueRow[],
   colorForMetric?: (metric: string) => string | undefined,
 ) {
   return buildBasicSeries(rows, "line", true, "power", { colorForMetric });
@@ -151,12 +165,12 @@ export function buildFieldSeries(
     yAxisIndex?: number;
     lineStyle?: Record<string, unknown>;
   } = {},
-) {
+): Series[] {
   const nameField = options.nameField || "name";
   const multiplier = options.multiplier ?? 1;
   const suffix = options.suffix || "";
   const yAxisIndex = options.yAxisIndex || 0;
-  const seriesByName = new Map<string, any>();
+  const seriesByName = new Map<string, Series>();
 
   for (const row of rows) {
     const name = String(row[nameField]) + suffix;
@@ -173,7 +187,7 @@ export function buildFieldSeries(
     }
 
     seriesByName
-      .get(name)
+      .get(name)!
       .data.push([
         Number(row.time),
         row[field] == null ? null : Number(row[field]) * multiplier,

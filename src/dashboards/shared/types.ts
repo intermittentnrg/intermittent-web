@@ -33,9 +33,14 @@ export type ElectricityMixRow = TimeMetricValueRow & {
 
 export type Series = {
   name: string;
-  type: string;
+  type: "line" | "bar" | string;
   unit?: string;
+  stack?: string;
+  symbol?: string;
   yAxisIndex?: number;
-  data?: any[];
-  [key: string]: any;
+  areaStyle?: Record<string, unknown>;
+  lineStyle?: Record<string, unknown>;
+  itemStyle?: Record<string, unknown>;
+  data: Array<[number, number | null]>;
+  [key: string]: unknown;
 };

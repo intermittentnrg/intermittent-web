@@ -8,6 +8,7 @@ import {
   buildMinMaxSeries,
   buildPowerLineSeries,
   buildYoySeries,
+  divergentSeries,
 } from "./shared/series.js";
 import {
   getProductionTypeIds,
@@ -32,22 +33,8 @@ const generationSql = `
     SELECT
       time_bucket_gapfill($1::interval, time) AS time,
       a.code AS area,
-      pt.name||'_negative' AS production_type,
-      INTERPOLATE(LEAST(0,AVG(value))) AS value
-    FROM generation
-    INNER JOIN areas a ON(area_id=a.id)
-    INNER JOIN production_types pt ON(production_type_id=pt.id)
-    WHERE
-      time BETWEEN $2 AND $3 AND
-      production_type_id = ANY($6::int[]) AND
-      area_id = ANY($4::int[])
-    GROUP BY 1,2,3
-  UNION
-    SELECT
-      time_bucket_gapfill($1::interval, time) AS time,
-      a.code AS area,
       pt.name AS production_type,
-      INTERPOLATE(GREATEST(0,AVG(value))) AS value
+      INTERPOLATE(AVG(value)) AS value
     FROM generation
     INNER JOIN areas a ON(area_id=a.id)
     INNER JOIN production_types pt ON(production_type_id=pt.id)
@@ -90,7 +77,7 @@ export async function generation(
     ...priceArgs,
     ptIds,
   ]);
-  const series: Series[] = buildPowerLineSeries(rows, metricColor);
+  const series: Series[] = divergentSeries(buildPowerLineSeries(rows, metricColor));
   if (request.query.prices) series.push(...(await getPriceSeries(request, priceArgs)));
   const productionTypes = await getProductionTypeOptions(ctx.areaIds);
   return sendDualAxisChart(
