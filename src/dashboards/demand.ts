@@ -9,7 +9,7 @@ import {
   buildYoySeries,
 } from "./shared/series.js";
 import { areaColor } from "./shared/colors.js";
-import { sendDualAxisChart } from "./shared/chartResponse.js";
+import { sendChartResponse, sendDualAxisChart } from "./shared/chartResponse.js";
 import type {
   AnyRow,
   DashboardParams,
@@ -48,6 +48,7 @@ export async function demand(
     ctx.timezone,
   ]);
   return sendDualAxisChart(
+    request,
     reply,
     buildPowerLineSeries(rows, areaColor),
     "Demand",
@@ -94,15 +95,16 @@ export async function demandMinMax(
     ctx.areaIds,
     ctx.timezone,
   ]);
-  return reply.send({
-    options: buildChartOptions(
+  return sendChartResponse(
+    req,
+    reply,
+    buildChartOptions(
       buildMinMaxSeries(rows),
       "Demand Min/Max",
       "power",
     ),
-    height: 567,
-    timezone: ctx.timezoneAbbreviation,
-  });
+    ctx.timezoneAbbreviation,
+  );
 }
 
 export async function demandYoy(
@@ -122,13 +124,14 @@ export async function demandYoy(
     ctx.timezone,
     finish.getFullYear(),
   ]);
-  return reply.send({
-    options: buildChartOptions(
+  return sendChartResponse(
+    req,
+    reply,
+    buildChartOptions(
       buildYoySeries(rows),
       "Demand Year over Year",
       "power",
     ),
-    height: 567,
-    timezone: ctx.timezoneAbbreviation,
-  });
+    ctx.timezoneAbbreviation,
+  );
 }

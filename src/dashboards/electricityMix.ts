@@ -3,7 +3,7 @@ import { chartQuery } from "./shared/chartQuery.js";
 import { calculateInterval } from "./shared/intervals.js";
 import { getAreaContext } from "./shared/context.js";
 import { buildDualAxisOptions } from "./shared/chartOptions.js";
-import { sendChartOptions } from "./shared/chartResponse.js";
+import { sendChartResponse } from "./shared/chartResponse.js";
 import { getPriceSeries } from "./shared/prices.js";
 import type { DashboardParams, DashboardQuery, TimeMetricValueRow } from "./shared/types.js";
 import { divergentSeries } from "./shared/series.js";
@@ -138,7 +138,8 @@ export async function electricityMix(
       ...(await getPriceSeries(request, args)),
     );
 
-  return sendChartOptions(
+  return sendChartResponse(
+    request,
     reply,
     buildDualAxisOptions(series, "Electricity Mix"),
     ctx.timezoneAbbreviation,

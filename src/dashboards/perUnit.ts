@@ -9,6 +9,7 @@ import {
 } from "./shared/chartOptions.js";
 import { buildBasicSeries, buildFieldSeries, divergentSeries } from "./shared/series.js";
 import { getProductionTypeOptions } from "./shared/productionTypes.js";
+import { sendChartResponse } from "./shared/chartResponse.js";
 import type { AnyRow, DashboardParams, DashboardQuery } from "./shared/types.js";
 
 
@@ -82,8 +83,10 @@ export async function perUnit(
     unitIds,
     ctx.timezone,
   ]);
-  return reply.send({
-    options: buildChartOptions(
+  return sendChartResponse(
+    req,
+    reply,
+    buildChartOptions(
       divergentSeries(buildBasicSeries(rows, "line", true, "power", {
         stackForMetric: (metric) =>
           metric.endsWith("_negative") ? "negative" : "total",
@@ -91,10 +94,9 @@ export async function perUnit(
       "Per Unit",
       "power",
     ),
-    height: 567,
-    timezone: ctx.timezoneAbbreviation,
-    ...(await unitMeta(ctx.areaIds)),
-  });
+    ctx.timezoneAbbreviation,
+    await unitMeta(ctx.areaIds),
+  );
 }
 
 const perUnitTotalSql = `SELECT EXTRACT(EPOCH FROM time_bucket('1d', time) AT TIME ZONE $4) * 1000 AS time, CONCAT_WS('/', a.code, pt.name, COALESCE(u.name, u.internal_id))||CASE WHEN SUM(value) < 0 THEN '_negative' ELSE '' END AS metric, SUM(value) AS value FROM (SELECT time_bucket_gapfill('1h', time) AS time, unit_id, AVG(value) AS value FROM generation_unit g WHERE time BETWEEN $1 AND $2 AND unit_id = ANY($3::int[]) GROUP BY 1,2 ORDER BY 1,2) s INNER JOIN units u ON(unit_id=u.id) INNER JOIN areas a ON(u.area_id=a.id) INNER JOIN production_types pt ON(u.production_type_id=pt.id) WHERE time BETWEEN $1 AND $2 GROUP BY 1,a.code,pt.name,u.name,u.internal_id HAVING SUM(value)<>0 ORDER BY 2,1`;
@@ -111,16 +113,17 @@ export async function perUnitTotal(
     unitIds,
     ctx.timezone,
   ]);
-  return reply.send({
-    options: buildChartOptions(
+  return sendChartResponse(
+    req,
+    reply,
+    buildChartOptions(
       buildBasicSeries(rows, "bar", true, "energy"),
       "Per Unit Total (Daily)",
       "energy",
     ),
-    height: 567,
-    timezone: ctx.timezoneAbbreviation,
-    ...(await unitMeta(ctx.areaIds)),
-  });
+    ctx.timezoneAbbreviation,
+    await unitMeta(ctx.areaIds),
+  );
 }
 
 const perUnitPeakSql = `WITH _gen AS (SELECT time_bucket_gapfill($1::interval, time) AS time, unit_id, INTERPOLATE(AVG(value)) AS value FROM generation_unit g WHERE time BETWEEN $2 AND $3 AND unit_id = ANY($4::int[]) GROUP BY 1,2), _peak AS (SELECT unit_id, MAX(value) AS peak_value FROM generation_unit g WHERE unit_id = ANY($4::int[]) AND time BETWEEN ($3::timestamptz - INTERVAL '1 year') AND $3::timestamptz GROUP BY 1) SELECT EXTRACT(EPOCH FROM g.time AT TIME ZONE $5) * 1000 AS time, COALESCE(u.name,u.internal_id) AS metric, g.value / NULLIF(p.peak_value,0) AS value FROM _gen g INNER JOIN _peak p ON g.unit_id=p.unit_id INNER JOIN units u ON g.unit_id=u.id WHERE g.value > 0 ORDER BY 2,1`;
@@ -144,12 +147,13 @@ export async function perUnitPeak(
     unitIds,
     ctx.timezone,
   ]);
-  return reply.send({
-    options: heatmap(rows),
-    height: 567,
-    timezone: ctx.timezoneAbbreviation,
-    ...(await unitMeta(ctx.areaIds)),
-  });
+  return sendChartResponse(
+    req,
+    reply,
+    heatmap(rows),
+    ctx.timezoneAbbreviation,
+    await unitMeta(ctx.areaIds),
+  );
 }
 
 function heatmap(rows: AnyRow[]) {
@@ -244,13 +248,14 @@ export async function perUnitMovingCapacity(
       lineStyle: { width: 2, type: "dashed" },
     }),
   ];
-  return reply.send({
-    options: buildDualAxisOptions(
+  return sendChartResponse(
+    req,
+    reply,
+    buildDualAxisOptions(
       series,
       "Per Unit Moving Capacity Factor & Output",
     ),
-    height: 567,
-    timezone: ctx.timezoneAbbreviation,
-    ...(await unitMeta(ctx.areaIds)),
-  });
+    ctx.timezoneAbbreviation,
+    await unitMeta(ctx.areaIds),
+  );
 }

@@ -16,7 +16,7 @@ import {
 } from "./shared/productionTypes.js";
 import { metricColor } from "./shared/colors.js";
 import {
-  sendChartOptions,
+  sendChartResponse,
   sendDualAxisChart,
 } from "./shared/chartResponse.js";
 import { getPriceSeries } from "./shared/prices.js";
@@ -81,6 +81,7 @@ export async function generation(
   if (request.query.prices) series.push(...(await getPriceSeries(request, priceArgs)));
   const productionTypes = await getProductionTypeOptions(ctx.areaIds);
   return sendDualAxisChart(
+    request,
     reply,
     series,
     "Generation",
@@ -137,7 +138,7 @@ export async function generationTotal(
     "Generation Total (Daily)",
     "energy",
   );
-  return sendChartOptions(reply, options, ctx.timezoneAbbreviation, {
+  return sendChartResponse(request, reply, options, ctx.timezoneAbbreviation, {
     production_types: productionTypes,
   });
 }
@@ -184,10 +185,7 @@ export async function generationMinMax(
     "Generation Min/Max",
     "power",
   );
-  return reply.send({
-    options,
-    height: 567,
-    timezone: ctx.timezoneAbbreviation,
+  return sendChartResponse(req, reply, options, ctx.timezoneAbbreviation, {
     production_types: await getProductionTypeOptions(ctx.areaIds),
   });
 }
@@ -226,16 +224,17 @@ export async function generationYoy(
     finish.getFullYear(),
     ptIds,
   ]);
-  return reply.send({
-    options: buildChartOptions(
+  return sendChartResponse(
+    req,
+    reply,
+    buildChartOptions(
       buildYoySeries(rows),
       "Generation Year over Year",
       "power",
     ),
-    height: 567,
-    timezone: ctx.timezoneAbbreviation,
-    production_types: await getProductionTypeOptions(ctx.areaIds),
-  });
+    ctx.timezoneAbbreviation,
+    { production_types: await getProductionTypeOptions(ctx.areaIds) },
+  );
 }
 
 export { simulations } from "./simulation.js";

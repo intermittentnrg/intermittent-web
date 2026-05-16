@@ -7,6 +7,7 @@ import {
   buildChartOptions,
   buildDualAxisOptions,
 } from "./shared/chartOptions.js";
+import { sendChartResponse } from "./shared/chartResponse.js";
 import { buildStackedPowerLineSeries } from "./shared/series.js";
 import { getProductionTypeIds } from "./shared/productionTypes.js";
 import type { AnyRow, DashboardParams, DashboardQuery } from "./shared/types.js";
@@ -46,13 +47,17 @@ export async function maps(
     ctx.timezone,
   ]);
   const frames = buildFrames(rows);
-  return reply.send({
-    frames,
-    options: mapOptions(frames),
-    geoJsonUrl: "/assets/world-rewound.geojson",
-    height: 800,
-    timezone: ctx.timezoneAbbreviation,
-  });
+  return sendChartResponse(
+    req,
+    reply,
+    mapOptions(frames),
+    ctx.timezoneAbbreviation,
+    {
+      frames,
+      geoJsonUrl: "/assets/world-rewound.geojson",
+    },
+    800,
+  );
 }
 function buildFrames(rows: AnyRow[]) {
   const map = new Map<number, any>();
@@ -139,9 +144,12 @@ export async function sweden(
     ctx.areaIds,
     ctx.timezone,
   ]);
-  return reply.send({
-    options: buildChartOptions(buildStackedPowerLineSeries(rows), "Sweden", "power"),
-    height: 768,
-    timezone: ctx.timezoneAbbreviation,
-  });
+  return sendChartResponse(
+    req,
+    reply,
+    buildChartOptions(buildStackedPowerLineSeries(rows), "Sweden", "power"),
+    ctx.timezoneAbbreviation,
+    {},
+    768,
+  );
 }

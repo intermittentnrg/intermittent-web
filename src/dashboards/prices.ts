@@ -9,7 +9,7 @@ import {
   getProductionTypeOptions,
 } from "./shared/productionTypes.js";
 import { metricColor } from "./shared/colors.js";
-import { sendChartOptions } from "./shared/chartResponse.js";
+import { sendChartResponse } from "./shared/chartResponse.js";
 import type {
   AnyRow,
   DashboardParams,
@@ -51,7 +51,7 @@ export async function prices(
     colorForMetric: metricColor,
   });
   const options = buildChartOptions(series, "Prices", "price");
-  return sendChartOptions(reply, options, ctx.timezoneAbbreviation);
+  return sendChartResponse(request, reply, options, ctx.timezoneAbbreviation);
 }
 
 const captureSql = `
@@ -291,10 +291,12 @@ export async function capturePrice(
     chartQuery<AnyRow>(req, captureSummarySql, queryParams.slice(0, 4)),
   ]);
 
-  return reply.send({
-    options: buildCapturePriceOptions(timeSeriesRows, rollingRows, summaryRows),
-    height: 900,
-    timezone: ctx.timezoneAbbreviation,
-    production_types: await getProductionTypeOptions(ctx.areaIds),
-  });
+  return sendChartResponse(
+    req,
+    reply,
+    buildCapturePriceOptions(timeSeriesRows, rollingRows, summaryRows),
+    ctx.timezoneAbbreviation,
+    { production_types: await getProductionTypeOptions(ctx.areaIds) },
+    900,
+  );
 }

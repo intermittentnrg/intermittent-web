@@ -24,7 +24,6 @@ import {
 } from "./dashboards/perUnit.js";
 import { capturePrice, prices } from "./dashboards/prices.js";
 import { maps, sweden } from "./dashboards/misc.js";
-import { makeDashboardImageHandler } from "./dashboardImage.js";
 
 export async function registerRoutes(app: FastifyInstance) {
   app.get("/health", health);
@@ -54,26 +53,14 @@ export async function registerRoutes(app: FastifyInstance) {
 
   for (const [endpoint, handler] of Object.entries(dataHandlers)) {
     app.get(
-      `/:region/:area_type/:area/:date_range/${endpoint}/data`,
+      `/:region/:area_type/:area/:date_range/${endpoint}/echarts.json`,
+      handler as never,
+    );
+    app.get(
+      `/:region/:area_type/:area/:date_range/${endpoint}/echarts.webp`,
       handler as never,
     );
   }
-
-  const dashboardImageHandler = makeDashboardImageHandler(
-    dataHandlers as never,
-  );
-  app.get(
-    "/:region/:area_type/:area/:date_range/:dashboard/image",
-    dashboardImageHandler as never,
-  );
-  app.get(
-    "/:region/:area_type/:area/:date_range/:dashboard/image.png",
-    dashboardImageHandler as never,
-  );
-  app.get(
-    "/:region/:area_type/:area/:date_range/:dashboard/image.webp",
-    dashboardImageHandler as never,
-  );
 
   app.get(
     "/:region/:area_type/:area/:date_range/:dashboard",

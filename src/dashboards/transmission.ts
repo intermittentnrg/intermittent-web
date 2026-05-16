@@ -3,6 +3,7 @@ import { querySmall } from "../lib/db.js";
 import { chartQuery } from "./shared/chartQuery.js";
 import { getAreaContext } from "./shared/context.js";
 import { buildDualAxisOptions } from "./shared/chartOptions.js";
+import { sendChartResponse } from "./shared/chartResponse.js";
 import type { AnyRow, DashboardParams, DashboardQuery } from "./shared/types.js";
 
 const transmissionSql = (filtered: boolean) => {
@@ -47,18 +48,21 @@ export async function transmission(
     `SELECT DISTINCT fa.code AS from_code, ta.code AS to_code, fa.id AS from_area_id, ta.id AS to_area_id FROM areas_areas aa INNER JOIN areas fa ON(aa.from_area_id=fa.id) INNER JOIN areas ta ON(aa.to_area_id=ta.id) WHERE from_area_id = ANY($1::int[]) OR to_area_id = ANY($1::int[]) ORDER BY from_code,to_code`,
     [ctx.areaIds],
   );
-  return reply.send({
-    options: buildDualAxisOptions(
+  return sendChartResponse(
+    req,
+    reply,
+    buildDualAxisOptions(
       buildTransmissionSeries(rows),
       "Transmission",
     ),
-    height: 567,
-    timezone: ctx.timezoneAbbreviation,
-    transmission_lines: lines.map((l) => ({
-      id: `${l.from_area_id}-${l.to_area_id}`,
-      label: `${l.from_code} → ${l.to_code}`,
-    })),
-  });
+    ctx.timezoneAbbreviation,
+    {
+      transmission_lines: lines.map((l) => ({
+        id: `${l.from_area_id}-${l.to_area_id}`,
+        label: `${l.from_code} → ${l.to_code}`,
+      })),
+    },
+  );
 }
 
 function buildTransmissionSeries(rows: AnyRow[]) {

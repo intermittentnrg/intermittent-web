@@ -6,6 +6,7 @@ import {
   buildChartOptions,
   buildDualAxisOptions,
 } from "./shared/chartOptions.js";
+import { sendChartResponse } from "./shared/chartResponse.js";
 import { buildStackedPowerLineSeries } from "./shared/series.js";
 import {
   getProductionTypeIds,
@@ -52,12 +53,14 @@ export async function simulations(
   const demand = await chartQuery<AnyRow>(req, demandSql, [...args, mult.demand]);
   const trans = await chartQuery<AnyRow>(req, transSql, args);
   const options = simulationOptions(gen, demand, trans);
-  return reply.send({
+  return sendChartResponse(
+    req,
+    reply,
     options,
-    height: 900,
-    timezone: ctx.timezoneAbbreviation,
-    production_types: await getProductionTypeOptions(ctx.areaIds),
-  });
+    ctx.timezoneAbbreviation,
+    { production_types: await getProductionTypeOptions(ctx.areaIds) },
+    900,
+  );
 }
 
 function simulationOptions(

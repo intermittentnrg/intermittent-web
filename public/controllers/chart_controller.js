@@ -49,7 +49,7 @@ export default class extends Controller {
     }
 
     const params = this.buildParams()
-    const url = `${window.location.pathname}/data${params}`
+    const url = `${window.location.pathname}/echarts.json${params}`
 
     fetch(url, {
       headers: { "Accept": "application/json" },
