@@ -3,6 +3,14 @@ export type DashboardParams = {
   area_type: string;
   area: string;
   date_range: string;
+  dashboard?: string;
+};
+
+export type AreaRow = {
+  region: string;
+  type: string;
+  code: string;
+  source: string;
 };
 
 export type DashboardQuery = {
