@@ -20,7 +20,6 @@ export function divergentSeries<T extends Series>(input: T[]): T[] {
       });
       output.push({
         ...series,
-        name: `${series.name}_negative`,
         stack: "neg",
         data: series.data.map(([time, value]: [number, number]) => [time, Math.min(value, 0)]),
       });

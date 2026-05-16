@@ -21,6 +21,6 @@ describe("divergentSeries", () => {
 
     const output = divergentSeries(input);
     expect(output).toHaveLength(2);
-    expect(output[1].name).toEqual("mix_negative");
+    expect(output[1].name).toEqual("mix");
   });
 });

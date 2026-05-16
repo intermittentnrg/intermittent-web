@@ -3,13 +3,11 @@ import path from "node:path";
 import Fastify from "fastify";
 import view from "@fastify/view";
 import staticFiles from "@fastify/static";
-import type {} from "@fastify/vite";
 import ejs from "ejs";
 import { registerRoutes } from "./routes.js";
 import { viteAssets } from "./lib/assets.js";
 
 export async function buildApp() {
-  const { default: fastifyVite } = await import("@fastify/vite");
   const app = Fastify({
     logger: process.env.NODE_ENV === "test" ? false : { base: null },
   });
@@ -30,12 +28,13 @@ export async function buildApp() {
     prefix: "/assets/",
   });
 
-  await app.register(fastifyVite, {
-    root: process.cwd(),
-    distDir: "dist/public",
-    spa: true,
+  app.register(staticFiles, {
+    root: process.argv.includes("--dev")
+      ? process.cwd()
+      : path.join(process.cwd(), "dist/public/client"),
+    prefix: "/assets-build/",
+    decorateReply: false,
   });
-  await app.vite.ready();
 
   app.register(registerRoutes);
 

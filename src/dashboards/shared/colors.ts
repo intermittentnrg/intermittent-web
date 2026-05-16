@@ -1,5 +1,41 @@
+const STABLE_PALETTE = [
+  "#5470c6",
+  "#91cc75",
+  "#fac858",
+  "#ee6666",
+  "#73c0de",
+  "#3ba272",
+  "#fc8452",
+  "#9a60b4",
+  "#ea7ccc",
+  "#2f4554",
+  "#61a0a8",
+  "#d48265",
+  "#749f83",
+  "#ca8622",
+  "#bda29a",
+  "#6e7074",
+  "#546570",
+  "#c4ccd3",
+];
+
+export function normalizedMetricKey(metric: string) {
+  return (metric.split("/").at(-1) || metric).replace(/_negative$/, "");
+}
+
+export function stableColor(key: string) {
+  const normalized = normalizedMetricKey(key);
+  let hash = 0;
+
+  for (let i = 0; i < normalized.length; i++) {
+    hash = ((hash << 5) - hash + normalized.charCodeAt(i)) | 0;
+  }
+
+  return STABLE_PALETTE[Math.abs(hash) % STABLE_PALETTE.length];
+}
+
 export function metricColor(metric: string) {
-  const key = metric.split("/").at(-1) || metric;
+  const key = normalizedMetricKey(metric);
   return (
     {
       "02_nuclear": "rgb(213, 0, 50)",

@@ -64,7 +64,18 @@ function productionAssetTags(entrypoint: string) {
   return tags.join("\n");
 }
 
+function developmentImportMap() {
+  return `<script type="importmap">
+{
+  "imports": {
+    "@hotwired/stimulus": "${base}node_modules/@hotwired/stimulus/dist/stimulus.js",
+    "echarts": "${base}node_modules/echarts/dist/echarts.esm.js"
+  }
+}
+</script>`;
+}
+
 export function viteAssets(entrypoint = "public/app.js") {
   return productionAssetTags(entrypoint)
-    ?? `<script type="module" src="${base}${entrypoint}" defer></script>`;
+    ?? `${developmentImportMap()}\n<script type="module" src="${base}${entrypoint}" defer></script>`;
 }
