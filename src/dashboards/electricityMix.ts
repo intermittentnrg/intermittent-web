@@ -22,7 +22,7 @@ const SQL_GEN = `
   )
   SELECT
     EXTRACT(EPOCH FROM time AT TIME ZONE $5) * 1000 AS time,
-    CASE WHEN SUM(value)<0 THEN ptg.name||'_negative' ELSE ptg.name END AS metric,
+    ptg.name AS metric,
     SUM(value) AS value
   FROM _g
   INNER JOIN production_type_groups ptg ON(production_type_group_id=ptg.id)
@@ -44,7 +44,7 @@ const SQL_GEN_HOURLY = `
   FROM (
     SELECT
       time_bucket_gapfill($1::interval, time) AS time,
-      CASE WHEN SUM(value)<0 THEN ptg.name||'_negative' ELSE ptg.name END AS metric,
+      ptg.name AS metric,
       INTERPOLATE(AVG(value)) AS value
     FROM _g
     INNER JOIN production_type_groups ptg ON(production_type_group_id=ptg.id)

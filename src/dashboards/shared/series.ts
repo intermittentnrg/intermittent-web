@@ -122,7 +122,7 @@ export function buildBasicSeries(
         unit,
         stack: stacked
           ? (options.stackForMetric?.(key, type) ??
-            (type === "bar" ? (isNegative ? "negative" : "positive") : "total"))
+            (type === "bar" ? "all" : "total"))
           : undefined,
         symbol: type === "line" ? "none" : undefined,
         areaStyle: type === "line" && stacked ? { opacity: 0.75 } : undefined,
