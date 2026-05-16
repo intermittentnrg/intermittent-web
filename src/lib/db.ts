@@ -70,7 +70,7 @@ export function logSqlQuery(
     row_count: rowCount,
     sql: normalizedSql,
     values,
-    runnable_sql: interpolateSql(normalizedSql, values),
+    runnable_sql: formatSqlForLog(normalizedSql, values),
   };
 
   if (logger) logger.info(entry, "sql query");
@@ -81,32 +81,28 @@ function normalizeSql(sql: string) {
   return sql.replace(/\s+/g, " ").trim();
 }
 
-function interpolateSql(sql: string, values: unknown[]) {
+function formatSqlForLog(sql: string, values: unknown[]) {
   return sql.replace(/\$(\d+)\b/g, (placeholder, index) => {
     const value = values[Number(index) - 1];
-    return value === undefined ? placeholder : sqlLiteral(value);
+    return value === undefined ? placeholder : sqlLiteralForLog(value);
   });
 }
 
-function sqlLiteral(value: unknown): string {
+function sqlLiteralForLog(value: unknown): string {
   if (value === null) return "NULL";
-  if (value instanceof Date) return quoteSqlString(value.toISOString());
-  if (Array.isArray(value)) return `ARRAY[${value.map(sqlLiteral).join(",")}]`;
+  if (value instanceof Date) return pg.escapeLiteral(value.toISOString());
+  if (Array.isArray(value)) return `ARRAY[${value.map(sqlLiteralForLog).join(",")}]`;
 
   switch (typeof value) {
     case "number":
-      return Number.isFinite(value) ? String(value) : quoteSqlString(String(value));
+      return Number.isFinite(value) ? String(value) : pg.escapeLiteral(String(value));
     case "bigint":
       return String(value);
     case "boolean":
       return value ? "TRUE" : "FALSE";
     case "string":
-      return quoteSqlString(value);
+      return pg.escapeLiteral(value);
     default:
-      return quoteSqlString(JSON.stringify(value));
+      return pg.escapeLiteral(JSON.stringify(value));
   }
-}
-
-function quoteSqlString(value: string) {
-  return `'${value.replaceAll("'", "''")}'`;
 }
