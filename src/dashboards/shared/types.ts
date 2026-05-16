@@ -1,3 +1,10 @@
+import type {
+  BarSeriesOption,
+  HeatmapSeriesOption,
+  LineSeriesOption,
+  MapSeriesOption,
+} from "echarts/types/dist/charts";
+
 export type DashboardParams = {
   region: string;
   area_type: string;
@@ -34,16 +41,15 @@ export type TimeMetricValueRow = {
   value: number;
 };
 
-export type Series = {
+type BuiltInSeriesOption =
+  | LineSeriesOption
+  | BarSeriesOption
+  | HeatmapSeriesOption
+  | MapSeriesOption;
+
+export type Series = BuiltInSeriesOption & {
   name: string;
-  type: "line" | "bar" | string;
-  unit?: string;
-  stack?: string;
-  symbol?: string;
-  yAxisIndex?: number;
-  areaStyle?: Record<string, unknown>;
-  lineStyle?: Record<string, unknown>;
-  itemStyle?: Record<string, unknown>;
   data: Array<[number, number]>;
-  [key: string]: unknown;
+  // Application metadata consumed by frontend formatters.
+  unit?: string;
 };

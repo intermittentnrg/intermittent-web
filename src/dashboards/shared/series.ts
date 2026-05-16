@@ -16,13 +16,13 @@ export function divergentSeries<T extends Series>(input: T[]): T[] {
       output.push({
         ...series,
         stack: "pos",
-        data: series.data.map(([time, value]) => [time, Math.max(value, 0)]),
+        data: series.data.map(([time, value]: [number, number]) => [time, Math.max(value, 0)]),
       });
       output.push({
         ...series,
         name: `${series.name}_negative`,
         stack: "neg",
-        data: series.data.map(([time, value]) => [time, Math.min(value, 0)]),
+        data: series.data.map(([time, value]: [number, number]) => [time, Math.min(value, 0)]),
       });
     } else {
       output.push({
