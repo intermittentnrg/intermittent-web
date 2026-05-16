@@ -1,0 +1,26 @@
+# syntax=docker/dockerfile:1
+
+FROM node:22-alpine
+
+ENV NODE_ENV=development
+
+# fontconfig + a basic TrueType font let sharp/librsvg render ECharts SVG text
+# cleanly when converting server-side SVG charts to PNG/WebP.
+# dumb-init gives the dev server proper signal handling under Docker.
+RUN apk add --no-cache \
+  curl \
+  dumb-init \
+  fontconfig \
+  postgresql-client \
+  ttf-dejavu \
+  && mkdir -p /workspace/node_modules \
+  && chown -R node: /workspace
+
+WORKDIR /workspace
+
+USER node
+
+EXPOSE 3000
+
+ENTRYPOINT ["dumb-init", "--", "/workspace/docker/dev-entrypoint.sh"]
+CMD ["npm", "run", "dev"]

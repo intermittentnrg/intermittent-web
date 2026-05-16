@@ -1,0 +1,10 @@
+{
+  "default": "docker-dev",
+  "targets": {
+    "docker-dev": {
+      "type": "docker",
+      "container": "intermittent-web-dev",
+      "cwd": "/workspace"
+    }
+  }
+}

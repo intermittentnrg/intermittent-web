@@ -1,0 +1,19 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    image: intermittent-web:dev
+    container_name: intermittent-web-dev
+    volumes:
+      - .:/workspace
+      - ~/work/intermittent-importers:/rails
+      - node-modules:/workspace/node_modules
+    ports:
+      - "3000:3000"
+    security_opt:
+      - no-new-privileges:true
+    stdin_open: true
+    tty: true
+volumes:
+  node-modules:
