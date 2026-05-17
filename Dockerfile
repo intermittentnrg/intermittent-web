@@ -20,7 +20,7 @@ WORKDIR /app
 
 # fontconfig + a basic TrueType font let sharp/librsvg render ECharts SVG text
 # cleanly when converting server-side SVG charts to PNG/WebP.
-RUN apk add --no-cache fontconfig ttf-dejavu
+RUN apk add --no-cache ffmpeg fontconfig ttf-dejavu
 
 COPY package*.json ./
 RUN npm ci \
@@ -29,7 +29,7 @@ RUN npm ci \
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/public ./public
-COPY wdio.conf.js tsconfig.json ./
+COPY wdio.conf.js tsconfig.json jobdsl.groovy ./
 COPY test ./test
 
 EXPOSE 3000

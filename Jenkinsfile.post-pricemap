@@ -1,0 +1,35 @@
+timeout(time: 15, unit: 'MINUTES') {
+podTemplate(yaml: """
+kind: Pod
+spec:
+  containers:
+    - name: app
+      image: docker-registry:5000/intermittent-web:${env.TAG}
+      command: ['/bin/sh', '-c', 'cat']
+      tty: true
+      envFrom:
+        - secretRef:
+            name: intermittency-${env.BRANCH_NAME == 'production' ? 'production' : 'master'}
+      resources:
+        requests:
+          memory: "1Gi"
+          cpu: "1"
+"""
+) {
+  node(POD_LABEL) {
+    container('app') {
+      stage('render price map') {
+        sh "cd /app ; npm run render:price-map"
+        sh "cp /app/render/price-map.mp4 ."
+        archiveArtifacts 'price-map.mp4'
+      }
+      if (currentBuild.getBuildCauses()[0].userId != null) {
+        input 'Publish result?'
+      }
+      stage('publish') {
+        echo 'Publishing price-map.mp4 is not implemented in intermittent-web yet.'
+      }
+    }
+  }
+}
+}

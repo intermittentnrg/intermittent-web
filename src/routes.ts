@@ -23,7 +23,7 @@ import {
   perUnitTotal,
 } from "./dashboards/perUnit.js";
 import { capturePrice, prices } from "./dashboards/prices.js";
-import { maps, sweden } from "./dashboards/misc.js";
+import { maps, priceMap, sweden } from "./dashboards/misc.js";
 
 export async function registerRoutes(app: FastifyInstance) {
   app.get("/health", health);
@@ -47,6 +47,7 @@ export async function registerRoutes(app: FastifyInstance) {
     capture_price: capturePrice,
     simulations,
     maps,
+    price_map: priceMap,
     sweden,
     prices,
   };

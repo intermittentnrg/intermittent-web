@@ -7,6 +7,11 @@
     "dev": "tsx watch src/server.ts --dev",
     "build": "tsc && vite build",
     "start": "node dist/server.js",
+    "render:price-map:frames": "node dist/scripts/renderPriceMapFrames.js",
+    "render:price-map:video": "node dist/scripts/renderPriceMapVideo.js",
+    "render:price-map:frames:dev": "tsx src/scripts/renderPriceMapFrames.ts",
+    "render:price-map:video:dev": "tsx src/scripts/renderPriceMapVideo.ts",
+    "render:price-map": "npm run render:price-map:frames && npm run render:price-map:video",
     "test": "vitest",
     "test:e2e": "wdio run ./wdio.conf.js"
   },

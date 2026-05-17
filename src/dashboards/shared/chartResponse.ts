@@ -1,4 +1,6 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import echarts = require("echarts");
 import sharp from "sharp";
 import { buildDualAxisOptions } from "./chartOptions.js";
@@ -25,6 +27,10 @@ export async function sendChartResponse(
   };
 
   if (request.url.split("?", 1)[0].endsWith(".webp")) {
+    if (typeof extra.mapName === "string" && typeof extra.geoJsonUrl === "string") {
+      registerMapForSsr(extra.mapName, extra.geoJsonUrl);
+    }
+
     const width = 1200;
     const imageHeight = 630;
     const svg = renderEchartsSvg(options, width, imageHeight);
@@ -54,6 +60,19 @@ export async function sendDualAxisChart(
     timezone,
     extra,
   );
+}
+
+function registerMapForSsr(mapName: string, geoJsonUrl: string) {
+  if (echarts.getMap(mapName)) return;
+
+  const geoJsonPath = join(
+    process.cwd(),
+    "public",
+    geoJsonUrl.replace(/^\/+/, "").replace(/^assets\//, ""),
+  );
+  if (!existsSync(geoJsonPath)) return;
+
+  echarts.registerMap(mapName, JSON.parse(readFileSync(geoJsonPath, "utf8")));
 }
 
 function renderEchartsSvg(options: unknown, width: number, height: number) {

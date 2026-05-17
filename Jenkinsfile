@@ -74,6 +74,16 @@ spec:
           }
         }
       }
+      stage('jobdsl') {
+        sh "cp /app/jobdsl.groovy ."
+        jobDsl(targets: 'jobdsl.groovy',
+               additionalParameters: [
+                   TAG: env.TAG,
+                   BRANCH_NAME: env.BRANCH_NAME
+               ],
+               removedJobAction: 'DELETE'
+        )
+      }
     }
   }
 }
