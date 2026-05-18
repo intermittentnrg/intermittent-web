@@ -4,6 +4,8 @@ FROM node:22-alpine
 
 ENV NODE_ENV=development
 
+ARG TERRAFORM_VERSION=1.15.3
+
 # fontconfig + a basic TrueType font let sharp/librsvg render ECharts SVG text
 # cleanly when converting server-side SVG charts to PNG/WebP.
 # dumb-init gives the dev server proper signal handling under Docker.
@@ -13,6 +15,17 @@ RUN apk add --no-cache \
   fontconfig \
   postgresql-client \
   ttf-dejavu \
+  unzip \
+  && apk_arch="$(apk --print-arch)" \
+  && case "$apk_arch" in \
+    x86_64) terraform_arch="amd64" ;; \
+    aarch64) terraform_arch="arm64" ;; \
+    *) echo "Unsupported architecture for Terraform: $apk_arch" >&2; exit 1 ;; \
+  esac \
+  && curl -fsSLo /tmp/terraform.zip "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_${terraform_arch}.zip" \
+  && unzip /tmp/terraform.zip -d /usr/local/bin \
+  && rm /tmp/terraform.zip \
+  && terraform version \
   && mkdir -p /workspace/node_modules \
   && chown -R node: /workspace
 
