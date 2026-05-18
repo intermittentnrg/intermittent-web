@@ -1,7 +1,7 @@
 env.TAG = "${env.BRANCH_NAME}-${env.BUILD_NUMBER}"
 
 def deployBranch = env.BRANCH_NAME == "master" || env.BRANCH_NAME == "production"
-def secretName = "intermittency-${env.BRANCH_NAME == 'production' ? 'production' : 'master'}"
+def secretName = "intermittent-web-master"
 
 properties([
   disableConcurrentBuilds(),
@@ -66,7 +66,7 @@ spec:
       stage('test app') {
         timeout(time: 10, unit: 'MINUTES') {
           try {
-            sh 'cd /app ; npm run test:e2e'
+            sh 'cd /app ; mkdir tmp ; npm run test:e2e'
           } finally {
             sh 'cp -r /app/tmp .'
             junit testResults: 'tmp/test-results.xml', allowEmptyResults: true

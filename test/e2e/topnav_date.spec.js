@@ -21,7 +21,7 @@ describe('Date Navigation', () => {
   it('selecting preset date updates URL', async () => {
     await browser.url('/europe/country/SE/7_days_ago_to_now/electricity_mix');
     await $('.date-preset-btn').click();
-    await $('button=Last 30 days').click();
+    await $('button=Last 30 Days').click();
     await expectPath('/europe/country/SE/30_days_ago_to_now/electricity_mix');
   });
 

@@ -23,7 +23,7 @@ WORKDIR /app
 RUN apk add --no-cache ffmpeg fontconfig ttf-dejavu
 
 COPY package*.json ./
-RUN npm ci \
+RUN npm ci --include=dev \
   && npm cache clean --force
 
 COPY --from=builder /app/dist ./dist
