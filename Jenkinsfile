@@ -111,7 +111,7 @@ spec:
         if (deployBranch) {
           checkout scm
           sh """
-cd k8s/helm
+cd infra/helm
 helm repo add bjw-s https://bjw-s-labs.github.io/helm-charts
 set +x
 helm upgrade --install intermittent-web bjw-s/app-template \
