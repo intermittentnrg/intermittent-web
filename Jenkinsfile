@@ -5,14 +5,7 @@ def secretName = "intermittent-web-master"
 
 properties([
   disableConcurrentBuilds(),
-  buildDiscarder(logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '', numToKeepStr: '50')),
-  [
-    $class         : 'BuildBlockerProperty',
-    blockingJobs   : "intermittent-web-${env.BRANCH_NAME}/.*",
-    blockLevel     : 'GLOBAL',
-    scanQueueFor   : 'BUILDABLE',
-    useBuildBlocker: true
-  ]
+  buildDiscarder(logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '', numToKeepStr: '50'))
 ])
 
 stage('kaniko') {
