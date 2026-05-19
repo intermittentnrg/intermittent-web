@@ -7,7 +7,7 @@ variable "function_name" {
 variable "memory_size" {
   description = "Lambda memory size in MB."
   type        = number
-  default     = 128
+  default     = 256
 }
 
 variable "timeout" {
@@ -28,3 +28,5 @@ variable "environment_variables" {
   default     = {}
   sensitive   = true
 }
+
+variable "cloudflare_api_token" {}

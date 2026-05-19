@@ -74,23 +74,87 @@ resource "aws_lambda_function" "web" {
   ]
 }
 
-resource "aws_lambda_function_url" "web" {
-  function_name      = aws_lambda_function.web.function_name
-  authorization_type = "NONE"
+resource "tls_private_key" "api_gateway_origin" {
+  algorithm = "RSA"
+  rsa_bits  = 2048
 }
 
-resource "aws_lambda_permission" "allow_public_function_url" {
-  statement_id           = "AllowPublicFunctionUrlInvoke"
-  action                 = "lambda:InvokeFunctionUrl"
-  function_name          = aws_lambda_function.web.function_name
-  principal              = "*"
-  function_url_auth_type = "NONE"
+resource "tls_cert_request" "api_gateway_origin" {
+  private_key_pem = tls_private_key.api_gateway_origin.private_key_pem
+
+  subject {
+    common_name  = "lambda.intermittent.energy"
+    organization = "intermittent.energy"
+  }
+
+  dns_names = ["lambda.intermittent.energy"]
 }
 
-resource "aws_lambda_permission" "allow_public_function_invoke_via_url" {
-  statement_id              = "AllowPublicFunctionInvokeViaUrl"
-  action                    = "lambda:InvokeFunction"
-  function_name             = aws_lambda_function.web.function_name
-  principal                 = "*"
-  invoked_via_function_url  = true
+resource "cloudflare_origin_ca_certificate" "api_gateway" {
+  csr                = tls_cert_request.api_gateway_origin.cert_request_pem
+  hostnames          = ["lambda.intermittent.energy"]
+  request_type       = "origin-rsa"
+  requested_validity = 5475
+}
+
+resource "aws_acm_certificate" "api_gateway_origin" {
+  private_key      = tls_private_key.api_gateway_origin.private_key_pem
+  certificate_body = cloudflare_origin_ca_certificate.api_gateway.certificate
+}
+
+resource "aws_apigatewayv2_api" "web" {
+  name          = var.function_name
+  protocol_type = "HTTP"
+}
+
+resource "aws_apigatewayv2_integration" "web" {
+  api_id                 = aws_apigatewayv2_api.web.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.web.invoke_arn
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_route" "web" {
+  api_id    = aws_apigatewayv2_api.web.id
+  route_key = "$default"
+  target    = "integrations/${aws_apigatewayv2_integration.web.id}"
+}
+
+resource "aws_apigatewayv2_stage" "web" {
+  api_id      = aws_apigatewayv2_api.web.id
+  name        = "$default"
+  auto_deploy = true
+}
+
+resource "aws_lambda_permission" "allow_apigateway" {
+  statement_id  = "AllowApiGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.web.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.web.execution_arn}/*/*"
+}
+
+resource "aws_apigatewayv2_domain_name" "web" {
+  domain_name = "lambda.intermittent.energy"
+
+  domain_name_configuration {
+    certificate_arn = aws_acm_certificate.api_gateway_origin.arn
+    endpoint_type   = "REGIONAL"
+    security_policy = "TLS_1_2"
+  }
+}
+
+resource "aws_apigatewayv2_api_mapping" "web" {
+  api_id      = aws_apigatewayv2_api.web.id
+  domain_name = aws_apigatewayv2_domain_name.web.id
+  stage       = aws_apigatewayv2_stage.web.id
+}
+
+resource "cloudflare_dns_record" "lambda" {
+  zone_id = "a4e4efd14989cfcf69416bfb4bfe2a6a"
+  name    = "lambda.intermittent.energy"
+  content = aws_apigatewayv2_domain_name.web.domain_name_configuration[0].target_domain_name
+  type    = "CNAME"
+  proxied = true
+  ttl     = 1
 }
