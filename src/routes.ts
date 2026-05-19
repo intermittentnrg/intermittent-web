@@ -1,10 +1,10 @@
 import type { FastifyInstance } from "fastify";
 import {
   dashboardSpa,
-  geoipRedirect,
   health,
   nordpool,
 } from "./controllers.js";
+import { geoipRedirect } from "./geoipController.js";
 import { legacyDashboardRedirect } from "./legacyRedirectController.js";
 import { electricityMix } from "./dashboards/electricityMix.js";
 import {

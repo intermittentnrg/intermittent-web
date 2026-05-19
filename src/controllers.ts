@@ -61,48 +61,6 @@ export async function health(_request: FastifyRequest, reply: FastifyReply) {
   return reply.send({ ok: true });
 }
 
-export async function geoipRedirect(request: FastifyRequest, reply: FastifyReply) {
-  const headers = request.headers;
-  const continent = String(headers["cf-ipcontinent"] || "").toUpperCase();
-  const country = String(headers["cf-ipcountry"] || "").toUpperCase();
-  const regionCode = String(headers["cf-region-code"] || "").toUpperCase();
-
-  const allRegionTargets: Record<string, { region: string; type: string; code: string }> = {
-    AU: { region: "australia", type: "region", code: "all" },
-    BR: { region: "brazil", type: "region", code: "all" },
-  };
-  const regionCodeMappings: Record<string, Record<string, string>> = {
-    AU: { NSW: "NSW1", QLD: "QLD1", SA: "SA1", TAS: "TAS1", VIC: "VIC1", WA: "WEM", NT: "all", ACT: "all" },
-  };
-  const specialFallbacks: Record<string, { region: string; type: string; code: string }> = {
-    GG: { region: "europe", type: "country", code: "GB" },
-    JE: { region: "europe", type: "country", code: "GB" },
-    IM: { region: "europe", type: "country", code: "GB" },
-  };
-  const continentFallbacks: Record<string, { region: string; type: string; code: string }> = {
-    EU: { region: "europe", type: "country", code: "all" },
-    NA: { region: "usa", type: "country", code: "US48" },
-    SA: { region: "brazil", type: "region", code: "all" },
-    AS: { region: "japan", type: "region", code: "all" },
-    AF: { region: "south_africa", type: "country", code: "ZA" },
-    OC: { region: "australia", type: "region", code: "all" },
-    AN: { region: "usa", type: "country", code: "US48" },
-  };
-
-  let target = specialFallbacks[country] || continentFallbacks[continent] || { region: "usa", type: "country", code: "US48" };
-
-  const mappedRegion = regionCodeMappings[country]?.[regionCode];
-  if (mappedRegion === "all" && allRegionTargets[country]) {
-    target = allRegionTargets[country];
-  } else if (mappedRegion) {
-    target = { region: target.region, type: "region", code: mappedRegion };
-  } else if (allRegionTargets[country]) {
-    target = allRegionTargets[country];
-  }
-
-  return reply.redirect(`/${target.region}/${target.type}/${target.code}/7_days_ago_to_now/electricity_mix`, 302);
-}
-
 export async function dashboardSpa(request: FastifyRequest<{ Params: DashboardParams; Querystring: Record<string, string | undefined> }>, reply: FastifyReply) {
   const params = request.params;
   const query = request.query;
