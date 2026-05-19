@@ -58,7 +58,7 @@ export async function registerRoutes(app: FastifyInstance) {
       handler as never,
     );
     app.get(
-      `/:region/:area_type/:area/:date_range/${endpoint}/echarts.webp`,
+      `/:region/:area_type/:area/:date_range/${endpoint}/echarts.png`,
       handler as never,
     );
   }

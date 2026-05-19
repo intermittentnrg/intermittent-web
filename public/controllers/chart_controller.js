@@ -1,5 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
-import * as echarts from "echarts"
+import echarts from "../echarts_client.js"
 import { router } from "../router.js"
 
 export default class extends Controller {

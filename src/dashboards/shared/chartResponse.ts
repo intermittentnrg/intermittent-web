@@ -1,9 +1,8 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import echarts = require("echarts");
-import sharp from "sharp";
 import { buildDualAxisOptions } from "./chartOptions.js";
+import { getEchartsForSsr } from "./echartsSsr.js";
 
 type ChartPayload = {
   options: unknown;
@@ -26,20 +25,19 @@ export async function sendChartResponse(
     ...extra,
   };
 
-  if (request.url.split("?", 1)[0].endsWith(".webp")) {
+  if (request.url.split("?", 1)[0].endsWith(".png")) {
     if (typeof extra.mapName === "string" && typeof extra.geoJsonUrl === "string") {
-      registerMapForSsr(extra.mapName, extra.geoJsonUrl);
+      await registerMapForSsr(extra.mapName, extra.geoJsonUrl);
     }
 
     const width = 1200;
     const imageHeight = 630;
-    const svg = renderEchartsSvg(options, width, imageHeight);
-    const webp = await sharp(Buffer.from(svg)).webp({ quality: 90 }).toBuffer();
+    const png = await renderEchartsPng(options, width, imageHeight);
 
     return reply
-      .header("Content-Type", "image/webp")
+      .header("Content-Type", "image/png")
       .header("Cache-Control", "public, max-age=3600")
-      .send(webp);
+      .send(png);
   }
 
   return reply.header("Cache-Control", "public, max-age=3600").send(payload);
@@ -62,7 +60,8 @@ export async function sendDualAxisChart(
   );
 }
 
-function registerMapForSsr(mapName: string, geoJsonUrl: string) {
+async function registerMapForSsr(mapName: string, geoJsonUrl: string) {
+  const echarts = await getEchartsForSsr();
   if (echarts.getMap(mapName)) return;
 
   const geoJsonPath = join(
@@ -75,11 +74,42 @@ function registerMapForSsr(mapName: string, geoJsonUrl: string) {
   echarts.registerMap(mapName, JSON.parse(readFileSync(geoJsonPath, "utf8")));
 }
 
-function renderEchartsSvg(options: unknown, width: number, height: number) {
-  const chart = echarts.init(null, undefined, { renderer: "svg", ssr: true, width, height });
+let canvasFontsRegistered = false;
+
+async function renderEchartsPng(options: unknown, width: number, height: number) {
+  const { createCanvas, GlobalFonts } = await import("@napi-rs/canvas");
+
+  if (!canvasFontsRegistered) {
+    const fontsDir = join(process.cwd(), "fonts");
+    if (existsSync(fontsDir)) {
+      GlobalFonts.loadFontsFromDir(fontsDir);
+    }
+    const dejavuSans = join(fontsDir, "DejaVuSans.ttf");
+    const dejavuSansBold = join(fontsDir, "DejaVuSans-Bold.ttf");
+    if (existsSync(dejavuSans)) GlobalFonts.registerFromPath(dejavuSans, "DejaVu Sans");
+    if (existsSync(dejavuSansBold)) GlobalFonts.registerFromPath(dejavuSansBold, "DejaVu Sans");
+    if (GlobalFonts.has("DejaVu Sans")) {
+      GlobalFonts.setAlias("DejaVu Sans", "sans-serif");
+      GlobalFonts.setAlias("DejaVu Sans", "Inter");
+      GlobalFonts.setAlias("DejaVu Sans", "Helvetica");
+      GlobalFonts.setAlias("DejaVu Sans", "Arial");
+    }
+    canvasFontsRegistered = true;
+  }
+
+  const echarts = await getEchartsForSsr();
+  echarts.setPlatformAPI({ createCanvas: () => createCanvas(1, 1) });
+
+  const canvas = createCanvas(width, height);
+  const chart = echarts.init(canvas, undefined, { renderer: "canvas", ssr: true, width, height });
+
   try {
-    chart.setOption(options as never);
-    return chart.renderToSVGString();
+    chart.setOption({
+      textStyle: { fontFamily: "DejaVu Sans, sans-serif" },
+      ...(options as Record<string, unknown>),
+    } as never);
+
+    return chart.renderToCanvas().toBuffer("image/png");
   } finally {
     chart.dispose();
   }

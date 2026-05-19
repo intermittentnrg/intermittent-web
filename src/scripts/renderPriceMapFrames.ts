@@ -1,8 +1,8 @@
 import "dotenv/config";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { createCanvas } from "@napi-rs/canvas";
 import echarts = require("echarts");
-import sharp from "sharp";
 import { buildApp } from "../server.js";
 
 const width = Number(process.env.PRICE_MAP_WIDTH || 1200);
@@ -62,14 +62,16 @@ async function main() {
 
 async function renderFrame(payload: PriceMapPayload, index: number) {
   const option = singleFrameOption(payload.options, index);
-  const chart = echarts.init(null, undefined, { renderer: "svg", ssr: true, width, height });
+  echarts.setPlatformAPI({ createCanvas: () => createCanvas(1, 1) });
+  const canvas = createCanvas(width, height);
+  const chart = echarts.init(canvas, undefined, { renderer: "canvas", ssr: true, width, height });
   try {
-    chart.setOption(option as never);
-    const svg = chart.renderToSVGString();
-    return sharp(Buffer.from(svg))
-      .flatten({ background: "#ffffff" })
-      .png()
-      .toBuffer();
+    chart.setOption({
+      backgroundColor: "#ffffff",
+      textStyle: { fontFamily: "DejaVu Sans, sans-serif" },
+      ...(option as Record<string, unknown>),
+    } as never);
+    return chart.renderToCanvas().toBuffer("image/png");
   } finally {
     chart.dispose();
   }

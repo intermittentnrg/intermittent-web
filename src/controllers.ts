@@ -116,7 +116,7 @@ export async function dashboardSpa(request: FastifyRequest<{ Params: DashboardPa
 
   return reply.view("dashboards/index.ejs", {
     pageTitle: `${dashboardType} - ${params.area}`,
-    imageUrl: absoluteUrl(request, echartsWebpPath(params, dashboardType, query)),
+    imageUrl: absoluteUrl(request, echartsPngPath(params, dashboardType, query)),
     params: { ...params, ...query },
     dashboardType,
     productionType: query.production_type,
@@ -135,8 +135,8 @@ export async function dashboardSpa(request: FastifyRequest<{ Params: DashboardPa
   });
 }
 
-function echartsWebpPath(params: DashboardParams, dashboardType: string, query: Record<string, string | undefined>) {
-  const path = `/${params.region}/${params.area_type}/${params.area}/${params.date_range}/${dashboardType}/echarts.webp`;
+function echartsPngPath(params: DashboardParams, dashboardType: string, query: Record<string, string | undefined>) {
+  const path = `/${params.region}/${params.area_type}/${params.area}/${params.date_range}/${dashboardType}/echarts.png`;
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) {
     if (value != null && value !== "") search.set(key, value);

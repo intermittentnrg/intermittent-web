@@ -6,9 +6,8 @@ ENV NODE_ENV=development
 
 ARG TERRAFORM_VERSION=1.15.3
 
-# fontconfig + a basic TrueType font let sharp/librsvg render ECharts SVG text
-# cleanly when converting server-side SVG charts to PNG/WebP.
-# dumb-init gives the dev server proper signal handling under Docker.
+# fontconfig + a basic TrueType font let server-side ECharts canvas rendering
+# draw text cleanly. dumb-init gives the dev server proper signal handling under Docker.
 RUN apk add --no-cache \
   curl \
   dumb-init \
