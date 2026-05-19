@@ -59,10 +59,11 @@ spec:
       stage('test app') {
         timeout(time: 10, unit: 'MINUTES') {
           try {
-            sh 'cd /app ; mkdir tmp ; npm run test:e2e'
+            sh 'cd /app ; mkdir tmp ; VITEST_JUNIT_OUTPUT=tmp/vitest-results.xml npm run test'
+            sh 'cd /app ; npm run test:e2e'
           } finally {
             sh 'cp -r /app/tmp .'
-            junit testResults: 'tmp/test-results.xml', allowEmptyResults: true
+            junit testResults: 'tmp/test-results.xml,tmp/vitest-results.xml', allowEmptyResults: true
             archiveArtifacts artifacts: 'tmp/wdio-screenshots/*.png', allowEmptyArchive: true
           }
         }
