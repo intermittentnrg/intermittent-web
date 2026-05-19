@@ -5,7 +5,7 @@ import view from "@fastify/view";
 import staticFiles from "@fastify/static";
 import ejs from "ejs";
 import { registerRoutes } from "./routes.js";
-import { viteAssets } from "./lib/assets.js";
+import { viteEntrypointUrl, viteScriptTags } from "./lib/assets.js";
 
 export async function buildApp() {
   const app = Fastify({
@@ -20,7 +20,8 @@ export async function buildApp() {
 
     root: path.join(process.cwd(), "src/views"),
     defaultContext: {
-      viteAssets,
+      viteEntrypointUrl,
+      viteScriptTags,
     },
   });
 
@@ -29,12 +30,16 @@ export async function buildApp() {
     prefix: "/assets/",
   });
 
+  const isDevelopment = process.argv.includes("--dev");
+
   app.register(staticFiles, {
-    root: process.argv.includes("--dev")
+    root: isDevelopment
       ? process.cwd()
       : path.join(process.cwd(), "dist/public/client"),
     prefix: "/assets-build/",
     decorateReply: false,
+    maxAge: isDevelopment ? 0 : "30d",
+    immutable: !isDevelopment,
   });
 
   app.register(registerRoutes);

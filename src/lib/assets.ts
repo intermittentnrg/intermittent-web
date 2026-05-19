@@ -34,6 +34,14 @@ function assetUrl(file: string) {
   return `${base}${file}`;
 }
 
+export function viteEntrypointUrl(entrypoint: string) {
+  const manifest = loadManifest();
+  const entry = manifest?.[entrypoint];
+  if (entry?.file) return assetUrl(entry.file);
+
+  return `/assets/${entrypoint.replace(/^public\//, "")}`;
+}
+
 function productionAssetTags(entrypoint: string) {
   const manifest = loadManifest();
   const entry = manifest?.[entrypoint];
@@ -83,7 +91,7 @@ function developmentImportMap() {
 </script>`;
 }
 
-export function viteAssets(entrypoint = "public/app.js") {
+export function viteScriptTags(entrypoint = "public/app.js") {
   return productionAssetTags(entrypoint)
     ?? `${developmentImportMap()}\n<script type="module" src="${base}${entrypoint}" defer></script>`;
 }

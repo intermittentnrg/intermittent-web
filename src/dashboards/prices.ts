@@ -232,7 +232,6 @@ function buildCapturePriceOptions(
     title: { text: "Capture Prices", left: "center", top: 10 },
     tooltip: { trigger: "axis", formatter: { type: "multi" } },
     legend: {
-      type: "scroll",
       orient: "horizontal",
       top: 35,
       data: [...new Set(series.map((s) => s.name))],

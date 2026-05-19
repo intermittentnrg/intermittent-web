@@ -17,7 +17,6 @@ export function buildChartOptions(
       formatter: { type: formatterType },
     },
     legend: {
-      type: "scroll",
       orient: "horizontal",
       top: 40,
       data: [...new Set(series.map((s) => s.name))],
@@ -74,7 +73,6 @@ export function buildDualAxisOptions(
       formatter: { type: "multi" },
     },
     legend: {
-      type: "scroll",
       orient: "horizontal",
       top: 40,
       data: [...new Set(series.map((s) => s.name))],

@@ -149,7 +149,6 @@ function simulationOptions(
     tooltip: { trigger: "axis", formatter: { type: "multi" } },
     legend: [
       {
-        type: "scroll",
         top: 30,
         left: "center",
         right: "15%",
