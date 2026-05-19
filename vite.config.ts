@@ -17,6 +17,11 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         input: {
           app: "public/app.js",
+          application: "public/application.css",
+          topnav: "public/topnav.css",
+          topnavArea: "public/topnav-area.css",
+          topnavDashboard: "public/topnav-dashboard.css",
+          topnavDate: "public/topnav-date.css",
         },
         output: {
           entryFileNames: isDevelopment ? "app.bundle.js" : "assets/[name]-[hash].js",

@@ -15,12 +15,12 @@
         <meta property="og:image:height" content="630">
       <% } %>
     <% } %>
-    <link rel="stylesheet" href="/assets/application.css">
-    <link rel="stylesheet" href="/assets/topnav.css">
-    <link rel="stylesheet" href="/assets/topnav-area.css">
-    <link rel="stylesheet" href="/assets/topnav-dashboard.css">
-    <link rel="stylesheet" href="/assets/topnav-date.css">
-    <%- viteAssets('public/app.js') %>
+    <link rel="stylesheet" href="<%= viteEntrypointUrl('public/application.css') %>">
+    <link rel="stylesheet" href="<%= viteEntrypointUrl('public/topnav.css') %>">
+    <link rel="stylesheet" href="<%= viteEntrypointUrl('public/topnav-area.css') %>">
+    <link rel="stylesheet" href="<%= viteEntrypointUrl('public/topnav-dashboard.css') %>">
+    <link rel="stylesheet" href="<%= viteEntrypointUrl('public/topnav-date.css') %>">
+    <%- viteScriptTags('public/app.js') %>
     <%- include('google_analytics') %>
   </head>
   <body>
