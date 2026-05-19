@@ -4,6 +4,20 @@
   <div id="main-chart" data-controller="chart" data-chart-target="chart"></div>
   <div data-chart-target="error" style="display: none; padding: 20px; color: #dc2626; background: #fef2f2; border: 1px solid #dc2626; border-radius: 4px; margin-top: 10px;"></div>
 
+  <script>
+    (function () {
+      window.__fetchEchartsJson = function (options) {
+        var width = options && options.width;
+        var signal = options && options.signal;
+        var search = window.location.search;
+        var url = window.location.pathname + '/echarts.json' + (search ? search + '&width=' + width : '?width=' + width);
+        return fetch(url, { headers: { Accept: 'application/json' }, signal: signal });
+      };
+
+      var chart = document.getElementById('main-chart');
+      window.__echartsJsonPreload = window.__fetchEchartsJson({ width: chart ? chart.offsetWidth || 800 : 800 });
+    })();
+  </script>
   <script type="application/json" id="initial-state"><%- JSON.stringify({ params, dashboardType, areasData, regions }) %></script>
 </main>
 <%- include('../shared/footer') %>

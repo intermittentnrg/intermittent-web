@@ -65,11 +65,19 @@ function productionAssetTags(entrypoint: string) {
 }
 
 function developmentImportMap() {
-  return `<script type="importmap">
+  return `<script>window.process = window.process || { env: { NODE_ENV: "development" } };</script>
+<script type="importmap">
 {
   "imports": {
     "@hotwired/stimulus": "${base}node_modules/@hotwired/stimulus/dist/stimulus.js",
-    "echarts": "${base}node_modules/echarts/dist/echarts.esm.js"
+    "echarts": "${base}node_modules/echarts/dist/echarts.esm.js",
+    "echarts/core": "${base}node_modules/echarts/core.js",
+    "echarts/charts": "${base}node_modules/echarts/charts.js",
+    "echarts/components": "${base}node_modules/echarts/components.js",
+    "echarts/renderers": "${base}node_modules/echarts/renderers.js",
+    "echarts/": "${base}node_modules/echarts/",
+    "zrender/": "${base}node_modules/zrender/",
+    "tslib": "${base}node_modules/tslib/tslib.es6.js"
   }
 }
 </script>`;

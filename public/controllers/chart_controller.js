@@ -48,18 +48,23 @@ export default class extends Controller {
       this.errorTarget.style.display = 'none'
     }
 
-    const params = this.buildParams()
-    const url = `${window.location.pathname}/echarts.json${params}`
+    const chartWidth = this.chartWidth()
+    const preloaded = window.__echartsJsonPreload
+    if (preloaded) {
+      delete window.__echartsJsonPreload
+    }
 
-    fetch(url, {
-      headers: { "Accept": "application/json" },
-      signal: currentAbortController.signal
-    })
+    const responsePromise = preloaded
+      ? preloaded
+      : window.__fetchEchartsJson({ width: chartWidth, signal: currentAbortController.signal })
+
+    responsePromise
     .then(response => {
       if (!response.ok) throw new Error('Network response was not ok')
       return response.json()
     })
     .then(data => {
+      if (currentAbortController.signal.aborted || this.abortController !== currentAbortController) return
       this.renderChart(data)
       if (data.timezone) {
         document.dispatchEvent(new CustomEvent('timezone-loaded', { detail: { timezone: data.timezone } }))
@@ -90,10 +95,8 @@ export default class extends Controller {
     })
   }
 
-  buildParams() {
-    const chartWidth = this.chartTarget?.offsetWidth || 800
-    const search = window.location.search
-    return search ? `${search}&width=${chartWidth}` : `?width=${chartWidth}`
+  chartWidth() {
+    return this.chartTarget?.offsetWidth || 800
   }
 
   async renderChart(data) {
