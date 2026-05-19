@@ -177,7 +177,8 @@ function heatmap(rows: AnyRow[]) {
       right: "4%",
       bottom: "10%",
       top: "15%",
-      containLabel: true,
+      outerBoundsMode: "same",
+      outerBoundsContain: "axisLabel",
     },
     xAxis: {
       type: "category",

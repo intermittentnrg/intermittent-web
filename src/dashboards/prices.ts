@@ -238,12 +238,12 @@ function buildCapturePriceOptions(
       data: [...new Set(series.map((s) => s.name))],
     },
     grid: [
-      { left: "5%", right: "52%", top: "12%", height: "22%", containLabel: true },
-      { left: "52%", right: "5%", top: "12%", height: "22%", containLabel: true },
-      { left: "5%", right: "52%", top: "38%", height: "22%", containLabel: true },
-      { left: "52%", right: "5%", top: "38%", height: "22%", containLabel: true },
-      { left: "5%", right: "52%", top: "64%", height: "22%", containLabel: true },
-      { left: "52%", right: "5%", top: "64%", height: "22%", containLabel: true },
+      { left: "5%", right: "52%", top: "12%", height: "22%", outerBoundsMode: "same", outerBoundsContain: "axisLabel" },
+      { left: "52%", right: "5%", top: "12%", height: "22%", outerBoundsMode: "same", outerBoundsContain: "axisLabel" },
+      { left: "5%", right: "52%", top: "38%", height: "22%", outerBoundsMode: "same", outerBoundsContain: "axisLabel" },
+      { left: "52%", right: "5%", top: "38%", height: "22%", outerBoundsMode: "same", outerBoundsContain: "axisLabel" },
+      { left: "5%", right: "52%", top: "64%", height: "22%", outerBoundsMode: "same", outerBoundsContain: "axisLabel" },
+      { left: "52%", right: "5%", top: "64%", height: "22%", outerBoundsMode: "same", outerBoundsContain: "axisLabel" },
     ],
     xAxis: [
       { type: "time", gridIndex: 0 },
