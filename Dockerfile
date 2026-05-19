@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM node:22-alpine AS builder
+FROM node:22-bookworm-slim AS builder
 
 WORKDIR /app
 
@@ -13,14 +13,16 @@ COPY public ./public
 
 RUN npm run build
 
-FROM node:22-alpine AS runtime
+FROM node:22-bookworm-slim AS runtime
 
 ENV NODE_ENV=production
 WORKDIR /app
 
-# fontconfig + a basic TrueType font let sharp/librsvg render ECharts SVG text
-# cleanly when converting server-side SVG charts to PNG/WebP.
-RUN apk add --no-cache ffmpeg fontconfig ttf-dejavu
+# fontconfig + a basic TrueType font let server-side ECharts/canvas rendering
+# produce readable chart text, and ffmpeg stitches price-map frames into video.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ffmpeg fontconfig fonts-dejavu-core \
+  && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
 RUN npm ci --include=dev \
