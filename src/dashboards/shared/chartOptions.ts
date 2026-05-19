@@ -1,4 +1,3 @@
-import { stableColor } from "./colors.js";
 import type { Series } from "./types.js";
 
 export function buildChartOptions(
@@ -6,8 +5,6 @@ export function buildChartOptions(
   title: string,
   formatterType: string,
 ) {
-  ensureStableSeriesColors(series);
-
   return {
     useUTC: true,
     title: { text: title, left: "center", top: 10 },
@@ -39,8 +36,6 @@ export function buildDualAxisOptions(
   series: Array<{ name: string; yAxisIndex?: number }>,
   title: string,
 ) {
-  ensureStableSeriesColors(series);
-
   const hasSecondary = series.some((s) => s.yAxisIndex === 1);
   const priceSeries = series.some((s) => s.name?.includes("price"));
   const tempSeries = series.some((s) => s.name?.includes("temp"));
@@ -89,17 +84,4 @@ export function buildDualAxisOptions(
     yAxis,
     series,
   };
-}
-
-function ensureStableSeriesColors(series: Array<{ name: string }>) {
-  for (const s of series as Array<{
-    name: string;
-    itemStyle?: Record<string, unknown>;
-    lineStyle?: Record<string, unknown>;
-  }>) {
-    const color = s.itemStyle?.color ?? s.lineStyle?.color ?? stableColor(s.name);
-
-    s.itemStyle = { ...s.itemStyle, color };
-    if (s.lineStyle) s.lineStyle = { ...s.lineStyle, color };
-  }
 }
