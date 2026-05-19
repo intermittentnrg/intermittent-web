@@ -10,6 +10,7 @@ import { viteAssets } from "./lib/assets.js";
 export async function buildApp() {
   const app = Fastify({
     logger: process.env.NODE_ENV === "test" ? false : { base: null },
+    trustProxy: true,
   });
 
   app.register(view, {
