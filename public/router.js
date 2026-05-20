@@ -105,12 +105,7 @@ export function updatePath(updates) {
   navigate(path)
 }
 
-export function init() {
-  notifyListeners()
-}
-
 export const router = {
-  init,
   navigate,
   onChange,
   formatDatePath,

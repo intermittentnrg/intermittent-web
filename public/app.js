@@ -1,4 +1,3 @@
-import { router } from "./router.js";
 import { initChart } from "./modules/chart.js";
 import { initTopnavDate } from "./modules/topnav_date.js";
 import { initTopnavDashboard } from "./modules/topnav_dashboard.js";
@@ -11,4 +10,3 @@ initChart();
 initTopnavArea();
 initTopnavDate();
 initTopnavDashboard();
-router.init();
