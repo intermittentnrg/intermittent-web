@@ -16,6 +16,7 @@ const perUnitDashboards = new Set([
   "per_unit_peak",
   "per_unit_total",
   "per_unit_moving_capacity",
+  "per_unit_battery",
 ]);
 
 const datePresets = [

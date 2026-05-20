@@ -121,7 +121,7 @@ export default class extends Controller {
     
     if (this.hasPerUnitSectionTarget) {
       this.perUnitSectionTargets.forEach(el => {
-        el.style.display = ['per_unit', 'per_unit_peak', 'per_unit_total', 'per_unit_moving_capacity'].includes(dashboard) ? 'flex' : 'none'
+        el.style.display = ['per_unit', 'per_unit_peak', 'per_unit_total', 'per_unit_moving_capacity', 'per_unit_battery'].includes(dashboard) ? 'flex' : 'none'
       })
     }
 
@@ -182,7 +182,7 @@ export default class extends Controller {
     if (!this.hasUnitOptionsTarget) return
 
     const query = router.getQuery()
-    const selected = query.units ? query.units.split(',') : []
+    const selected = (query.units || '').split(',').filter(Boolean)
     const isAllSelected = selected.includes('all')
     const selectedNames = []
 
@@ -417,6 +417,7 @@ export default class extends Controller {
 
     triggerChartUpdate()
   }
+
 
   getSelectedUnits() {
     const allCheckbox = this.unitOptionsTarget.querySelector(".unit-checkbox[value='all']")

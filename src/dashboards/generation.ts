@@ -1,7 +1,7 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { chartQuery } from "./shared/chartQuery.js";
-import { calculateInterval, calculateYoyInterval } from "./shared/intervals.js";
-import { getAreaContext } from "./shared/context.js";
+import { calculateYoyInterval } from "./shared/intervals.js";
+import { getContext } from "./shared/context.js";
 import { buildChartOptions } from "./shared/chartOptions.js";
 import {
   buildBasicSeries,
@@ -55,19 +55,13 @@ export async function generation(
   request: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
 ) {
-  const ctx = await getAreaContext(request.params);
-  const interval = calculateInterval(
-    ctx.from,
-    ctx.to,
-    request.query.width,
-    request.query.min_interval,
-  );
+  const ctx = await getContext(request);
   const ptIds = await getProductionTypeIds(
     ctx.areaIds,
     request.query.production_type,
   );
   const priceArgs: [string, Date, Date, number[], string] = [
-    `${interval} seconds`,
+    `${ctx.interval} seconds`,
     ctx.from,
     ctx.to,
     ctx.areaIds,
@@ -117,7 +111,7 @@ export async function generationTotal(
   request: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
 ) {
-  const ctx = await getAreaContext(request.params);
+  const ctx = await getContext(request);
   const ptIds = await getProductionTypeIds(
     ctx.areaIds,
     request.query.production_type,
@@ -161,19 +155,13 @@ export async function generationMinMax(
   req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
 ) {
-  const ctx = await getAreaContext(req.params);
-  const interval = calculateInterval(
-    ctx.from,
-    ctx.to,
-    req.query.width,
-    req.query.min_interval,
-  );
+  const ctx = await getContext(req);
   const ptIds = await getProductionTypeIds(
     ctx.areaIds,
     req.query.production_type,
   );
   const rows = await chartQuery<AnyRow>(req, generationMinMaxSql, [
-    `${interval} seconds`,
+    `${ctx.interval} seconds`,
     ctx.from,
     ctx.to,
     ctx.areaIds,
@@ -206,7 +194,7 @@ export async function generationYoy(
   req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
 ) {
-  const ctx = await getAreaContext(req.params);
+  const ctx = await getContext(req);
   const interval = calculateYoyInterval(
     req.query.width,
     req.query.min_interval,
@@ -217,7 +205,7 @@ export async function generationYoy(
     req.query.production_type,
   );
   const rows = await chartQuery<AnyRow>(req, generationYoySql, [
-    `${interval} seconds`,
+    `${ctx.interval} seconds`,
     finish,
     ctx.areaIds,
     ctx.timezone,

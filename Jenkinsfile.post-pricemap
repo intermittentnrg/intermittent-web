@@ -1,3 +1,6 @@
+if (env.BRANCH_NAME == 'master') {
+  build('/intermittency-master/post-pricemap')
+}
 timeout(time: 15, unit: 'MINUTES') {
 podTemplate(yaml: """
 kind: Pod
@@ -27,7 +30,7 @@ spec:
         input 'Publish result?'
       }
       stage('publish') {
-        echo 'Publishing price-map.mp4 is not implemented in intermittent-web yet.'
+        sh "cd /app ; npm run publish:price-map"
       }
     }
   }

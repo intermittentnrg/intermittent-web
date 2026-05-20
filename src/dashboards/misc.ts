@@ -1,8 +1,7 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { querySmall } from "../lib/db.js";
 import { chartQuery } from "./shared/chartQuery.js";
-import { calculateInterval } from "./shared/intervals.js";
-import { getAreaContext } from "./shared/context.js";
+import { getContext } from "./shared/context.js";
 import {
   buildChartOptions,
   buildDualAxisOptions,
@@ -17,7 +16,7 @@ export async function maps(
   req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
 ) {
-  const ctx = await getAreaContext(req.params);
+  const ctx = await getContext(req);
   const pt = await getProductionTypeIds(
     ctx.areaIds,
     req.query.production_type || "nuclear",
@@ -158,8 +157,7 @@ export async function priceMap(
   req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
 ) {
-  const ctx = await getAreaContext({
-    ...req.params,
+  const ctx = await getContext(req, {
     region: "europe",
     area_type: "region",
     area: "europe",
@@ -279,21 +277,14 @@ export async function sweden(
   req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
 ) {
-  const ctx = await getAreaContext({
-    ...req.params,
+  const ctx = await getContext(req, {
     region: "europe",
     area_type: "region",
     area: "SE1,SE2,SE3,SE4",
   });
-  const interval = calculateInterval(
-    ctx.from,
-    ctx.to,
-    req.query.width,
-    req.query.min_interval,
-  );
   const sql = `SELECT EXTRACT(EPOCH FROM time AT TIME ZONE $5)*1000 AS time, metric, SUM(value) AS value FROM (SELECT time_bucket_gapfill($1::interval,time) AS time, a.code||'/load' AS metric, INTERPOLATE(AVG(l.value)) AS value FROM load l INNER JOIN areas a ON(l.area_id=a.id) WHERE time BETWEEN $2 AND $3 AND area_id=ANY($4::int[]) GROUP BY 1,2 UNION SELECT time_bucket_gapfill($1::interval,time) AS time, a.code||'/'||pt.name AS metric, INTERPOLATE(AVG(g.value)) AS value FROM generation g INNER JOIN areas a ON(g.area_id=a.id) INNER JOIN production_types pt ON(g.production_type_id=pt.id) WHERE time BETWEEN $2 AND $3 AND area_id=ANY($4::int[]) GROUP BY 1,2) s GROUP BY 1,metric ORDER BY 2,1`;
   const rows = await chartQuery<AnyRow>(req, sql, [
-    `${interval} seconds`,
+    `${ctx.interval} seconds`,
     ctx.from,
     ctx.to,
     ctx.areaIds,

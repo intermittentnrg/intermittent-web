@@ -4,6 +4,7 @@ import {
   HeatmapChart,
   LineChart,
   MapChart,
+  ScatterChart,
 } from "echarts/charts"
 import {
   DataZoomComponent,
@@ -27,6 +28,7 @@ echarts.use([
   BarChart,
   MapChart,
   HeatmapChart,
+  ScatterChart,
   GridComponent,
   GeoComponent,
   TooltipComponent,

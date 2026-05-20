@@ -3,6 +3,7 @@ import type {
   HeatmapSeriesOption,
   LineSeriesOption,
   MapSeriesOption,
+  ScatterSeriesOption,
 } from "echarts/types/dist/charts";
 
 export type DashboardParams = {
@@ -45,7 +46,8 @@ type BuiltInSeriesOption =
   | LineSeriesOption
   | BarSeriesOption
   | HeatmapSeriesOption
-  | MapSeriesOption;
+  | MapSeriesOption
+  | ScatterSeriesOption;
 
 export type Series = BuiltInSeriesOption & {
   name: string;

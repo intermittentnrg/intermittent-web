@@ -1,7 +1,7 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { chartQuery } from "./shared/chartQuery.js";
-import { calculateInterval, calculateYoyInterval } from "./shared/intervals.js";
-import { getAreaContext } from "./shared/context.js";
+import { calculateYoyInterval } from "./shared/intervals.js";
+import { getContext } from "./shared/context.js";
 import { buildChartOptions } from "./shared/chartOptions.js";
 import {
   buildMinMaxSeries,
@@ -33,15 +33,9 @@ export async function demand(
   request: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
 ) {
-  const ctx = await getAreaContext(request.params);
-  const interval = calculateInterval(
-    ctx.from,
-    ctx.to,
-    request.query.width,
-    request.query.min_interval,
-  );
+  const ctx = await getContext(request);
   const rows = await chartQuery<TimeMetricValueRow>(request, demandSql, [
-    `${interval} seconds`,
+    `${ctx.interval} seconds`,
     ctx.from,
     ctx.to,
     ctx.areaIds,
@@ -81,15 +75,9 @@ export async function demandMinMax(
   req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
 ) {
-  const ctx = await getAreaContext(req.params);
-  const interval = calculateInterval(
-    ctx.from,
-    ctx.to,
-    req.query.width,
-    req.query.min_interval,
-  );
+  const ctx = await getContext(req);
   const rows = await chartQuery<AnyRow>(req, demandMinMaxSql, [
-    `${interval} seconds`,
+    `${ctx.interval} seconds`,
     ctx.from,
     ctx.to,
     ctx.areaIds,
@@ -111,14 +99,14 @@ export async function demandYoy(
   req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
 ) {
-  const ctx = await getAreaContext(req.params);
+  const ctx = await getContext(req);
   const interval = calculateYoyInterval(
     req.query.width,
     req.query.min_interval,
   );
   const finish = new Date();
   const rows = await chartQuery<AnyRow>(req, demandYoySql, [
-    `${interval} seconds`,
+    `${ctx.interval} seconds`,
     finish,
     ctx.areaIds,
     ctx.timezone,

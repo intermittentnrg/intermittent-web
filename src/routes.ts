@@ -21,6 +21,7 @@ import {
   perUnitMovingCapacity,
   perUnitPeak,
   perUnitTotal,
+  perUnitBattery,
 } from "./dashboards/perUnit.js";
 import { capturePrice, prices } from "./dashboards/prices.js";
 import { maps, priceMap, sweden } from "./dashboards/misc.js";
@@ -44,6 +45,7 @@ export async function registerRoutes(app: FastifyInstance) {
     per_unit_peak: perUnitPeak,
     per_unit_total: perUnitTotal,
     per_unit_moving_capacity: perUnitMovingCapacity,
+    per_unit_battery: perUnitBattery,
     capture_price: capturePrice,
     simulations,
     maps,

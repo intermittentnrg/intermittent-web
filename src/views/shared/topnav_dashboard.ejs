@@ -19,7 +19,7 @@
     </div>
     <a href="transmission" class="dashboard-tab <%= dashboardType === 'transmission' ? 'selected' : '' %>" data-action="click->topnav-dashboard#switchDashboard">Transmission</a>
     <div class="dashboard-tab-group has-dropdown">
-      <a href="per_unit" class="dashboard-tab dashboard-tab-trigger <%= ['per_unit', 'per_unit_peak', 'per_unit_total', 'per_unit_moving_capacity'].includes(dashboardType) ? 'selected' : '' %>" data-action="click->topnav-dashboard#switchDashboard">Per Unit</a>
+      <a href="per_unit" class="dashboard-tab dashboard-tab-trigger <%= ['per_unit', 'per_unit_peak', 'per_unit_total', 'per_unit_moving_capacity', 'per_unit_battery'].includes(dashboardType) ? 'selected' : '' %>" data-action="click->topnav-dashboard#switchDashboard">Per Unit</a>
       <div class="dashboard-dropdown">
         <% [['per_unit','Per Unit'],['per_unit_peak','Heatmap'],['per_unit_total','Total'],['per_unit_moving_capacity','Moving Capacity']].forEach(([key,label]) => { %>
           <a href="<%= key %>" class="dashboard-dropdown-item <%= dashboardType === key ? 'selected' : '' %>" data-action="click->topnav-dashboard#switchDashboard"><%= label %></a>

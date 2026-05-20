@@ -1,7 +1,6 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { chartQuery } from "./shared/chartQuery.js";
-import { calculateInterval } from "./shared/intervals.js";
-import { getAreaContext } from "./shared/context.js";
+import { getContext } from "./shared/context.js";
 import { buildDualAxisOptions } from "./shared/chartOptions.js";
 import { sendChartResponse } from "./shared/chartResponse.js";
 import { getPriceSeries } from "./shared/prices.js";
@@ -104,17 +103,11 @@ export async function electricityMix(
   request: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
 ) {
-  const ctx = await getAreaContext(request.params);
+  const ctx = await getContext(request);
   if (ctx.areaIds.length === 0)
     return reply.code(400).send({ error: "No valid areas found" });
 
-  const interval = calculateInterval(
-    ctx.from,
-    ctx.to,
-    request.query.width,
-    request.query.min_interval,
-  );
-  const intervalSql = `${interval} seconds`;
+  const intervalSql = `${ctx.interval} seconds`;
   const args: [string, Date, Date, number[], string] = [
     intervalSql,
     ctx.from,
@@ -125,7 +118,7 @@ export async function electricityMix(
 
   const transData = await chartQuery<TransmissionRow>(request, SQL_TRANS, args);
   const evenHourOffset = true; // Good enough for initial port; Rails uses TZInfo current offset.
-  const genSql = interval >= 3600 && evenHourOffset ? SQL_GEN_HOURLY : SQL_GEN;
+  const genSql = ctx.interval >= 3600 && evenHourOffset ? SQL_GEN_HOURLY : SQL_GEN;
   const genData = await chartQuery<TimeMetricValueRow>(request, genSql, args);
 
   const series = divergentSeries(buildSeriesFromData([

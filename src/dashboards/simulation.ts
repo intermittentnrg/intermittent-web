@@ -1,7 +1,6 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { chartQuery } from "./shared/chartQuery.js";
-import { calculateInterval } from "./shared/intervals.js";
-import { getAreaContext } from "./shared/context.js";
+import { getContext } from "./shared/context.js";
 import {
   buildChartOptions,
   buildDualAxisOptions,
@@ -19,13 +18,7 @@ export async function simulations(
   req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
 ) {
-  const ctx = await getAreaContext(req.params);
-  const interval = calculateInterval(
-    ctx.from,
-    ctx.to,
-    req.query.width,
-    req.query.min_interval,
-  );
+  const ctx = await getContext(req);
   const pt = await getProductionTypeIds(ctx.areaIds, req.query.production_type);
   const mult = {
     nuclear: Number(req.query.nuclear_multiplier || 1),
@@ -37,7 +30,7 @@ export async function simulations(
   const demandSql = `SELECT EXTRACT(EPOCH FROM time AT TIME ZONE $5)*1000 AS time, 'demand' AS metric, SUM(value)*$6 AS value FROM (SELECT time_bucket_gapfill($1::interval,time) AS time, INTERPOLATE(AVG(l.value)) AS value FROM load l WHERE time BETWEEN $2 AND $3 AND area_id=ANY($4::int[]) GROUP BY 1 UNION SELECT time_bucket_gapfill($1::interval,time) AS time, INTERPOLATE(AVG(g.value)) AS value FROM generation_data g INNER JOIN areas_production_types apt ON(g.areas_production_type_id=apt.id) INNER JOIN production_types pt ON(apt.production_type_id=pt.id) INNER JOIN areas a ON(apt.area_id=a.id) WHERE time BETWEEN $2 AND $3 AND apt.area_id=ANY($4::int[]) AND pt.name='solar_rooftop' AND a.source='aemo' GROUP BY 1) s GROUP BY 1 ORDER BY 1`;
   const transSql = `SELECT EXTRACT(EPOCH FROM time AT TIME ZONE $5)*1000 AS time, CASE WHEN SUM(value)<0 THEN 'export' ELSE 'import' END AS metric, SUM(value) AS value FROM ((SELECT time_bucket_gapfill($1::interval,time) AS time, from_area_id, to_area_id, INTERPOLATE(AVG(t.value)) AS value FROM transmission_data t INNER JOIN areas_areas aa ON(t.areas_area_id=aa.id) WHERE aa.from_area_id=ANY($4::int[]) AND NOT (aa.to_area_id=ANY($4::int[])) AND time BETWEEN $2 AND $3 GROUP BY 1,2,3) UNION (SELECT time_bucket_gapfill($1::interval,time) AS time, to_area_id AS from_area_id, from_area_id AS to_area_id, INTERPOLATE(-AVG(t.value)) AS value FROM transmission_data t INNER JOIN areas_areas aa ON(t.areas_area_id=aa.id) WHERE aa.to_area_id=ANY($4::int[]) AND NOT (aa.from_area_id=ANY($4::int[])) AND time BETWEEN $2 AND $3 GROUP BY 1,2,3)) s INNER JOIN areas from_area ON(from_area_id=from_area.id) INNER JOIN areas to_area ON(to_area_id=to_area.id) WHERE (from_area.type <> 'country' OR to_area.type='country') GROUP BY 1 ORDER BY 1`;
   const args = [
-    `${interval} seconds`,
+    `${ctx.interval} seconds`,
     ctx.from,
     ctx.to,
     ctx.areaIds,

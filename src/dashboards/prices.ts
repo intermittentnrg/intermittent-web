@@ -1,7 +1,6 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { chartQuery } from "./shared/chartQuery.js";
-import { calculateInterval } from "./shared/intervals.js";
-import { getAreaContext } from "./shared/context.js";
+import { getContext } from "./shared/context.js";
 import { buildChartOptions } from "./shared/chartOptions.js";
 import { buildBasicSeries } from "./shared/series.js";
 import {
@@ -33,15 +32,9 @@ export async function prices(
   request: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
 ) {
-  const ctx = await getAreaContext(request.params);
-  const interval = calculateInterval(
-    ctx.from,
-    ctx.to,
-    request.query.width,
-    request.query.min_interval,
-  );
+  const ctx = await getContext(request);
   const rows = await chartQuery<TimeMetricValueRow>(request, pricesSql, [
-    `${interval} seconds`,
+    `${ctx.interval} seconds`,
     ctx.from,
     ctx.to,
     ctx.areaIds,
@@ -268,20 +261,14 @@ export async function capturePrice(
   req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
 ) {
-  const ctx = await getAreaContext(req.params);
-  const interval = calculateInterval(
-    ctx.from,
-    ctx.to,
-    req.query.width,
-    req.query.min_interval,
-  );
+  const ctx = await getContext(req);
   const pt = await getProductionTypeIds(ctx.areaIds, req.query.production_type);
   const queryParams = [
     ctx.from,
     ctx.to,
     ctx.areaIds,
     pt,
-    `${interval} seconds`,
+    `${ctx.interval} seconds`,
     ctx.timezone,
   ];
   const [timeSeriesRows, rollingRows, summaryRows] = await Promise.all([

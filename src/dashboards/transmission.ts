@@ -1,7 +1,7 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { querySmall } from "../lib/db.js";
 import { chartQuery } from "./shared/chartQuery.js";
-import { getAreaContext } from "./shared/context.js";
+import { getContext } from "./shared/context.js";
 import { divergentSeries } from "./shared/series.js";
 import { buildDualAxisOptions } from "./shared/chartOptions.js";
 import { sendChartResponse } from "./shared/chartResponse.js";
@@ -54,7 +54,7 @@ export async function transmission(
   req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
 ) {
-  const ctx = await getAreaContext(req.params);
+  const ctx = await getContext(req);
   const parts =
     req.query.transmission?.split("-").map(Number).filter(Boolean) || [];
   const filtered = parts.length === 2;

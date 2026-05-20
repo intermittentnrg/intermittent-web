@@ -1,13 +1,12 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { querySmall } from "../lib/db.js";
 import { chartQuery } from "./shared/chartQuery.js";
-import { calculateInterval } from "./shared/intervals.js";
-import { getAreaContext } from "./shared/context.js";
+import { getContext } from "./shared/context.js";
 import {
   buildChartOptions,
   buildDualAxisOptions,
 } from "./shared/chartOptions.js";
-import { buildBasicSeries, buildFieldSeries, divergentSeries } from "./shared/series.js";
+import { buildBasicSeries, buildFieldSeries, divergentSeries, rowsToSeries } from "./shared/series.js";
 import { getProductionTypeOptions } from "./shared/productionTypes.js";
 import { sendChartResponse } from "./shared/chartResponse.js";
 import type { AnyRow, DashboardParams, DashboardQuery } from "./shared/types.js";
@@ -68,16 +67,10 @@ export async function perUnit(
   req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
 ) {
-  const ctx = await getAreaContext(req.params);
+  const ctx = await getContext(req);
   const unitIds = await resolveUnitIds(ctx.areaIds, req.query);
-  const interval = calculateInterval(
-    ctx.from,
-    ctx.to,
-    req.query.width,
-    req.query.min_interval,
-  );
   const rows = await chartQuery<AnyRow>(req, perUnitSql, [
-    `${interval} seconds`,
+    `${ctx.interval} seconds`,
     ctx.from,
     ctx.to,
     unitIds,
@@ -105,7 +98,7 @@ export async function perUnitTotal(
   req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
 ) {
-  const ctx = await getAreaContext(req.params);
+  const ctx = await getContext(req);
   const unitIds = await resolveUnitIds(ctx.areaIds, req.query);
   const rows = await chartQuery<AnyRow>(req, perUnitTotalSql, [
     ctx.from,
@@ -132,16 +125,10 @@ export async function perUnitPeak(
   req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
 ) {
-  const ctx = await getAreaContext(req.params);
+  const ctx = await getContext(req);
   const unitIds = await resolveUnitIds(ctx.areaIds, req.query);
-  const interval = calculateInterval(
-    ctx.from,
-    ctx.to,
-    req.query.width,
-    req.query.min_interval,
-  );
   const rows = await chartQuery<AnyRow>(req, perUnitPeakSql, [
-    `${interval} seconds`,
+    `${ctx.interval} seconds`,
     ctx.from,
     ctx.to,
     unitIds,
@@ -213,25 +200,19 @@ export async function perUnitMovingCapacity(
   req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
 ) {
-  const ctx = await getAreaContext(req.params);
+  const ctx = await getContext(req);
   const unitIds = await resolveUnitIds(ctx.areaIds, req.query);
-  const interval = calculateInterval(
-    ctx.from,
-    ctx.to,
-    req.query.width,
-    req.query.min_interval,
-  );
   const from12 = new Date(ctx.from);
   from12.setMonth(from12.getMonth() - 12);
   const cap = await chartQuery<AnyRow>(req, movingCapSql, [
     from12,
     ctx.to,
     unitIds,
-    `${interval} seconds`,
+    `${ctx.interval} seconds`,
     ctx.timezone,
   ]);
   const out = await chartQuery<AnyRow>(req, movingOutputSql, [
-    `${interval} seconds`,
+    `${ctx.interval} seconds`,
     ctx.from,
     ctx.to,
     unitIds,
@@ -255,6 +236,100 @@ export async function perUnitMovingCapacity(
     buildDualAxisOptions(
       series,
       "Per Unit Moving Capacity Factor & Output",
+    ),
+    ctx.timezoneAbbreviation,
+    await unitMeta(ctx.areaIds),
+  );
+}
+
+
+const batterySql = `
+WITH rows AS (
+  SELECT
+    time,
+    unit_id,
+    value,
+    CASE
+      WHEN value >  0.5 THEN 'charge'
+      WHEN value < -0.5 THEN 'discharge'
+      ELSE 'idle'
+    END AS event_type
+  FROM generation_unit
+  WHERE
+    time BETWEEN $1 AND $2 AND
+    unit_id=ANY($3::int[])
+),
+
+active AS (
+  SELECT *
+  FROM rows
+  WHERE event_type <> 'idle'
+),
+
+flags AS (
+  SELECT
+    *,
+    CASE
+      WHEN lag(event_type) OVER w IS NULL
+        OR event_type <> lag(event_type) OVER w
+      THEN 1 ELSE 0
+    END AS new_event
+  FROM active
+  WINDOW w AS (
+    PARTITION BY unit_id
+    ORDER BY time
+  )
+),
+
+events AS (
+  SELECT
+    *,
+    sum(new_event) OVER (
+      PARTITION BY unit_id
+      ORDER BY time
+    ) AS event_id
+  FROM flags
+)
+
+SELECT
+  EXTRACT(EPOCH FROM min(time) AT TIME ZONE $4) * 1000 AS time,
+  unit_id,
+  event_id,
+  event_type,
+  min(time) AS event_start,
+  max(time) AS event_end,
+  sum(value * 5.0 / 60.0)*1000 AS energy_mwh,
+  count(*) AS intervals
+FROM events
+GROUP BY unit_id, event_id, event_type
+HAVING abs(sum(value * 5.0 / 60.0))>50000
+ORDER BY unit_id, event_start
+`
+export async function perUnitBattery(
+  req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
+  reply: FastifyReply,
+) {
+  const ctx = await getContext(req);
+  const unitIds = await resolveUnitIds(ctx.areaIds, req.query);
+  const rows = await chartQuery<AnyRow>(req, batterySql, [
+    ctx.from,
+    ctx.to,
+    unitIds,
+    ctx.timezone,
+  ]);
+
+  return sendChartResponse(
+    req,
+    reply,
+    buildChartOptions(
+      rowsToSeries(rows, {
+        name: "event_type",
+        y: "energy_mwh",
+        type: "scatter",
+        unit: "energy",
+      }),
+      "Battery Events",
+      "energy",
     ),
     ctx.timezoneAbbreviation,
     await unitMeta(ctx.areaIds),

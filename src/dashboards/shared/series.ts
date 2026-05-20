@@ -1,5 +1,50 @@
 import type { AnyRow, Series, TimeMetricValueRow } from "./types.js";
 
+type RowsToSeriesOptions<Row extends AnyRow> = {
+  name?: keyof Row | ((row: Row) => string);
+  x?: keyof Row | ((row: Row) => number);
+  y?: keyof Row | ((row: Row) => number);
+  type?: Series["type"];
+  unit?: string;
+};
+
+export function rowsToSeries<Row extends AnyRow>(
+  rows: Row[],
+  options: RowsToSeriesOptions<Row> = {},
+): Series[] {
+  const name = options.name ?? "metric";
+  const x = options.x ?? "time";
+  const y = options.y ?? "value";
+  const type = options.type ?? "line";
+  const byName = new Map<string, Series>();
+
+  for (const row of rows) {
+    const seriesName = String(valueFor(row, name));
+    const xValue = Number(valueFor(row, x));
+    const yValue = Number(valueFor(row, y));
+
+    if (!byName.has(seriesName)) {
+      byName.set(seriesName, {
+        name: seriesName,
+        type,
+        unit: options.unit,
+        data: [],
+      });
+    }
+
+    byName.get(seriesName)!.data.push([xValue, yValue]);
+  }
+
+  return [...byName.values()];
+}
+
+function valueFor<Row extends AnyRow, Value>(
+  row: Row,
+  field: keyof Row | ((row: Row) => Value),
+): Value | Row[keyof Row] {
+  return typeof field === "function" ? field(row) : row[field];
+}
+
 export function divergentSeries<T extends Series>(input: T[]): T[] {
   const output: T[] = [];
   for (const series of input) {
