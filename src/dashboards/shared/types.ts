@@ -22,8 +22,8 @@ export type AreaRow = {
 };
 
 export type DashboardQuery = {
-  width?: string;
   min_interval?: string;
+  resolution?: string;
   production_type?: string;
   transmission?: string;
   units?: string;

@@ -9,7 +9,7 @@ const width = Number(process.env.PRICE_MAP_WIDTH || 1200);
 const height = Number(process.env.PRICE_MAP_HEIGHT || 1200);
 const outDir = process.argv[2] || process.env.PRICE_MAP_RENDER_DIR || "render/price-map";
 const dateRange = process.argv[3] || process.env.PRICE_MAP_DATE_RANGE || tomorrowDateRange();
-const url = `/europe/region/europe/${dateRange}/price_map/echarts.json?width=${width}`;
+const url = `/europe/region/europe/${dateRange}/price_map/echarts.json?resolution=15m`;
 
 type PriceMapPayload = {
   options: {

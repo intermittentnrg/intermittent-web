@@ -1,6 +1,5 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { chartQuery } from "./shared/chartQuery.js";
-import { calculateYoyInterval } from "./shared/intervals.js";
 import { getContext } from "./shared/context.js";
 import { buildChartOptions } from "./shared/chartOptions.js";
 import {
@@ -100,10 +99,6 @@ export async function demandYoy(
   reply: FastifyReply,
 ) {
   const ctx = await getContext(req);
-  const interval = calculateYoyInterval(
-    req.query.width,
-    req.query.min_interval,
-  );
   const finish = new Date();
   const rows = await chartQuery<AnyRow>(req, demandYoySql, [
     `${ctx.interval} seconds`,

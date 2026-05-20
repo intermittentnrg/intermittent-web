@@ -7,15 +7,16 @@
   <script>
     (function () {
       window.__fetchEchartsJson = function (options) {
-        var width = options && options.width;
+        var resolution = options && options.resolution;
         var signal = options && options.signal;
-        var search = window.location.search;
-        var url = window.location.pathname + '/echarts.json' + (search ? search + '&width=' + width : '?width=' + width);
+        var params = new URLSearchParams(window.location.search);
+        if (resolution) params.set('resolution', resolution);
+        var query = params.toString();
+        var url = window.location.pathname + '/echarts.json' + (query ? '?' + query : '');
         return fetch(url, { headers: { Accept: 'application/json' }, signal: signal });
       };
 
-      var chart = document.getElementById('main-chart');
-      window.__echartsJsonPreload = window.__fetchEchartsJson({ width: chart ? chart.offsetWidth || 800 : 800 });
+      // Chart controller calculates a cache-friendly resolution bucket before fetching.
     })();
   </script>
   <script type="application/json" id="initial-state"><%- JSON.stringify({ params, dashboardType, areasData, regions }) %></script>

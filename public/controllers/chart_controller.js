@@ -1,6 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 import echarts from "../echarts_client.js"
-import { router } from "../router.js"
+import { router, parsePath } from "../router.js"
+import { calculateResolution, parseDateRange } from "../dateParsing.js"
 
 export default class extends Controller {
   static targets = ["chart", "error"]
@@ -48,7 +49,7 @@ export default class extends Controller {
       this.errorTarget.style.display = 'none'
     }
 
-    const chartWidth = this.chartWidth()
+    const resolution = this.chartResolution()
     const preloaded = window.__echartsJsonPreload
     if (preloaded) {
       delete window.__echartsJsonPreload
@@ -56,7 +57,7 @@ export default class extends Controller {
 
     const responsePromise = preloaded
       ? preloaded
-      : window.__fetchEchartsJson({ width: chartWidth, signal: currentAbortController.signal })
+      : window.__fetchEchartsJson({ resolution, signal: currentAbortController.signal })
 
     responsePromise
     .then(response => {
@@ -95,8 +96,17 @@ export default class extends Controller {
     })
   }
 
-  chartWidth() {
-    return this.chartTarget?.offsetWidth || 800
+  chartResolution() {
+    const pathParams = parsePath()
+    if (!pathParams?.from || !pathParams?.to) return '15m'
+    try {
+      const range = parseDateRange(pathParams.from, pathParams.to)
+      const width = this.chartTarget?.offsetWidth || 800
+      return calculateResolution(range.from, range.to, width, '5m')
+    } catch (error) {
+      console.warn('Failed to calculate chart resolution:', error)
+      return '15m'
+    }
   }
 
   async renderChart(data) {
