@@ -6,6 +6,7 @@ import { sendChartResponse } from "./shared/chartResponse.js";
 import { getPriceSeries } from "./shared/prices.js";
 import type { DashboardParams, DashboardQuery, TimeMetricValueRow } from "./shared/types.js";
 import { divergentSeries } from "./shared/series.js";
+import { metricColor } from "./shared/colors.js";
 
 const SQL_GEN = `
   WITH _g AS (
@@ -175,27 +176,7 @@ function newSeries(key: string) {
     symbol: "none",
     areaStyle: { opacity: 0.75 },
     lineStyle: { width: 0 },
-    itemStyle: { color: getColorForMetric(key) },
+    itemStyle: { color: metricColor(key) },
     data: [] as Array<[number, number]>,
   };
-}
-
-function getColorForMetric(metric: string) {
-  return (
-    {
-      "01_biomass_and_waste": "rgb(128, 224, 167)",
-      "02_nuclear": "rgb(213, 0, 50)",
-      "03_lignite": "rgb(92, 26, 35)",
-      "04_hard_coal": "rgb(137, 137, 137)",
-      "05_gas": "rgb(198, 163, 201)",
-      "06_hydro": "rgb(2, 77, 188)",
-      "07_other": "rgb(241, 194, 27)",
-      "08_other_renewable": "rgb(199, 156, 148)",
-      "09_wind": "rgb(152, 205, 251)",
-      "09_wind_onshore": "rgb(152, 205, 251)",
-      "11_solar": "rgb(236, 232, 26)",
-      import: "rgb(124, 46, 163)",
-      export: "rgb(124, 46, 163)",
-    } as Record<string, string>
-  )[metric];
 }

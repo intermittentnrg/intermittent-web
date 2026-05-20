@@ -1,16 +1,16 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { chartQuery } from "./shared/chartQuery.js";
 import { getContext } from "./shared/context.js";
-import {
-  buildChartOptions,
-  buildDualAxisOptions,
-} from "./shared/chartOptions.js";
 import { sendChartResponse } from "./shared/chartResponse.js";
-import { buildStackedPowerLineSeries } from "./shared/series.js";
+import {
+  buildStackedPowerLineSeries,
+  divergentSeries,
+} from "./shared/series.js";
 import {
   getProductionTypeIds,
   getProductionTypeOptions,
 } from "./shared/productionTypes.js";
+import { metricColor } from "./shared/colors.js";
 import type { AnyRow, DashboardParams, DashboardQuery } from "./shared/types.js";
 
 
@@ -26,9 +26,118 @@ export async function simulations(
     solar: Number(req.query.solar_multiplier || 1),
     demand: Number(req.query.demand_multiplier || 1),
   };
-  const genSql = `SELECT EXTRACT(EPOCH FROM time AT TIME ZONE $5)*1000 AS time, CASE WHEN SUM(value)<0 THEN name2||'_negative' ELSE name2 END AS metric, SUM(value) AS value FROM (SELECT time_bucket_gapfill($1::interval,time) AS time, pt.name, pt.name2, INTERPOLATE(CASE WHEN pt.name='nuclear' THEN AVG(g.value)*$6 WHEN pt.name LIKE 'wind%' THEN AVG(g.value)*$7 WHEN pt.name LIKE 'solar%' THEN AVG(g.value)*$8 ELSE AVG(g.value) END) AS value FROM generation_data g INNER JOIN areas_production_types apt ON(g.areas_production_type_id=apt.id) INNER JOIN production_types pt ON(apt.production_type_id=pt.id) WHERE time BETWEEN $2 AND $3 AND apt.area_id=ANY($4::int[]) AND apt.production_type_id=ANY($9::int[]) GROUP BY 1,pt.name,pt.name2) s GROUP BY 1,name2 ORDER BY 2,1`;
-  const demandSql = `SELECT EXTRACT(EPOCH FROM time AT TIME ZONE $5)*1000 AS time, 'demand' AS metric, SUM(value)*$6 AS value FROM (SELECT time_bucket_gapfill($1::interval,time) AS time, INTERPOLATE(AVG(l.value)) AS value FROM load l WHERE time BETWEEN $2 AND $3 AND area_id=ANY($4::int[]) GROUP BY 1 UNION SELECT time_bucket_gapfill($1::interval,time) AS time, INTERPOLATE(AVG(g.value)) AS value FROM generation_data g INNER JOIN areas_production_types apt ON(g.areas_production_type_id=apt.id) INNER JOIN production_types pt ON(apt.production_type_id=pt.id) INNER JOIN areas a ON(apt.area_id=a.id) WHERE time BETWEEN $2 AND $3 AND apt.area_id=ANY($4::int[]) AND pt.name='solar_rooftop' AND a.source='aemo' GROUP BY 1) s GROUP BY 1 ORDER BY 1`;
-  const transSql = `SELECT EXTRACT(EPOCH FROM time AT TIME ZONE $5)*1000 AS time, CASE WHEN SUM(value)<0 THEN 'export' ELSE 'import' END AS metric, SUM(value) AS value FROM ((SELECT time_bucket_gapfill($1::interval,time) AS time, from_area_id, to_area_id, INTERPOLATE(AVG(t.value)) AS value FROM transmission_data t INNER JOIN areas_areas aa ON(t.areas_area_id=aa.id) WHERE aa.from_area_id=ANY($4::int[]) AND NOT (aa.to_area_id=ANY($4::int[])) AND time BETWEEN $2 AND $3 GROUP BY 1,2,3) UNION (SELECT time_bucket_gapfill($1::interval,time) AS time, to_area_id AS from_area_id, from_area_id AS to_area_id, INTERPOLATE(-AVG(t.value)) AS value FROM transmission_data t INNER JOIN areas_areas aa ON(t.areas_area_id=aa.id) WHERE aa.to_area_id=ANY($4::int[]) AND NOT (aa.from_area_id=ANY($4::int[])) AND time BETWEEN $2 AND $3 GROUP BY 1,2,3)) s INNER JOIN areas from_area ON(from_area_id=from_area.id) INNER JOIN areas to_area ON(to_area_id=to_area.id) WHERE (from_area.type <> 'country' OR to_area.type='country') GROUP BY 1 ORDER BY 1`;
+  const summarySql = `
+WITH _generation AS (
+  SELECT
+    time,
+    'generation' AS metric,
+    SUM(value) AS value
+  FROM (
+    SELECT
+      time_bucket_gapfill($1::interval,time) AS time,
+      pt.name AS production_type,
+      INTERPOLATE(CASE WHEN pt.name='nuclear' THEN AVG(g.value)*$6 WHEN pt.name LIKE 'wind%' THEN AVG(g.value)*$7 WHEN pt.name LIKE 'solar%' THEN AVG(g.value)*$8 ELSE AVG(g.value) END) AS value
+    FROM generation_data g
+    INNER JOIN areas_production_types apt ON(g.areas_production_type_id=apt.id)
+    INNER JOIN production_types pt ON(apt.production_type_id=pt.id)
+    WHERE
+      time BETWEEN $2 AND $3 AND
+      apt.area_id=ANY($4::int[]) AND
+      apt.production_type_id=ANY($9::int[])
+    GROUP BY 1,pt.name,apt.area_id
+  ) s
+  GROUP BY 1
+),
+
+_load AS (
+  SELECT
+    time,
+    'load' AS metric,
+    SUM(value)*$10 AS value
+  FROM (
+    SELECT
+      time_bucket_gapfill($1::interval,time) AS time,
+      INTERPOLATE(AVG(l.value)) AS value
+    FROM load l
+    WHERE
+      time BETWEEN $2 AND $3 AND
+      area_id=ANY($4::int[])
+    GROUP BY 1
+
+    UNION
+
+    SELECT
+      time_bucket_gapfill($1::interval,time) AS time,
+      INTERPOLATE(AVG(g.value)) AS value
+    FROM generation_data g
+    INNER JOIN areas_production_types apt ON(g.areas_production_type_id=apt.id)
+    INNER JOIN production_types pt ON(apt.production_type_id=pt.id)
+    INNER JOIN areas a ON(apt.area_id=a.id)
+    WHERE
+      time BETWEEN $2 AND $3 AND
+      apt.area_id=ANY($4::int[]) AND
+      pt.name='solar_rooftop' AND
+      a.source='aemo'
+    GROUP BY 1
+  ) s
+  GROUP BY 1
+),
+
+_transmission AS (
+  SELECT
+    time,
+    CASE WHEN SUM(value)<0 THEN 'export' ELSE 'import' END AS metric,
+    SUM(value) AS value
+  FROM (
+    (
+      SELECT
+        time_bucket_gapfill($1::interval,time) AS time,
+        from_area_id,
+        to_area_id,
+        INTERPOLATE(AVG(t.value)) AS value
+      FROM transmission_data t
+      INNER JOIN areas_areas aa ON(t.areas_area_id=aa.id)
+      WHERE
+        aa.from_area_id=ANY($4::int[]) AND
+        NOT (aa.to_area_id=ANY($4::int[])) AND
+        time BETWEEN $2 AND $3
+      GROUP BY 1,2,3
+    ) UNION (
+      SELECT
+        time_bucket_gapfill($1::interval,time) AS time,
+        to_area_id AS from_area_id,
+        from_area_id AS to_area_id,
+        INTERPOLATE(-AVG(t.value)) AS value
+      FROM transmission_data t
+      INNER JOIN areas_areas aa ON(t.areas_area_id=aa.id)
+      WHERE
+        aa.to_area_id=ANY($4::int[]) AND
+        NOT (aa.from_area_id=ANY($4::int[])) AND
+        time BETWEEN $2 AND $3
+      GROUP BY 1,2,3
+    )
+  ) s
+  INNER JOIN areas from_area ON(from_area_id=from_area.id)
+  INNER JOIN areas to_area ON(to_area_id=to_area.id)
+  WHERE
+    (from_area.type <> 'country' OR to_area.type='country')
+  GROUP BY 1
+)
+
+SELECT
+  EXTRACT(EPOCH FROM time AT TIME ZONE $5)*1000 AS time,
+  COALESCE(t.value,0) AS transmission,
+  g.value AS gen,
+  l.value AS load,
+  g.value+COALESCE(t.value,0)-l.value AS diff,
+  add_max_terra(g.value+COALESCE(t.value,0)-l.value) OVER (ORDER BY time) AS sum_deficit,
+  SUM(GREATEST(0, g.value+COALESCE(t.value,0)-l.value)) OVER (ORDER BY time) AS cum_surplus,
+  SUM(LEAST(0, g.value+COALESCE(t.value,0)-l.value)) OVER (ORDER BY time) AS cum_deficit,
+  SUM(LEAST(g.value+COALESCE(t.value,0),l.value)) OVER (ORDER BY time) AS cum_matched
+FROM _generation g
+INNER JOIN _load l USING(time)
+LEFT JOIN _transmission t USING(time)
+ORDER BY time`;
   const args = [
     `${ctx.interval} seconds`,
     ctx.from,
@@ -36,16 +145,15 @@ export async function simulations(
     ctx.areaIds,
     ctx.timezone,
   ];
-  const gen = await chartQuery<AnyRow>(req, genSql, [
+  const summary = await chartQuery<AnyRow>(req, summarySql, [
     ...args,
     mult.nuclear,
     mult.wind,
     mult.solar,
     pt,
+    mult.demand,
   ]);
-  const demand = await chartQuery<AnyRow>(req, demandSql, [...args, mult.demand]);
-  const trans = await chartQuery<AnyRow>(req, transSql, args);
-  const options = simulationOptions(gen, demand, trans);
+  const options = await simulationOptions(req, args, mult, pt, summary);
   return sendChartResponse(
     req,
     reply,
@@ -56,15 +164,150 @@ export async function simulations(
   );
 }
 
-function simulationOptions(
-  genRows: AnyRow[],
-  demandRows: AnyRow[],
-  transRows: AnyRow[],
+async function simulationOptions(
+  req: FastifyRequest,
+  args: unknown[],
+  mult: { nuclear: number; wind: number; solar: number; demand: number },
+  productionTypeIds: number[],
+  summaryRows: AnyRow[],
 ) {
-  const genSeries = buildStackedPowerLineSeries(genRows).map((s) => ({
+  const summary = summaryRows.at(-1) ?? {};
+  const options: any = {
+    height: 900,
+    tooltip: { trigger: "axis", formatter: { type: "multi" } },
+    title: [],
+    legend: [],
+    grid: [],
+    xAxis: [],
+    yAxis: [],
+    series: [],
+  };
+
+  await addGenerationPanel(options, req, args, mult, productionTypeIds);
+  addSummaryPanel(options, summary);
+  addCumulativeDeficitPanel(options, summaryRows);
+  addDifferencePanel(options, summaryRows);
+
+  return options;
+}
+
+const genSql = `
+SELECT
+  EXTRACT(EPOCH FROM time AT TIME ZONE $5)*1000 AS time,
+  name2 AS metric,
+  SUM(value) AS value
+FROM (
+  SELECT
+    time_bucket_gapfill($1::interval,time) AS time,
+    pt.name,
+    pt.name2,
+    INTERPOLATE(CASE WHEN pt.name='nuclear' THEN AVG(g.value)*$6 WHEN pt.name LIKE 'wind%' THEN AVG(g.value)*$7 WHEN pt.name LIKE 'solar%' THEN AVG(g.value)*$8 ELSE AVG(g.value) END) AS value
+  FROM generation_data g
+  INNER JOIN areas_production_types apt ON(g.areas_production_type_id=apt.id)
+  INNER JOIN production_types pt ON(apt.production_type_id=pt.id)
+  WHERE
+    time BETWEEN $2 AND $3 AND
+    apt.area_id=ANY($4::int[]) AND
+    apt.production_type_id=ANY($9::int[])
+  GROUP BY 1,pt.name,pt.name2
+) s
+GROUP BY 1,name2
+ORDER BY 2,1
+`;
+const demandSql = `
+SELECT
+  EXTRACT(EPOCH FROM time AT TIME ZONE $5)*1000 AS time,
+  'demand' AS metric,
+  SUM(value)*$6 AS value
+FROM (
+  SELECT
+    time_bucket_gapfill($1::interval,time) AS time,
+    INTERPOLATE(AVG(l.value)) AS value
+  FROM load l
+  WHERE
+    time BETWEEN $2 AND $3 AND
+    area_id=ANY($4::int[])
+  GROUP BY 1
+
+  UNION
+
+  SELECT
+    time_bucket_gapfill($1::interval,time) AS time,
+    INTERPOLATE(AVG(g.value)) AS value
+  FROM generation_data g
+  INNER JOIN areas_production_types apt ON(g.areas_production_type_id=apt.id)
+  INNER JOIN production_types pt ON(apt.production_type_id=pt.id)
+  INNER JOIN areas a ON(apt.area_id=a.id)
+  WHERE
+    time BETWEEN $2 AND $3 AND
+    apt.area_id=ANY($4::int[]) AND
+    pt.name='solar_rooftop' AND
+    a.source='aemo'
+  GROUP BY 1
+) s
+GROUP BY 1
+ORDER BY 1
+`;
+const transSql = `
+SELECT
+  EXTRACT(EPOCH FROM time AT TIME ZONE $5)*1000 AS time,
+  'transmission' AS metric,
+  SUM(value) AS value
+FROM (
+  (
+    SELECT
+      time_bucket_gapfill($1::interval,time) AS time,
+      from_area_id,
+      to_area_id,
+      INTERPOLATE(AVG(t.value)) AS value
+    FROM transmission_data t
+    INNER JOIN areas_areas aa ON(t.areas_area_id=aa.id)
+    WHERE
+      aa.from_area_id=ANY($4::int[]) AND
+      NOT (aa.to_area_id=ANY($4::int[])) AND
+      time BETWEEN $2 AND $3
+    GROUP BY 1,2,3
+  ) UNION (
+    SELECT
+      time_bucket_gapfill($1::interval,time) AS time,
+      to_area_id AS from_area_id,
+      from_area_id AS to_area_id,
+      INTERPOLATE(-AVG(t.value)) AS value
+    FROM transmission_data t
+    INNER JOIN areas_areas aa ON(t.areas_area_id=aa.id)
+    WHERE
+      aa.to_area_id=ANY($4::int[]) AND
+      NOT (aa.from_area_id=ANY($4::int[])) AND
+      time BETWEEN $2 AND $3
+    GROUP BY 1,2,3
+  )
+) s
+INNER JOIN areas from_area ON(from_area_id=from_area.id)
+INNER JOIN areas to_area ON(to_area_id=to_area.id)
+WHERE
+  (from_area.type <> 'country' OR to_area.type='country')
+GROUP BY 1
+ORDER BY 1
+`;
+async function addGenerationPanel(
+  options: any,
+  req: FastifyRequest,
+  args: unknown[],
+  mult: { nuclear: number; wind: number; solar: number; demand: number },
+  productionTypeIds: number[],
+) {
+  const genRows = await chartQuery<AnyRow>(req, genSql, [
+    ...args,
+    mult.nuclear,
+    mult.wind,
+    mult.solar,
+    productionTypeIds,
+  ]);
+  const demandRows = await chartQuery<AnyRow>(req, demandSql, [...args, mult.demand]);
+  const transRows = await chartQuery<AnyRow>(req, transSql, args);
+  const genSeries = divergentSeries(buildStackedPowerLineSeries(genRows)).map((s) => ({
     ...s,
-    xAxisIndex: 0,
-    yAxisIndex: 0,
+    itemStyle: { color: metricColor(s.name) },
   }));
   const demandSeries = buildStackedPowerLineSeries(demandRows).map((s) => ({
     ...s,
@@ -73,241 +316,130 @@ function simulationOptions(
     areaStyle: undefined,
     lineStyle: { width: 2 },
     itemStyle: { color: "rgb(36, 41, 46)" },
-    xAxisIndex: 0,
-    yAxisIndex: 0,
   }));
-  const transSeries = buildStackedPowerLineSeries(transRows).map((s) => ({
+  const transSeries = divergentSeries(buildStackedPowerLineSeries(transRows)).map((s) => ({
     ...s,
-    xAxisIndex: 0,
-    yAxisIndex: 0,
-    itemStyle: { color: "rgb(163, 82, 204)" },
+    name: "transmission",
+    itemStyle: { color: metricColor("transmission") },
   }));
-  const byTime = new Map<
-    number,
-    { gen: number; load: number; trans: number }
-  >();
-  for (const r of genRows) {
-    const t = Number(r.time);
-    const o = byTime.get(t) || { gen: 0, load: 0, trans: 0 };
-    o.gen += Number(r.value || 0);
-    byTime.set(t, o);
-  }
-  for (const r of demandRows) {
-    const t = Number(r.time);
-    const o = byTime.get(t) || { gen: 0, load: 0, trans: 0 };
-    o.load += Number(r.value || 0);
-    byTime.set(t, o);
-  }
-  for (const r of transRows) {
-    const t = Number(r.time);
-    const o = byTime.get(t) || { gen: 0, load: 0, trans: 0 };
-    o.trans += Number(r.value || 0);
-    byTime.set(t, o);
-  }
-  let cumSurplus = 0,
-    cumDeficit = 0,
-    cumMatched = 0,
-    sumDeficit = 0;
-  const diff: any[] = [],
-    genLine: any[] = [],
-    loadLine: any[] = [],
-    transLine: any[] = [],
-    sumDefData: any[] = [],
-    matched: any[] = [],
-    surplus: any[] = [],
-    deficit: any[] = [];
-  for (const [t, o] of [...byTime.entries()].sort((a, b) => a[0] - b[0])) {
-    const d = o.gen + o.trans - o.load;
-    cumSurplus += Math.max(0, d);
-    cumDeficit += Math.min(0, d);
-    cumMatched += Math.min(o.gen + o.trans, o.load);
-    sumDeficit = Math.min(0, sumDeficit + d);
-    genLine.push([t, o.gen * 1000]);
-    loadLine.push([t, o.load * 1000]);
-    transLine.push([t, o.trans * 1000]);
-    diff.push([t, d * 1000]);
-    sumDefData.push([t, sumDeficit * 1000]);
-    matched.push([t, cumMatched * 1000]);
-    surplus.push([t, cumSurplus * 1000]);
-    deficit.push([t, cumDeficit * 1000]);
-  }
+  const gridIndex = options.grid.length;
+  const series = [
+    ...transSeries,
+    ...genSeries,
+    ...demandSeries,
+  ].map((s) => ({ ...s, xAxisIndex: gridIndex, yAxisIndex: gridIndex }));
+
+  options.title.push({ text: "Generation", left: "center", right: "15%", top: 10 });
+  options.legend.push({
+    top: 30,
+    left: "center",
+    right: "15%",
+    data: [...new Set(series.map((s) => s.name))],
+  });
+  options.grid.push({ left: "3%", right: "15%", top: "10%", height: "25%" });
+  options.xAxis.push({ type: "time", gridIndex, axisLabel: { show: false } });
+  options.yAxis.push(powerAxis(gridIndex));
+  options.series.push(...series);
+}
+
+function addSummaryPanel(options: any, data: AnyRow) {
+  const gridIndex = options.grid.length;
+
+  options.title.push({ text: "Summary", left: "93.5%", top: 10, textAlign: "center" });
+  options.legend.push({ top: "60%", left: "93%", data: ["Surplus", "Matched", "Deficit"] });
+  options.grid.push({ left: "89%", right: "2%", top: "10%", height: "48%" });
+  options.xAxis.push({ type: "category", gridIndex, data: [""] });
+  options.yAxis.push(energyAxis(gridIndex));
+  options.series.push(
+    summaryBarSeries("Matched", "rgb(86, 166, 75)", gridIndex, Number(data.cum_matched || 0)),
+    summaryBarSeries("Surplus", "rgb(242, 204, 12)", gridIndex, Number(data.cum_surplus || 0)),
+    summaryBarSeries("Deficit", "rgb(224, 47, 68)", gridIndex, Number(data.cum_deficit || 0)),
+  );
+}
+
+function addCumulativeDeficitPanel(options: any, rows: AnyRow[]) {
+  const gridIndex = options.grid.length;
+
+  options.title.push({ text: "Cumulative Deficit", left: "center", right: "15%", top: "36%" });
+  options.legend.push({ top: "38%", left: "center", right: "15%", data: ["sum deficit"] });
+  options.grid.push({ left: "3%", right: "15%", top: "40%", height: "25%" });
+  options.xAxis.push({ type: "time", gridIndex, axisLabel: { show: false } });
+  options.yAxis.push(energyAxis(gridIndex));
+  options.series.push(lineSeries("sum deficit", "energy", gridIndex, fieldData(rows, "sum_deficit")));
+}
+
+function summaryBarSeries(name: string, color: string, axisIndex: number, value: number) {
   return {
-    height: 900,
-    title: [
-      { text: "Generation", left: "center", right: "15%", top: 10 },
-      { text: "Summary", left: "93.5%", top: 10, textAlign: "center" },
-      { text: "Cumulative Deficit", left: "center", right: "15%", top: "36%" },
-      { text: "Difference", left: "center", top: "65%" },
+    name,
+    type: "bar",
+    unit: "energy",
+    xAxisIndex: axisIndex,
+    yAxisIndex: axisIndex,
+    stack: "summary",
+    itemStyle: { color },
+    data: [value * 1000],
+  };
+}
+
+function addDifferencePanel(options: any, rows: AnyRow[]) {
+  const gridIndex = options.grid.length;
+
+  options.title.push({ text: "Difference", left: "center", top: "65%" });
+  options.legend.push({
+    top: "67%",
+    left: "center",
+    data: [
+      "transmission",
+      "generation",
+      "load",
+      "diff",
+      "cum matched",
+      "cum surplus",
+      "cum deficit",
     ],
-    tooltip: { trigger: "axis", formatter: { type: "multi" } },
-    legend: [
-      {
-        top: 30,
-        left: "center",
-        right: "15%",
-        data: [
-          ...new Set(
-            [...genSeries, ...demandSeries, ...transSeries].map((s) => s.name),
-          ),
-        ],
-      },
-      { top: "60%", left: "93%", data: ["Surplus", "Matched", "Deficit"] },
-      { top: "38%", left: "center", right: "15%", data: ["sum deficit"] },
-      {
-        top: "67%",
-        left: "center",
-        data: [
-          "transmission",
-          "generation",
-          "load",
-          "diff",
-          "sum deficit",
-          "cum matched",
-          "cum surplus",
-          "cum deficit",
-        ],
-      },
-    ],
-    grid: [
-      { left: "3%", right: "15%", top: "10%", height: "25%" },
-      { left: "89%", right: "2%", top: "10%", height: "48%" },
-      { left: "3%", right: "15%", top: "40%", height: "25%" },
-      { left: "3%", right: "2%", top: "69%", height: "26%" },
-    ],
-    xAxis: [
-      { type: "time", gridIndex: 0, axisLabel: { show: false } },
-      { type: "category", gridIndex: 1, data: [""] },
-      { type: "time", gridIndex: 2, axisLabel: { show: false } },
-      { type: "time", gridIndex: 3 },
-    ],
-    yAxis: [
-      {
-        type: "value",
-        gridIndex: 0,
-        axisLabel: { formatter: { type: "power" } },
-      },
-      {
-        type: "value",
-        gridIndex: 1,
-        axisLabel: { formatter: { type: "energy" } },
-      },
-      {
-        type: "value",
-        gridIndex: 2,
-        axisLabel: { formatter: { type: "energy" } },
-      },
-      {
-        type: "value",
-        gridIndex: 3,
-        axisLabel: { formatter: { type: "power" } },
-      },
-    ],
-    series: [
-      ...transSeries,
-      ...genSeries,
-      ...demandSeries,
-      {
-        name: "Matched",
-        type: "bar",
-        unit: "energy",
-        xAxisIndex: 1,
-        yAxisIndex: 1,
-        stack: "total",
-        itemStyle: { color: "rgb(86, 166, 75)" },
-        data: [cumMatched * 1000],
-      },
-      {
-        name: "Surplus",
-        type: "bar",
-        unit: "energy",
-        xAxisIndex: 1,
-        yAxisIndex: 1,
-        stack: "total",
-        itemStyle: { color: "rgb(242, 204, 12)" },
-        data: [cumSurplus * 1000],
-      },
-      {
-        name: "Deficit",
-        type: "bar",
-        unit: "energy",
-        xAxisIndex: 1,
-        yAxisIndex: 1,
-        stack: "total",
-        itemStyle: { color: "rgb(224, 47, 68)" },
-        data: [cumDeficit * 1000],
-      },
-      {
-        name: "sum deficit",
-        type: "line",
-        unit: "energy",
-        xAxisIndex: 2,
-        yAxisIndex: 2,
-        symbol: "none",
-        data: sumDefData,
-      },
-      {
-        name: "transmission",
-        type: "line",
-        unit: "power",
-        xAxisIndex: 3,
-        yAxisIndex: 3,
-        symbol: "none",
-        data: transLine,
-      },
-      {
-        name: "generation",
-        type: "line",
-        unit: "power",
-        xAxisIndex: 3,
-        yAxisIndex: 3,
-        symbol: "none",
-        data: genLine,
-      },
-      {
-        name: "load",
-        type: "line",
-        unit: "power",
-        xAxisIndex: 3,
-        yAxisIndex: 3,
-        symbol: "none",
-        data: loadLine,
-      },
-      {
-        name: "diff",
-        type: "line",
-        unit: "power",
-        xAxisIndex: 3,
-        yAxisIndex: 3,
-        symbol: "none",
-        data: diff,
-      },
-      {
-        name: "cum matched",
-        type: "line",
-        unit: "energy",
-        xAxisIndex: 3,
-        yAxisIndex: 3,
-        symbol: "none",
-        data: matched,
-      },
-      {
-        name: "cum surplus",
-        type: "line",
-        unit: "energy",
-        xAxisIndex: 3,
-        yAxisIndex: 3,
-        symbol: "none",
-        data: surplus,
-      },
-      {
-        name: "cum deficit",
-        type: "line",
-        unit: "energy",
-        xAxisIndex: 3,
-        yAxisIndex: 3,
-        symbol: "none",
-        data: deficit,
-      },
-    ],
+  });
+  options.grid.push({ left: "3%", right: "2%", top: "69%", height: "26%" });
+  options.xAxis.push({ type: "time", gridIndex });
+  options.yAxis.push(powerAxis(gridIndex));
+  options.series.push(
+    lineSeries("transmission", "power", gridIndex, fieldData(rows, "transmission")),
+    lineSeries("generation", "power", gridIndex, fieldData(rows, "gen")),
+    lineSeries("load", "power", gridIndex, fieldData(rows, "load")),
+    lineSeries("diff", "power", gridIndex, fieldData(rows, "diff")),
+    lineSeries("cum matched", "energy", gridIndex, fieldData(rows, "cum_matched")),
+    lineSeries("cum surplus", "energy", gridIndex, fieldData(rows, "cum_surplus")),
+    lineSeries("cum deficit", "energy", gridIndex, fieldData(rows, "cum_deficit")),
+  );
+}
+
+function powerAxis(gridIndex: number) {
+  return {
+    type: "value",
+    gridIndex,
+    axisLabel: { formatter: { type: "power" } },
+  };
+}
+
+function energyAxis(gridIndex: number) {
+  return {
+    type: "value",
+    gridIndex,
+    axisLabel: { formatter: { type: "energy" } },
+  };
+}
+
+function fieldData(rows: AnyRow[], field: string) {
+  return rows.map((row) => [row.time, Number(row[field] || 0) * 1000]);
+}
+
+function lineSeries(name: string, unit: string, axisIndex: number, data: any[]) {
+  return {
+    name,
+    type: "line",
+    unit,
+    xAxisIndex: axisIndex,
+    yAxisIndex: axisIndex,
+    symbol: "none",
+    data,
   };
 }

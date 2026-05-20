@@ -78,7 +78,7 @@ export async function dashboardSpa(request: FastifyRequest<{ Params: DashboardPa
     imageUrl: absoluteUrl(request, echartsPngPath(params, dashboardType, query)),
     params: { ...params, ...query },
     dashboardType,
-    productionType: query.production_type,
+    productionType: productionTypeLabel(query.production_type),
     prices: query.prices === "true" || query.prices === "1",
     temps: query.temps === "true" || query.temps === "1",
     load: query.load === "true" || query.load === "1",
@@ -92,6 +92,16 @@ export async function dashboardSpa(request: FastifyRequest<{ Params: DashboardPa
     intervals: ["5m", "15m", "30m", "1h", "6h", "12h", "1d", "1w", "1M"],
     ...areas,
   });
+}
+
+function productionTypeLabel(productionType?: string) {
+  if (!productionType || productionType === "all") return "All";
+  const types = productionType.split(",").filter(Boolean);
+  if (types.length === 0 || types.includes("all")) return "All";
+  if (types.length === 1) {
+    return types[0].replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+  }
+  return `${types.length} types`;
 }
 
 function echartsPngPath(params: DashboardParams, dashboardType: string, query: Record<string, string | undefined>) {
