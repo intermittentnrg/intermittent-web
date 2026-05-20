@@ -52,7 +52,7 @@ async function loadAreasData() {
       });
     }
 
-    return { areasData, regions: [...regions].sort(), areasJson: JSON.stringify(areasData) };
+    return { areasData, regions: [...regions].sort() };
   } catch (error) {
     throw new Error(`Failed to load areas from database. Check DATABASE_URL and schema. ${String(error)}`);
   }

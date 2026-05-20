@@ -1,50 +1,63 @@
-<div id="topnav-area" class="topnav-item" data-areas-data='<%- areasJson %>'>
+<div id="topnav-area" class="topnav-item">
   <label for="location-selector-btn">Location</label>
-  <button type="button" id="location-selector-btn" class="dropdown-btn location-selector-btn" >
-    <span class="dropdown-value"><%= params.area %></span>
+  <button type="button" id="location-selector-btn" class="dropdown-btn location-selector-btn">
+    <% const selectedRegionLabel = params.region.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) %>
+    <% const selectedAreasLabel = params.area === 'all' ? 'All areas' : params.area %>
+    <span class="dropdown-value"><%= selectedRegionLabel %> • <%= selectedAreasLabel %></span>
     <span class="dropdown-arrow">▼</span>
   </button>
+
   <div class="area-menu">
-    <div class="location-step visible" data-step="region">
-      <div class="step-header">
-        <button type="button" class="step-close">×</button>
-        <h3></h3>
-        <button type="button" class="step-back" style="visibility: hidden;">←</button>
-      </div>
-      <div class="step-options">
-        <% regions.forEach((region) => { %>
-          <button type="button" class="step-option" data-region="<%= region %>">
-            <span class="option-text"><%= region.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) %></span>
-            <span class="option-arrow">→</span>
+    <div class="area-menu-header">
+      <h3>Location</h3>
+      <button type="button" class="step-close" aria-label="Close location menu">×</button>
+    </div>
+
+    <ul class="area-tree" data-area-tree>
+      <% regions.forEach((region) => { %>
+        <% const regionLabel = region.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) %>
+        <li class="area-node" data-node-type="region" data-region="<%= region %>">
+          <button type="button" class="area-node-button" aria-expanded="false">
+            <span class="option-text"><%= regionLabel %></span>
+            <span class="option-arrow">›</span>
           </button>
-        <% }) %>
-      </div>
-    </div>
-    <div class="location-step" data-step="areaType">
-      <div class="step-header">
-        <button type="button" class="step-back">←</button>
-        <h3 data-area-type-title>Select Area Type</h3>
-        <button type="button" class="step-close">×</button>
-      </div>
-      <div class="step-options" data-area-type-options></div>
-    </div>
-    <div class="location-step visible" data-step="areas">
-      <div class="step-header">
-        <button type="button" class="step-back">←</button>
-        <h3 data-area-title>Select Areas</h3>
-        <button type="button" class="step-close">×</button>
-      </div>
-      <div class="step-areas" data-area-options>
-        <div class="dropdown-option">
-          <input type="checkbox" class="dropdown-checkbox" id="area-all" value="all">
-          <label class="dropdown-label" for="area-all">All areas</label>
-        </div>
-        <div class="dropdown-option-divider"></div>
-        <div class="individual-areas"></div>
-      </div>
-      <div class="step-actions">
-        <button type="button" class="action-btn apply">Apply</button>
-      </div>
+
+          <ul class="area-tree child-tree">
+            <% Object.keys(areasData[region] || {}).forEach((areaType) => { %>
+              <% const areaTypeLabel = areaType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) %>
+              <li class="area-node" data-node-type="area-type" data-region="<%= region %>" data-area-type="<%= areaType %>">
+                <button type="button" class="area-node-button" aria-expanded="false">
+                  <span class="option-text"><%= areaTypeLabel %></span>
+                  <span class="option-arrow">›</span>
+                </button>
+
+                <ul class="area-tree child-tree">
+                  <li class="area-node is-leaf" data-node-type="area" data-region="<%= region %>" data-area-type="<%= areaType %>" data-area="all">
+                    <label class="dropdown-option">
+                      <input type="checkbox" class="dropdown-checkbox" value="all">
+                      <span class="dropdown-label">All areas</span>
+                    </label>
+                  </li>
+                  <li class="dropdown-option-divider" aria-hidden="true"></li>
+
+                  <% (areasData[region][areaType] || []).forEach((area) => { %>
+                    <li class="area-node is-leaf" data-node-type="area" data-region="<%= region %>" data-area-type="<%= areaType %>" data-area="<%= area.code %>">
+                      <label class="dropdown-option">
+                        <input type="checkbox" class="dropdown-checkbox" value="<%= area.code %>">
+                        <span class="dropdown-label"><%= area.label %></span>
+                      </label>
+                    </li>
+                  <% }) %>
+                </ul>
+              </li>
+            <% }) %>
+          </ul>
+        </li>
+      <% }) %>
+    </ul>
+
+    <div class="step-actions">
+      <button type="button" class="action-btn apply">Apply</button>
     </div>
   </div>
 </div>
