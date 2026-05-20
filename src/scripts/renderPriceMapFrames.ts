@@ -2,8 +2,8 @@ import "dotenv/config";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createCanvas } from "@napi-rs/canvas";
-import echarts = require("echarts");
-import { buildApp } from "../server.js";
+import { getEchartsForSsr } from "../dashboards/shared/echartsSsr.ts";
+import { buildApp } from "../server.ts";
 
 const width = Number(process.env.PRICE_MAP_WIDTH || 1200);
 const height = Number(process.env.PRICE_MAP_HEIGHT || 1200);
@@ -35,7 +35,8 @@ async function main() {
     }
 
     const payload = JSON.parse(response.body) as PriceMapPayload;
-    registerMap(payload.mapName || "world", payload.geoJsonUrl || "/assets/world-rewound.geojson");
+    const echarts = await getEchartsForSsr();
+    registerMap(echarts, payload.mapName || "world", payload.geoJsonUrl || "/assets/world-rewound.geojson");
 
     const frameCount = payload.options.options.length;
     if (frameCount === 0) {
@@ -62,6 +63,7 @@ async function main() {
 
 async function renderFrame(payload: PriceMapPayload, index: number) {
   const option = singleFrameOption(payload.options, index);
+  const echarts = await getEchartsForSsr();
   echarts.setPlatformAPI({ createCanvas: () => createCanvas(1, 1) });
   const canvas = createCanvas(width, height);
   const chart = echarts.init(canvas, undefined, { renderer: "canvas", ssr: true, width, height });
@@ -91,7 +93,7 @@ function singleFrameOption(options: PriceMapPayload["options"], index: number) {
   return base;
 }
 
-function registerMap(mapName: string, geoJsonUrl: string) {
+function registerMap(echarts: any, mapName: string, geoJsonUrl: string) {
   if (echarts.getMap(mapName)) return;
 
   const path = join(

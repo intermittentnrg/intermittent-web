@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
-import type { AreaRow, DashboardParams } from "./dashboards/shared/types.js";
-import { querySmall } from "./lib/db.js";
+import type { AreaRow, DashboardParams } from "./dashboards/shared/types.ts";
+import { querySmall } from "./lib/db.ts";
 
 const productionDashboards = new Set([
   "generation",

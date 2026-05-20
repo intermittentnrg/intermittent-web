@@ -36,4 +36,4 @@ COPY test ./test
 
 EXPOSE 3000
 
-CMD ["node", "dist/server.js"]
+CMD ["node", "--experimental-strip-types", "src/server.ts"]

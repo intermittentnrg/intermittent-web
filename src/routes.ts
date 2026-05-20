@@ -3,28 +3,28 @@ import {
   dashboardSpa,
   health,
   nordpool,
-} from "./controllers.js";
-import { geoipRedirect } from "./geoipController.js";
-import { legacyDashboardRedirect } from "./legacyRedirectController.js";
-import { electricityMix } from "./dashboards/electricityMix.js";
+} from "./controllers.ts";
+import { geoipRedirect } from "./geoipController.ts";
+import { legacyDashboardRedirect } from "./legacyRedirectController.ts";
+import { electricityMix } from "./dashboards/electricityMix.ts";
 import {
   generation,
   generationMinMax,
   generationTotal,
   generationYoy,
   simulations,
-} from "./dashboards/generation.js";
-import { demand, demandMinMax, demandYoy } from "./dashboards/demand.js";
-import { transmission } from "./dashboards/transmission.js";
+} from "./dashboards/generation.ts";
+import { demand, demandMinMax, demandYoy } from "./dashboards/demand.ts";
+import { transmission } from "./dashboards/transmission.ts";
 import {
   perUnit,
   perUnitMovingCapacity,
   perUnitPeak,
   perUnitTotal,
   perUnitBattery,
-} from "./dashboards/perUnit.js";
-import { capturePrice, prices } from "./dashboards/prices.js";
-import { maps, priceMap, sweden } from "./dashboards/misc.js";
+} from "./dashboards/perUnit.ts";
+import { capturePrice, prices } from "./dashboards/prices.ts";
+import { maps, priceMap, sweden } from "./dashboards/misc.ts";
 
 export async function registerRoutes(app: FastifyInstance) {
   app.get("/health", health);

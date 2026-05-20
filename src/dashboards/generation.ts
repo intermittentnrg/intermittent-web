@@ -1,31 +1,31 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { chartQuery } from "./shared/chartQuery.js";
-import { getContext } from "./shared/context.js";
-import { buildChartOptions } from "./shared/chartOptions.js";
+import { chartQuery } from "./shared/chartQuery.ts";
+import { getContext } from "./shared/context.ts";
+import { buildChartOptions } from "./shared/chartOptions.ts";
 import {
   buildBasicSeries,
   buildMinMaxSeries,
   buildPowerLineSeries,
   buildYoySeries,
   divergentSeries,
-} from "./shared/series.js";
+} from "./shared/series.ts";
 import {
   getProductionTypeIds,
   getProductionTypeOptions,
-} from "./shared/productionTypes.js";
-import { metricColor } from "./shared/colors.js";
+} from "./shared/productionTypes.ts";
+import { metricColor } from "./shared/colors.ts";
 import {
   sendChartResponse,
   sendDualAxisChart,
-} from "./shared/chartResponse.js";
-import { getPriceSeries } from "./shared/prices.js";
+} from "./shared/chartResponse.ts";
+import { getPriceSeries } from "./shared/prices.ts";
 import type {
   AnyRow,
   DashboardParams,
   DashboardQuery,
   Series,
   TimeMetricValueRow,
-} from "./shared/types.js";
+} from "./shared/types.ts";
 
 const generationSql = `
   WITH _generation_gapfill AS (
@@ -220,4 +220,4 @@ export async function generationYoy(
   );
 }
 
-export { simulations } from "./simulation.js";
+export { simulations } from "./simulation.ts";

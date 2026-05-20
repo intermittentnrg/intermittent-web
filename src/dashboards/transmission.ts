@@ -1,11 +1,11 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { querySmall } from "../lib/db.js";
-import { chartQuery } from "./shared/chartQuery.js";
-import { getContext } from "./shared/context.js";
-import { divergentSeries } from "./shared/series.js";
-import { buildDualAxisOptions } from "./shared/chartOptions.js";
-import { sendChartResponse } from "./shared/chartResponse.js";
-import type { AnyRow, DashboardParams, DashboardQuery } from "./shared/types.js";
+import { querySmall } from "../lib/db.ts";
+import { chartQuery } from "./shared/chartQuery.ts";
+import { getContext } from "./shared/context.ts";
+import { divergentSeries } from "./shared/series.ts";
+import { buildDualAxisOptions } from "./shared/chartOptions.ts";
+import { sendChartResponse } from "./shared/chartResponse.ts";
+import type { AnyRow, DashboardParams, DashboardQuery } from "./shared/types.ts";
 
 const transmissionSql = (filtered: boolean) => {
   const forwardWhere = filtered

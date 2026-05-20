@@ -1,20 +1,20 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { chartQuery } from "./shared/chartQuery.js";
-import { getContext } from "./shared/context.js";
-import { buildChartOptions } from "./shared/chartOptions.js";
+import { chartQuery } from "./shared/chartQuery.ts";
+import { getContext } from "./shared/context.ts";
+import { buildChartOptions } from "./shared/chartOptions.ts";
 import {
   buildMinMaxSeries,
   buildPowerLineSeries,
   buildYoySeries,
-} from "./shared/series.js";
-import { areaColor } from "./shared/colors.js";
-import { sendChartResponse, sendDualAxisChart } from "./shared/chartResponse.js";
+} from "./shared/series.ts";
+import { areaColor } from "./shared/colors.ts";
+import { sendChartResponse, sendDualAxisChart } from "./shared/chartResponse.ts";
 import type {
   AnyRow,
   DashboardParams,
   DashboardQuery,
   TimeMetricValueRow,
-} from "./shared/types.js";
+} from "./shared/types.ts";
 
 const demandSql = `
   SELECT EXTRACT(EPOCH FROM time AT TIME ZONE $5) * 1000 AS time, metric, value

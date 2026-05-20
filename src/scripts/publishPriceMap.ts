@@ -1,7 +1,7 @@
 import "dotenv/config";
-import { hasBskyConfig, publishToBsky, type BskyThreadState } from "./priceMapSocial/bsky";
-import { loadSocialThreadReply, saveSocialThreadReply } from "./priceMapSocial/state";
-import { hasXConfig, publishToX, type XThreadState } from "./priceMapSocial/x";
+import { hasBskyConfig, publishToBsky, type BskyThreadState } from "./priceMapSocial/bsky.ts";
+import { loadSocialThreadReply, saveSocialThreadReply } from "./priceMapSocial/state.ts";
+import { hasXConfig, publishToX, type XThreadState } from "./priceMapSocial/x.ts";
 
 const videoPath = process.argv[2] || process.env.PRICE_MAP_VIDEO || "render/price-map.mp4";
 const text = process.env.PRICE_MAP_POST_TEXT || defaultPostText();

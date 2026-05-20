@@ -1,7 +1,7 @@
 import awsLambdaFastify from "@fastify/aws-lambda";
 import type { APIGatewayProxyEvent, Context } from "aws-lambda";
 import { join } from "node:path";
-import { buildApp } from "./server.js";
+import { buildApp } from "./server.ts";
 
 const fontconfigDir = join(process.cwd(), "fontconfig");
 process.env.FONTCONFIG_PATH ??= fontconfigDir;

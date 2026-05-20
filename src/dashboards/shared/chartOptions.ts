@@ -1,4 +1,4 @@
-import type { Series } from "./types.js";
+import type { Series } from "./types.ts";
 
 export function buildChartOptions(
   series: Series[],

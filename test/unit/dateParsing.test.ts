@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateResolution, parseAppDate, parseDateRange, resolutionToSeconds } from "../../src/shared/dateParsing.js";
+import { calculateResolution, parseAppDate, parseDateRange, resolutionToSeconds } from "../../src/shared/dateParsing.ts";
 
 const now = new Date("2025-02-15T12:00:00.000Z");
 const iso = (date: Date) => date.toISOString();

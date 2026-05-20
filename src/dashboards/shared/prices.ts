@@ -1,6 +1,6 @@
 import type { FastifyRequest } from "fastify";
-import { chartQuery } from "./chartQuery.js";
-import type { Series, TimeMetricValueRow } from "./types.js";
+import { chartQuery } from "./chartQuery.ts";
+import type { Series, TimeMetricValueRow } from "./types.ts";
 
 const priceSql = `
   SELECT EXTRACT(EPOCH FROM time AT TIME ZONE $5) * 1000 AS time, metric, value

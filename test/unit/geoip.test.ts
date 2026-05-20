@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it } from "vitest";
-import { buildApp } from "../../src/server.js";
+import { buildApp } from "../../src/server.ts";
 
 const app = await buildApp();
 

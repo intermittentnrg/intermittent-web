@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import echarts = require("echarts");
+import { getEchartsForSsr } from "../../src/dashboards/shared/echartsSsr.ts";
 
 async function renderCanvasPng() {
   const { createCanvas } = await import("@napi-rs/canvas");
@@ -18,6 +18,7 @@ async function renderCanvasPng() {
 async function renderEchartsCanvasPng() {
   const { createCanvas } = await import("@napi-rs/canvas");
 
+  const echarts = await getEchartsForSsr();
   echarts.setPlatformAPI({ createCanvas: () => createCanvas(1, 1) });
 
   const width = 320;

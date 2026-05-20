@@ -1,17 +1,17 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { chartQuery } from "./shared/chartQuery.js";
-import { getContext } from "./shared/context.js";
-import { sendChartResponse } from "./shared/chartResponse.js";
+import { chartQuery } from "./shared/chartQuery.ts";
+import { getContext } from "./shared/context.ts";
+import { sendChartResponse } from "./shared/chartResponse.ts";
 import {
   buildStackedPowerLineSeries,
   divergentSeries,
-} from "./shared/series.js";
+} from "./shared/series.ts";
 import {
   getProductionTypeIds,
   getProductionTypeOptions,
-} from "./shared/productionTypes.js";
-import { metricColor } from "./shared/colors.js";
-import type { AnyRow, DashboardParams, DashboardQuery } from "./shared/types.js";
+} from "./shared/productionTypes.ts";
+import { metricColor } from "./shared/colors.ts";
+import type { AnyRow, DashboardParams, DashboardQuery } from "./shared/types.ts";
 
 
 export async function simulations(

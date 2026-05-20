@@ -1,4 +1,4 @@
-import type { AnyRow, Series, TimeMetricValueRow } from "./types.js";
+import type { AnyRow, Series, TimeMetricValueRow } from "./types.ts";
 
 type RowsToSeriesOptions<Row extends AnyRow> = {
   name?: keyof Row | ((row: Row) => string);

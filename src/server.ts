@@ -4,8 +4,8 @@ import Fastify from "fastify";
 import view from "@fastify/view";
 import staticFiles from "@fastify/static";
 import ejs from "ejs";
-import { registerRoutes } from "./routes.js";
-import { viteEntrypointUrl, viteScriptTags } from "./lib/assets.js";
+import { registerRoutes } from "./routes.ts";
+import { viteEntrypointUrl, viteScriptTags } from "./lib/assets.ts";
 
 export async function buildApp() {
   const app = Fastify({
@@ -57,7 +57,7 @@ export async function startServer(options: { port?: number; host?: string } = {}
   return app;
 }
 
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   startServer().catch((error) => {
     console.error(error);
     process.exit(1);

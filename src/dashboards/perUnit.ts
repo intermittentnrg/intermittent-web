@@ -1,15 +1,15 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { querySmall } from "../lib/db.js";
-import { chartQuery } from "./shared/chartQuery.js";
-import { getContext } from "./shared/context.js";
+import { querySmall } from "../lib/db.ts";
+import { chartQuery } from "./shared/chartQuery.ts";
+import { getContext } from "./shared/context.ts";
 import {
   buildChartOptions,
   buildDualAxisOptions,
-} from "./shared/chartOptions.js";
-import { buildBasicSeries, buildFieldSeries, divergentSeries, rowsToSeries } from "./shared/series.js";
-import { getProductionTypeOptions } from "./shared/productionTypes.js";
-import { sendChartResponse } from "./shared/chartResponse.js";
-import type { AnyRow, DashboardParams, DashboardQuery } from "./shared/types.js";
+} from "./shared/chartOptions.ts";
+import { buildBasicSeries, buildFieldSeries, divergentSeries, rowsToSeries } from "./shared/series.ts";
+import { getProductionTypeOptions } from "./shared/productionTypes.ts";
+import { sendChartResponse } from "./shared/chartResponse.ts";
+import type { AnyRow, DashboardParams, DashboardQuery } from "./shared/types.ts";
 
 
 async function resolveUnitIds(areaIds: number[], q: DashboardQuery) {

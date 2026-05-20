@@ -1,7 +1,7 @@
-import { querySmall } from "../../lib/db.js";
+import { querySmall } from "../../lib/db.ts";
 import type { FastifyRequest } from "fastify";
-import type { DashboardParams, DashboardQuery } from "./types.js";
-import { parseDateRange, resolutionToSeconds } from "../../shared/dateParsing.js";
+import type { DashboardParams, DashboardQuery } from "./types.ts";
+import { parseDateRange, resolutionToSeconds } from "../../shared/dateParsing.ts";
 
 type Context = {
   areaIds: number[];

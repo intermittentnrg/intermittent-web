@@ -1,8 +1,8 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { buildDualAxisOptions } from "./chartOptions.js";
-import { getEchartsForSsr } from "./echartsSsr.js";
+import { buildDualAxisOptions } from "./chartOptions.ts";
+import { getEchartsForSsr } from "./echartsSsr.ts";
 
 type ChartPayload = {
   options: unknown;

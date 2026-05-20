@@ -1,7 +1,6 @@
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
-const { register } = require('tsx/cjs/api');
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 let app;
 
@@ -24,7 +23,7 @@ if (process.env.HEADLESS === '1' || process.env.HEADLESS === 'true') {
   chromeArgs.unshift('--headless=new');
 }
 
-exports.config = {
+export const config = {
   runner: 'local',
   hostname: process.env.SELENIUM_HOST || 'selenium-hub.monitoring.int.mog.se',
   port: Number(process.env.SELENIUM_PORT || 4444),
@@ -70,8 +69,7 @@ exports.config = {
     }
 
     process.env.NODE_ENV = process.env.NODE_ENV || 'test';
-    register();
-    const { startServer } = require('./src/server.ts');
+    const { startServer } = await import('./src/server.ts');
     app = await startServer({ host: '0.0.0.0', port: appPort });
 
     console.log(`Started test app at ${config.baseUrl}`);

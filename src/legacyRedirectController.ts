@@ -1,5 +1,5 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { querySmall } from "./lib/db.js";
+import { querySmall } from "./lib/db.ts";
 
 const legacyDashboardUidMappings: Record<string, string> = {
   rK5XnQ7Vz: "electricity_mix",

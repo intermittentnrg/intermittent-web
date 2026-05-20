@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { divergentSeries } from "../../src/dashboards/shared/series.js";
+import { divergentSeries } from "../../src/dashboards/shared/series.ts";
 
 const posSeries = { name: "pos", data: [[1, 1000],  [2, 1000]] }
 const negSeries = { name: "neg", data: [[1, -1000], [2, -1000]] }

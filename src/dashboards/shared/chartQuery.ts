@@ -1,5 +1,5 @@
 import type { FastifyRequest } from "fastify";
-import { cancelableChartQuery } from "../../lib/cancelableQuery.js";
+import { cancelableChartQuery } from "../../lib/cancelableQuery.ts";
 
 export async function chartQuery<T = unknown>(
   request: FastifyRequest,

@@ -1,12 +1,12 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { chartQuery } from "./shared/chartQuery.js";
-import { getContext } from "./shared/context.js";
-import { buildDualAxisOptions } from "./shared/chartOptions.js";
-import { sendChartResponse } from "./shared/chartResponse.js";
-import { getPriceSeries } from "./shared/prices.js";
-import type { DashboardParams, DashboardQuery, TimeMetricValueRow } from "./shared/types.js";
-import { divergentSeries } from "./shared/series.js";
-import { metricColor } from "./shared/colors.js";
+import { chartQuery } from "./shared/chartQuery.ts";
+import { getContext } from "./shared/context.ts";
+import { buildDualAxisOptions } from "./shared/chartOptions.ts";
+import { sendChartResponse } from "./shared/chartResponse.ts";
+import { getPriceSeries } from "./shared/prices.ts";
+import type { DashboardParams, DashboardQuery, TimeMetricValueRow } from "./shared/types.ts";
+import { divergentSeries } from "./shared/series.ts";
+import { metricColor } from "./shared/colors.ts";
 
 const SQL_GEN = `
   WITH _g AS (

@@ -1,5 +1,5 @@
-import { querySmall } from "../../lib/db.js";
-import { titleize } from "./text.js";
+import { querySmall } from "../../lib/db.ts";
+import { titleize } from "./text.ts";
 
 export async function getProductionTypeIds(
   areaIds: number[],

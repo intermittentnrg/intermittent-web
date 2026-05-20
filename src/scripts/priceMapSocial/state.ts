@@ -1,4 +1,4 @@
-import { querySmall } from "../../lib/db";
+import { querySmall } from "../../lib/db.ts";
 
 export type SocialThreadReply = Record<string, unknown>;
 

@@ -1,6 +1,6 @@
 import type { FastifyRequest } from "fastify";
 import type pg from "pg";
-import { getChartPool, logSqlQuery } from "./db.js";
+import { getChartPool, logSqlQuery } from "./db.ts";
 
 export async function cancelableChartQuery<T = unknown>(
   req: FastifyRequest,
