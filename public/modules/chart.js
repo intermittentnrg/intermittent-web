@@ -1,10 +1,22 @@
-import { Controller } from "@hotwired/stimulus"
 import echarts from "../echarts_client.js"
 import { router, parsePath } from "../router.js"
 import { calculateResolution, parseDateRange } from "../dateParsing.js"
 
-export default class extends Controller {
-  static targets = ["chart", "error"]
+export function initChart() {
+  const chartTarget = document.getElementById('main-chart')
+  if (!chartTarget) return null
+
+  const chartModule = new ChartModule(chartTarget, document.getElementById('chart-error'))
+  chartModule.connect()
+  return chartModule
+}
+
+class ChartModule {
+  constructor(chartTarget, errorTarget) {
+    this.chartTarget = chartTarget
+    this.errorTarget = errorTarget
+    this.hasErrorTarget = !!errorTarget
+  }
 
   connect() {
     this.abortController = null
@@ -46,7 +58,7 @@ export default class extends Controller {
 
     this.chart.showLoading({ text: '', color: '#0077FF', textColor: '#0077FF', maskColor: 'rgba(255, 255, 255, 0.7)', zlevel: 100 })
     if (this.hasErrorTarget) {
-      this.errorTarget.style.display = 'none'
+      this.errorTarget.hidden = true
     }
 
     const resolution = this.chartResolution()
@@ -85,7 +97,7 @@ export default class extends Controller {
         console.error('Error fetching chart data:', error)
         if (this.hasErrorTarget) {
           this.errorTarget.textContent = 'Failed to load data. Please try again.'
-          this.errorTarget.style.display = 'block'
+          this.errorTarget.hidden = false
         }
       }
     })

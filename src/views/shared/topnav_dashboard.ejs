@@ -1,36 +1,36 @@
-<div id="topnav-dashboard" class="topnav-item" data-controller="topnav-dashboard">
+<div id="topnav-dashboard" class="topnav-item">
   <div class="dashboard-tabs">
-    <a href="electricity_mix" class="dashboard-tab <%= dashboardType === 'electricity_mix' ? 'selected' : '' %>" data-action="click->topnav-dashboard#switchDashboard">Electricity Mix</a>
+    <a href="electricity_mix" class="dashboard-tab <%= dashboardType === 'electricity_mix' ? 'selected' : '' %>">Electricity Mix</a>
     <div class="dashboard-tab-group has-dropdown">
-      <a href="generation" class="dashboard-tab dashboard-tab-trigger <%= ['generation', 'generation_min_max', 'generation_total', 'generation_yoy', 'simulations'].includes(dashboardType) ? 'selected' : '' %>" data-action="click->topnav-dashboard#switchDashboard">Generation</a>
+      <a href="generation" class="dashboard-tab dashboard-tab-trigger <%= ['generation', 'generation_min_max', 'generation_total', 'generation_yoy', 'simulations'].includes(dashboardType) ? 'selected' : '' %>">Generation</a>
       <div class="dashboard-dropdown">
         <% [['generation','Generation'],['generation_min_max','Min/Max'],['generation_total','Total'],['generation_yoy','YoY'],['simulations','Simulations']].forEach(([key,label]) => { %>
-          <a href="<%= key %>" class="dashboard-dropdown-item <%= dashboardType === key ? 'selected' : '' %>" data-action="click->topnav-dashboard#switchDashboard"><%= label %></a>
+          <a href="<%= key %>" class="dashboard-dropdown-item <%= dashboardType === key ? 'selected' : '' %>"><%= label %></a>
         <% }) %>
       </div>
     </div>
     <div class="dashboard-tab-group has-dropdown">
-      <a href="demand" class="dashboard-tab dashboard-tab-trigger <%= ['demand', 'demand_min_max', 'demand_yoy'].includes(dashboardType) ? 'selected' : '' %>" data-action="click->topnav-dashboard#switchDashboard">Demand</a>
+      <a href="demand" class="dashboard-tab dashboard-tab-trigger <%= ['demand', 'demand_min_max', 'demand_yoy'].includes(dashboardType) ? 'selected' : '' %>">Demand</a>
       <div class="dashboard-dropdown">
         <% [['demand','Demand'],['demand_min_max','Min/Max'],['demand_yoy','YoY']].forEach(([key,label]) => { %>
-          <a href="<%= key %>" class="dashboard-dropdown-item <%= dashboardType === key ? 'selected' : '' %>" data-action="click->topnav-dashboard#switchDashboard"><%= label %></a>
+          <a href="<%= key %>" class="dashboard-dropdown-item <%= dashboardType === key ? 'selected' : '' %>"><%= label %></a>
         <% }) %>
       </div>
     </div>
-    <a href="transmission" class="dashboard-tab <%= dashboardType === 'transmission' ? 'selected' : '' %>" data-action="click->topnav-dashboard#switchDashboard">Transmission</a>
+    <a href="transmission" class="dashboard-tab <%= dashboardType === 'transmission' ? 'selected' : '' %>">Transmission</a>
     <div class="dashboard-tab-group has-dropdown">
-      <a href="per_unit" class="dashboard-tab dashboard-tab-trigger <%= ['per_unit', 'per_unit_peak', 'per_unit_total', 'per_unit_moving_capacity', 'per_unit_battery'].includes(dashboardType) ? 'selected' : '' %>" data-action="click->topnav-dashboard#switchDashboard">Per Unit</a>
+      <a href="per_unit" class="dashboard-tab dashboard-tab-trigger <%= ['per_unit', 'per_unit_peak', 'per_unit_total', 'per_unit_moving_capacity', 'per_unit_battery'].includes(dashboardType) ? 'selected' : '' %>">Per Unit</a>
       <div class="dashboard-dropdown">
         <% [['per_unit','Per Unit'],['per_unit_peak','Heatmap'],['per_unit_total','Total'],['per_unit_moving_capacity','Moving Capacity']].forEach(([key,label]) => { %>
-          <a href="<%= key %>" class="dashboard-dropdown-item <%= dashboardType === key ? 'selected' : '' %>" data-action="click->topnav-dashboard#switchDashboard"><%= label %></a>
+          <a href="<%= key %>" class="dashboard-dropdown-item <%= dashboardType === key ? 'selected' : '' %>"><%= label %></a>
         <% }) %>
       </div>
     </div>
     <div class="dashboard-tab-group has-dropdown">
-      <a href="prices" class="dashboard-tab dashboard-tab-trigger <%= ['prices', 'capture_price'].includes(dashboardType) ? 'selected' : '' %>" data-action="click->topnav-dashboard#switchDashboard">Prices</a>
+      <a href="prices" class="dashboard-tab dashboard-tab-trigger <%= ['prices', 'capture_price'].includes(dashboardType) ? 'selected' : '' %>">Prices</a>
       <div class="dashboard-dropdown">
         <% [['prices','Prices'],['capture_price','Capture Price']].forEach(([key,label]) => { %>
-          <a href="<%= key %>" class="dashboard-dropdown-item <%= dashboardType === key ? 'selected' : '' %>" data-action="click->topnav-dashboard#switchDashboard"><%= label %></a>
+          <a href="<%= key %>" class="dashboard-dropdown-item <%= dashboardType === key ? 'selected' : '' %>"><%= label %></a>
         <% }) %>
       </div>
     </div>

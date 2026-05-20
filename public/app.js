@@ -1,19 +1,14 @@
-import { Application } from "@hotwired/stimulus";
-import ChartController from "./controllers/chart_controller.js";
-import TopnavAreaController from "./controllers/topnav_area_controller.js";
-import TopnavDateController from "./controllers/topnav_date_controller.js";
-import TopnavDashboardController from "./controllers/topnav_dashboard_controller.js";
-import DashboardOptionsController from "./controllers/dashboard_options_controller.js";
 import { router } from "./router.js";
+import { initChart } from "./modules/chart.js";
+import { initTopnavDate } from "./modules/topnav_date.js";
+import { initTopnavDashboard } from "./modules/topnav_dashboard.js";
+import { initTopnavArea } from "./modules/topnav_area.js";
+import { initDashboardOptions } from "./modules/dashboard_options.js";
 
-const application = Application.start();
-application.debug = false;
-window.Stimulus = application;
+initDashboardOptions();
 
-application.register("chart", ChartController);
-application.register("topnav-area", TopnavAreaController);
-application.register("topnav-date", TopnavDateController);
-application.register("topnav-dashboard", TopnavDashboardController);
-application.register("dashboard-options", DashboardOptionsController);
-
+initChart();
+initTopnavArea();
+initTopnavDate();
+initTopnavDashboard();
 router.init();

@@ -1,15 +1,15 @@
-<div class="topnav-date-wrapper" data-controller="topnav-date" data-topnav-date-preset-value="<%= currentPreset?.preset || 'last_7_days' %>">
+<div id="topnav-date" class="topnav-date-wrapper" data-topnav-date-preset-value="<%= currentPreset?.preset || 'last_7_days' %>">
   <div id="topnav-date-preset" class="topnav-item">
     <label>Preset</label>
     <div class="date-preset-selector">
-      <button type="button" class="dropdown-btn date-preset-btn" data-action="click->topnav-date#toggleMenu">
-        <span class="dropdown-value" data-topnav-date-target="preset"><%= currentPreset?.label || 'Custom' %></span>
+      <button type="button" class="dropdown-btn date-preset-btn">
+        <span class="dropdown-value"><%= currentPreset?.label || 'Custom' %></span>
         <span class="dropdown-arrow">▼</span>
       </button>
-      <div class="date-preset-menu" data-topnav-date-target="menu">
+      <div class="date-preset-menu">
         <div class="date-preset-options">
           <% datePresets.forEach((p) => { %>
-            <button type="button" class="date-preset-option <%= currentPreset?.preset === p.preset ? 'selected' : '' %>" data-preset="<%= p.preset %>" data-from="<%= p.from %>" data-to="<%= p.to %>" data-action="topnav-date#selectPreset">
+            <button type="button" class="date-preset-option <%= currentPreset?.preset === p.preset ? 'selected' : '' %>" data-preset="<%= p.preset %>" data-from="<%= p.from %>" data-to="<%= p.to %>">
               <span class="option-text"><%= p.label %></span>
             </button>
           <% }) %>
@@ -20,26 +20,26 @@
   <div id="topnav-date-range">
     <div class="topnav-item date-input-group">
       <label>From</label>
-      <input type="text" id="date-from" class="date-input <%= currentPreset ? 'preset-mode' : '' %>" placeholder="yesterday" value="<%= fromRaw %>" data-topnav-date-target="fromInput">
+      <input type="text" id="date-from" class="date-input <%= currentPreset ? 'preset-mode' : '' %>" placeholder="yesterday" value="<%= fromRaw %>">
     </div>
     <div class="topnav-item date-input-group">
       <label>To</label>
-      <input type="text" id="date-to" class="date-input <%= currentPreset ? 'preset-mode' : '' %>" placeholder="today" value="<%= toRaw %>" data-topnav-date-target="toInput">
+      <input type="text" id="date-to" class="date-input <%= currentPreset ? 'preset-mode' : '' %>" placeholder="today" value="<%= toRaw %>">
     </div>
-    <div class="topnav-item timezone-selector" data-topnav-date-target="timezone">
+    <div class="topnav-item timezone-selector">
       <label>Timezone</label>
       <span class="timezone-name"><%= timezoneInfo.abbreviation %></span>
     </div>
     <div class="topnav-item interval-selector">
       <label>Min Interval</label>
-      <button type="button" class="dropdown-btn interval-btn" data-action="click->topnav-date#toggleIntervalMenu">
-        <span class="dropdown-value" data-topnav-date-target="intervalSelectedText"><%= params.min_interval || '15m' %></span>
+      <button type="button" class="dropdown-btn interval-btn">
+        <span class="dropdown-value"><%= params.min_interval || '15m' %></span>
         <span class="dropdown-arrow">▼</span>
       </button>
-      <div class="interval-menu" data-topnav-date-target="intervalMenu">
+      <div class="interval-menu">
         <div class="interval-options">
           <% intervals.forEach((int) => { %>
-            <button type="button" class="interval-option <%= params.min_interval === int ? 'selected' : '' %>" data-interval="<%= int %>" data-action="topnav-date#selectInterval"><span class="option-text"><%= int %></span></button>
+            <button type="button" class="interval-option <%= params.min_interval === int ? 'selected' : '' %>" data-interval="<%= int %>"><span class="option-text"><%= int %></span></button>
           <% }) %>
         </div>
       </div>

@@ -77,7 +77,6 @@ function developmentImportMap() {
 <script type="importmap">
 {
   "imports": {
-    "@hotwired/stimulus": "${base}node_modules/@hotwired/stimulus/dist/stimulus.js",
     "echarts": "${base}node_modules/echarts/dist/echarts.esm.js",
     "echarts/core": "${base}node_modules/echarts/core.js",
     "echarts/charts": "${base}node_modules/echarts/charts.js",

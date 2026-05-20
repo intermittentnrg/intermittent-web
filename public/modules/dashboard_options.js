@@ -1,12 +1,40 @@
-import { Controller } from "@hotwired/stimulus"
 import { router } from "../router.js"
 import { closeAllDropdowns, toggleMenu, triggerChartUpdate } from "../dropdown_utils.js"
 
-export default class extends Controller {
-  static targets = ["menu", "selectedText", "productionTypeSection", "simulationsSection", "electricityMixSection", "tempsSection", "loadSection", "productionTypeOptions", "perUnitSection", "unitOptions", "unitSelectedText", "unitMenu", "transmissionSection", "transmissionOptions", "transmissionSelectedText", "transmissionMenu", "perUnitProductionTypeMenu", "perUnitProductionTypeOptions", "perUnitProductionTypeSelectedText", "multiplierMenu", "multiplierSelectedText", "nuclearInput", "windInput", "solarInput", "demandInput"]
+const targetNames = ["menu", "selectedText", "productionTypeSection", "simulationsSection", "electricityMixSection", "tempsSection", "loadSection", "productionTypeOptions", "perUnitSection", "unitOptions", "unitSelectedText", "unitMenu", "transmissionSection", "transmissionOptions", "transmissionSelectedText", "transmissionMenu", "perUnitProductionTypeMenu", "perUnitProductionTypeOptions", "perUnitProductionTypeSelectedText", "multiplierMenu", "multiplierSelectedText", "nuclearInput", "windInput", "solarInput", "demandInput"]
 
+function targetSelector(target) {
+  return `#dashboard-options-${kebab(target)}`
+}
+
+function targetListSelector(target) {
+  return `.dashboard-options-${kebab(target)}`
+}
+
+function kebab(value) {
+  return value.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`)
+}
+
+export function initDashboardOptions() {
+  const root = document.getElementById('topnav-content')
+  if (!root) return null
+  const module = new DashboardOptions(root)
+  module.connect()
+  return module
+}
+
+class DashboardOptions {
   units = []
   transmissionLines = []
+
+  constructor(element) {
+    this.element = element
+    for (const target of targetNames) {
+      Object.defineProperty(this, `${target}Target`, { get: () => this.element.querySelector(targetSelector(target)) })
+      Object.defineProperty(this, `${target}Targets`, { get: () => Array.from(this.element.querySelectorAll(targetListSelector(target))) })
+      Object.defineProperty(this, `has${target.charAt(0).toUpperCase() + target.slice(1)}Target`, { get: () => !!this.element.querySelector(targetSelector(target)) || !!this.element.querySelector(targetListSelector(target)) })
+    }
+  }
 
   connect() {
     this.updateVisibilityFromRouter()
@@ -32,7 +60,33 @@ export default class extends Controller {
       this.renderTransmissionLines(this.transmissionLines)
     })
 
+    this.element.addEventListener('click', (event) => this.handleClick(event))
+    this.element.addEventListener('change', (event) => this.handleChange(event))
+
     this.populateMultipliersFromUrl()
+  }
+
+  handleClick(event) {
+    if (event.target.closest('.production-type-selector > .dropdown-btn')) return this.toggleMenu(event)
+    if (event.target.closest('.production-type-selector .action-btn.apply')) return this.applyProductionType(event)
+    if (event.target.closest('.multiplier-selector > .dropdown-btn')) return this.toggleMultiplierMenu(event)
+    if (event.target.closest('.multiplier-selector .action-btn.apply')) return this.applyMultipliers(event)
+    if (event.target.closest('#dashboard-options-transmission-section > .dropdown-btn')) return this.toggleTransmissionMenu(event)
+    if (event.target.closest('#dashboard-options-transmission-section .action-btn.apply')) return this.applyTransmission(event)
+    if (event.target.closest('#dashboard-options-per-unit-production-type-section > .dropdown-btn')) return this.togglePerUnitProductionTypeMenu(event)
+    if (event.target.closest('#dashboard-options-per-unit-production-type-section .action-btn.apply')) return this.applyPerUnitProductionType(event)
+    if (event.target.closest('#dashboard-options-unit-section > .dropdown-btn')) return this.toggleUnitMenu(event)
+    if (event.target.closest('#dashboard-options-unit-section .action-btn.apply')) return this.applyUnits(event)
+  }
+
+  handleChange(event) {
+    if (event.target.closest('.production-type-selector .dropdown-checkbox')) return this.toggleProductionType(event)
+    if (event.target.closest('#dashboard-options-per-unit-production-type-section .dropdown-checkbox')) return this.togglePerUnitProductionType(event)
+    if (event.target.closest('#dashboard-options-unit-section .unit-checkbox')) return this.toggleUnit(event)
+    if (event.target.closest('#dashboard-options-transmission-section .dropdown-checkbox')) return this.toggleTransmission(event)
+    if (event.target.id === 'topnav-prices-checkbox') return this.togglePrices(event)
+    if (event.target.id === 'topnav-temps-checkbox') return this.toggleTemps(event)
+    if (event.target.id === 'topnav-load-checkbox') return this.toggleLoad(event)
   }
 
   populateMultipliersFromUrl() {
@@ -145,7 +199,7 @@ export default class extends Controller {
         <div class="dropdown-option">
           <input type="checkbox" class="dropdown-checkbox" id="production-type-${type.value}"
                  value="${type.value}" ${shouldBeChecked ? "checked" : ""}
-                 data-action="change->dashboard-options#toggleProductionType">
+                >
           <label class="dropdown-label" for="production-type-${type.value}">${type.label}</label>
         </div>
       `
@@ -168,7 +222,7 @@ export default class extends Controller {
         <div class="dropdown-option">
           <input type="checkbox" class="dropdown-checkbox" id="per-unit-production-type-${type.value}"
                  value="${type.value}" ${isSelected ? "checked" : ""}
-                 data-action="change->dashboard-options#togglePerUnitProductionType">
+                >
           <label class="dropdown-label" for="per-unit-production-type-${type.value}">${type.label}</label>
         </div>
       `
@@ -198,7 +252,7 @@ export default class extends Controller {
           <input type="checkbox" class="dropdown-checkbox unit-checkbox" id="unit-${unit.id}"
                  value="${unit.id}" data-production-type="${unit.production_type}"
                  ${isSelected ? "checked" : ""}
-                 data-action="change->dashboard-options#toggleUnit">
+                >
           <label class="dropdown-label" for="unit-${unit.id}">${unit.name} (${unit.area})</label>
         </div>
       `
@@ -243,7 +297,7 @@ export default class extends Controller {
         <div class="dropdown-option">
           <input type="checkbox" class="dropdown-checkbox" id="transmission-${line.id}"
                  value="${line.id}" ${isSelected ? "checked" : ""}
-                 data-action="change->dashboard-options#toggleTransmission">
+                >
           <label class="dropdown-label" for="transmission-${line.id}">${line.label}</label>
         </div>
       `
