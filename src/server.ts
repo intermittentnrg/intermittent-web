@@ -13,6 +13,8 @@ export async function buildApp() {
     trustProxy: true,
   });
 
+  const isDevelopment = process.argv.includes("--dev");
+
   app.register(view, {
     engine: {
       ejs,
@@ -22,6 +24,7 @@ export async function buildApp() {
     defaultContext: {
       viteEntrypointUrl,
       viteScriptTags,
+      googleAnalyticsEnabled: !isDevelopment,
     },
   });
 
@@ -29,8 +32,6 @@ export async function buildApp() {
     root: path.join(process.cwd(), "public"),
     prefix: "/assets/",
   });
-
-  const isDevelopment = process.argv.includes("--dev");
 
   app.register(staticFiles, {
     root: isDevelopment
