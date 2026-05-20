@@ -352,11 +352,11 @@ class DashboardOptions {
   }
 
   toggleTransmissionMenu(event) {
-    toggleMenu(this.transmissionMenuTarget, event.currentTarget)
+    toggleMenu(this.transmissionMenuTarget, event.target.closest('#dashboard-options-transmission-section > .dropdown-btn'))
   }
 
   toggleProductionType(event) {
-    const checkbox = event.currentTarget
+    const checkbox = event.target.closest('.dropdown-checkbox')
 
     if (checkbox.value === 'all') {
       if (checkbox.checked) {
@@ -391,7 +391,7 @@ class DashboardOptions {
   }
 
   togglePerUnitProductionType(event) {
-    const checkbox = event.currentTarget
+    const checkbox = event.target.closest('.dropdown-checkbox')
 
     if (checkbox.checked) {
       this.perUnitProductionTypeOptionsTarget.querySelectorAll(".dropdown-checkbox").forEach(cb => {
@@ -422,7 +422,7 @@ class DashboardOptions {
   }
 
   togglePerUnitProductionTypeMenu(event) {
-    toggleMenu(this.perUnitProductionTypeMenuTarget, event.currentTarget)
+    toggleMenu(this.perUnitProductionTypeMenuTarget, event.target.closest('#dashboard-options-per-unit-production-type-section > .dropdown-btn'))
   }
 
   applyPerUnitProductionType() {
@@ -485,7 +485,7 @@ class DashboardOptions {
   }
 
   toggleUnitMenu(event) {
-    toggleMenu(this.unitMenuTarget, event.currentTarget)
+    toggleMenu(this.unitMenuTarget, event.target.closest('#dashboard-options-unit-section > .dropdown-btn'))
   }
 
   updateUI() {
@@ -501,13 +501,12 @@ class DashboardOptions {
     }
   }
 
-  toggleMenu() {
-    const button = this.element.querySelector(".production-type-btn")
-    toggleMenu(this.menuTarget, button)
+  toggleMenu(event) {
+    toggleMenu(this.menuTarget, event.target.closest('.production-type-selector > .dropdown-btn'))
   }
 
   toggleMultiplierMenu(event) {
-    toggleMenu(this.multiplierMenuTarget, event.currentTarget)
+    toggleMenu(this.multiplierMenuTarget, event.target.closest('.multiplier-selector > .dropdown-btn'))
   }
 
   applyMultipliers() {

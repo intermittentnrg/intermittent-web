@@ -10,8 +10,13 @@ function closeAllDropdowns() {
 function positionMenu(button, menu) {
   if (!button || !menu) return
   const buttonRect = button.getBoundingClientRect()
-  menu.style.left = `${buttonRect.left}px`
+  const menuRect = menu.getBoundingClientRect()
+  const menuWidth = menuRect.width || menu.offsetWidth || buttonRect.width
+  const left = buttonRect.left
+  const maxLeft = window.innerWidth - menuWidth - 8
+
   menu.style.top = `${buttonRect.bottom + 4}px`
+  menu.style.left = `${Math.max(8, Math.min(left, maxLeft))}px`
 }
 
 function toggleMenu(menu, button) {
@@ -21,6 +26,7 @@ function toggleMenu(menu, button) {
   if (!wasOpen) {
     menu.classList.add('open')
     positionMenu(button, menu)
+    requestAnimationFrame(() => positionMenu(button, menu))
   }
 }
 

@@ -73,6 +73,7 @@
   align-items: center;
   padding: 8px 0;
   gap: 8px;
+  white-space: nowrap;
 }
 
 .dropdown-checkbox {
@@ -193,7 +194,7 @@
     border-right: none;
   }
 
-  .step-actions {
+  .area-menu > .step-actions {
     position: absolute;
     right: 0;
     bottom: 0;
@@ -271,7 +272,7 @@
     margin-bottom: 0;
   }
 
-  .step-actions {
+  .area-menu > .step-actions {
     flex-shrink: 0;
   }
 
