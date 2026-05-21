@@ -14,7 +14,7 @@ import { metricColor } from "./shared/colors.ts";
 import type { AnyRow, DashboardParams, DashboardQuery } from "./shared/types.ts";
 
 
-export async function simulations(
+export async function simulation(
   req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
 ) {

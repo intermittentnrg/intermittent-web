@@ -12,7 +12,7 @@ import {
   generationMinMax,
   generationTotal,
   generationYoy,
-  simulations,
+  simulation,
 } from "./dashboards/generation.ts";
 import { demand, demandMinMax, demandYoy } from "./dashboards/demand.ts";
 import { transmission } from "./dashboards/transmission.ts";
@@ -47,7 +47,7 @@ export async function registerRoutes(app: FastifyInstance) {
     per_unit_moving_capacity: perUnitMovingCapacity,
     per_unit_battery: perUnitBattery,
     capture_price: capturePrice,
-    simulations,
+    simulation,
     maps,
     price_map: priceMap,
     sweden,

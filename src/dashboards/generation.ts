@@ -220,4 +220,4 @@ export async function generationYoy(
   );
 }
 
-export { simulations } from "./simulation.ts";
+export { simulation } from "./simulation.ts";

@@ -8,7 +8,7 @@ const productionDashboards = new Set([
   "generation_total",
   "generation_yoy",
   "capture_price",
-  "simulations",
+  "simulation",
 ]);
 
 const perUnitDashboards = new Set([

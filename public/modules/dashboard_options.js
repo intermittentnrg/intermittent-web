@@ -1,7 +1,7 @@
 import { router } from "../router.js"
 import { closeAllDropdowns, toggleMenu, triggerChartUpdate } from "../dropdown_utils.js"
 
-const targetNames = ["menu", "selectedText", "productionTypeSection", "simulationsSection", "electricityMixSection", "tempsSection", "loadSection", "productionTypeOptions", "perUnitSection", "unitOptions", "unitSelectedText", "unitMenu", "transmissionSection", "transmissionOptions", "transmissionSelectedText", "transmissionMenu", "perUnitProductionTypeMenu", "perUnitProductionTypeOptions", "perUnitProductionTypeSelectedText", "multiplierMenu", "multiplierSelectedText", "nuclearInput", "windInput", "solarInput", "demandInput"]
+const targetNames = ["menu", "selectedText", "productionTypeSection", "simulationSection", "electricityMixSection", "tempsSection", "loadSection", "productionTypeOptions", "perUnitSection", "unitOptions", "unitSelectedText", "unitMenu", "transmissionSection", "transmissionOptions", "transmissionSelectedText", "transmissionMenu", "perUnitProductionTypeMenu", "perUnitProductionTypeOptions", "perUnitProductionTypeSelectedText", "multiplierMenu", "multiplierSelectedText", "nuclearInput", "windInput", "solarInput", "demandInput"]
 
 function targetSelector(target) {
   return `#dashboard-options-${kebab(target)}`
@@ -137,11 +137,11 @@ class DashboardOptions {
       }
     }
 
-    this.simulationsSectionTargets.forEach(el => {
-      el.style.display = dashboard === 'simulations' ? 'flex' : 'none'
+    this.simulationSectionTargets.forEach(el => {
+      el.style.display = dashboard === 'simulation' ? 'flex' : 'none'
     })
     
-    if (dashboard === 'simulations' && !this.multiplierMenuTarget?.classList.contains('open')) {
+    if (dashboard === 'simulation' && !this.multiplierMenuTarget?.classList.contains('open')) {
       this.populateMultipliersFromUrl()
     }
     
@@ -152,12 +152,12 @@ class DashboardOptions {
     const dashboard = router.parsePath()?.dashboard || ''
 
     if (this.hasProductionTypeSectionTarget) {
-      this.productionTypeSectionTarget.style.display = ['generation', 'generation_min_max', 'generation_total', 'generation_yoy', 'capture_price', 'simulations'].includes(dashboard) ? 'flex' : 'none'
+      this.productionTypeSectionTarget.style.display = ['generation', 'generation_min_max', 'generation_total', 'generation_yoy', 'capture_price', 'simulation'].includes(dashboard) ? 'flex' : 'none'
     }
     
-    if (this.hasSimulationsSectionTarget) {
-      this.simulationsSectionTargets.forEach(el => {
-        el.style.display = dashboard === 'simulations' ? 'flex' : 'none'
+    if (this.hasSimulationSectionTarget) {
+      this.simulationSectionTargets.forEach(el => {
+        el.style.display = dashboard === 'simulation' ? 'flex' : 'none'
       })
     }
     

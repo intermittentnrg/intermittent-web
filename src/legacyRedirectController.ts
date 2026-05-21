@@ -7,7 +7,7 @@ const legacyDashboardUidMappings: Record<string, string> = {
   "dd01537d-9d97-464a-ac10-3bf6e057e67c": "generation_min_max",
   ddj485n5eza4gd: "generation_total",
   "d85aa31b-fd17-484e-85bf-23bdc1ef5af2": "generation_yoy",
-  bdhjgwdfjkwe8a: "simulations",
+  bdhjgwdfjkwe8a: "simulation",
   "a6784fe6-f7e8-4c8b-83ed-1e8ccd8734a1": "demand",
   "d606c07d-78f6-4f4a-bffd-dd89bb7cddbc": "demand_min_max",
   "ed438e5f-3c21-4f76-b5c5-3b0083a998ba": "demand_yoy",
@@ -25,10 +25,10 @@ export async function legacyDashboardRedirect(request: FastifyRequest<{ Params: 
   if (!dashboard) return reply.code(404).send({ error: "Unknown legacy dashboard uid" });
 
   const query = request.query;
-  const region = stringQuery(query["var-region"]) || "usa";
-  const areaType = stringQuery(query["var-area_type"]) || "country";
-  const area = await legacyAreaCodes(stringQueryValues(query["var-area"]), region, areaType);
-  const dateRange = `${legacyDatePart(stringQuery(query.from), "from")}_to_${legacyDatePart(stringQuery(query.to), "to")}`;
+  const [region, areaType, area] = await legacyAreaTarget(request);
+  const from = legacyDatePart(stringQuery(query.from), "from");
+  const to = legacyDatePart(stringQuery(query.to), "to");
+  const dateRange = `${from}_to_${to}`;
 
   const targetQuery = new URLSearchParams();
   setQuery(targetQuery, "min_interval", stringQuery(query["var-min_interval"]));
@@ -83,17 +83,32 @@ function legacyDatePart(value: string | undefined, side: "from" | "to") {
   return `${amount}_${amount === "1" ? unitName.replace(/s$/, "") : unitName}_ago`;
 }
 
-async function legacyAreaCodes(rawValues: string[], region: string, areaType: string) {
+async function legacyAreaTarget(request: FastifyRequest<{ Querystring: LegacyDashboardQuery }>) {
+  const query = request.query;
+  const fallbackRegion = stringQuery(query["var-region"]) || "usa";
+  const fallbackAreaType = stringQuery(query["var-area_type"]) || "country";
+  const rawValues = stringQueryValues(query["var-area"]);
   const values = rawValues.flatMap((value) => value.split(",")).filter(Boolean);
-  if (!values.length || values.includes("$__all") || values.includes("all")) return "all";
-  if (!values.every((value) => /^\d+$/.test(value))) return values.join(",");
+  if (!values.length || values.includes("$__all") || values.includes("all")) {
+    return [fallbackRegion, fallbackAreaType, "all"] as const;
+  }
+  if (!values.every((value) => /^\d+$/.test(value))) {
+    return [fallbackRegion, fallbackAreaType, values.join(",")] as const;
+  }
 
   const ids = values.map(Number);
-  const rows = await querySmall<{ code: string }>(
-    "SELECT code FROM areas WHERE id = ANY($1::int[]) AND region=$2 AND type=$3 ORDER BY code",
-    [ids, region, areaType],
+  const rows = await querySmall<{ id: number; region: string; type: string; code: string }>(
+    "SELECT id, region, type, code FROM areas WHERE id = ANY($1::int[]) ORDER BY array_position($1::int[], id)",
+    [ids],
   );
-  return rows.map((row) => row.code).join(",") || values.join(",");
+  if (!rows.length) return [fallbackRegion, fallbackAreaType, values.join(",")] as const;
+  const sameRegion = rows.every((row) => row.region === rows[0].region);
+  const sameAreaType = rows.every((row) => row.type === rows[0].type);
+  return [
+    sameRegion ? rows[0].region : fallbackRegion,
+    sameAreaType ? rows[0].type : fallbackAreaType,
+    rows.map((row) => row.code).join(","),
+  ] as const;
 }
 
 async function legacyProductionType(rawValues: string[]) {
