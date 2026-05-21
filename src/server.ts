@@ -1,6 +1,7 @@
 import "dotenv/config";
 import path from "node:path";
 import Fastify from "fastify";
+import compress from "@fastify/compress";
 import view from "@fastify/view";
 import staticFiles from "@fastify/static";
 import ejs from "ejs";
@@ -14,6 +15,8 @@ export async function buildApp() {
   });
 
   const isDevelopment = process.argv.includes("--dev");
+
+  app.register(compress, { global: true });
 
   app.register(view, {
     engine: {
