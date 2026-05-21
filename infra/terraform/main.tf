@@ -55,7 +55,7 @@ resource "aws_lambda_function" "web" {
   source_code_hash = data.archive_file.lambda.output_base64sha256
 
   runtime = "nodejs22.x"
-  handler = "dist/lambda.handler"
+  handler = "lambda.handler"
 
   memory_size = var.memory_size
   timeout     = var.timeout
@@ -64,7 +64,7 @@ resource "aws_lambda_function" "web" {
     for_each = length(var.environment_variables) > 0 ? [1] : []
 
     content {
-      variables = var.environment_variables
+      variables = merge({ NODE_OPTIONS = "--experimental-strip-types" }, var.environment_variables)
     }
   }
 
