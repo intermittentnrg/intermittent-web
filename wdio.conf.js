@@ -78,13 +78,23 @@ export const config = {
   async afterTest(test, context, { error, passed }) {
     if (passed) return;
 
-    const screenshotDir = path.join(process.cwd(), 'tmp', 'wdio-screenshots');
-    fs.mkdirSync(screenshotDir, { recursive: true });
+    const sessionId = browser.sessionId;
+    if (!sessionId) {
+      console.log(`Skipping failure screenshot for "${test.title}": browser session is not available`);
+      return;
+    }
 
-    const safeTitle = test.title.replace(/[^a-z0-9._-]+/gi, '_').replace(/^_+|_+$/g, '');
-    const screenshotPath = path.join(screenshotDir, `${Date.now()}-${safeTitle}.png`);
-    await browser.saveScreenshot(screenshotPath);
-    console.log(`Saved failure screenshot: ${screenshotPath}`);
+    try {
+      const screenshotDir = path.join(process.cwd(), 'tmp', 'wdio-screenshots');
+      fs.mkdirSync(screenshotDir, { recursive: true });
+
+      const safeTitle = test.title.replace(/[^a-z0-9._-]+/gi, '_').replace(/^_+|_+$/g, '');
+      const screenshotPath = path.join(screenshotDir, `${Date.now()}-${safeTitle}.png`);
+      await browser.saveScreenshot(screenshotPath);
+      console.log(`Saved failure screenshot: ${screenshotPath}`);
+    } catch (screenshotError) {
+      console.log(`Skipping failure screenshot for "${test.title}": ${screenshotError.message}`);
+    }
   },
 
   async onComplete() {

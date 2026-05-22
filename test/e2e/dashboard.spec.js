@@ -15,7 +15,7 @@ const dataDashboards = [
   'per_unit_peak',
   'per_unit_total',
   'per_unit_moving_capacity',
-  'simulations',
+  'simulation',
 ];
 
 describe('Dashboard', () => {
