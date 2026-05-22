@@ -15,17 +15,17 @@ export async function loadSocialThreadReply(id: number) {
 
 export async function saveSocialThreadReply(id: number, reply: SocialThreadReply) {
   await querySmall(
-    `insert into social_threads (id, reply, created_at, updated_at)
-     values ($1, $2::jsonb, now(), now())
-     on conflict (id) do update set reply = excluded.reply, updated_at = now()`,
+    `insert into social_threads (id, reply)
+     values ($1, $2::jsonb)
+     on conflict (id) do update set reply = excluded.reply`,
     [id, JSON.stringify(reply)],
   );
 }
 
 async function ensureSocialThread(id: number) {
   await querySmall(
-    `insert into social_threads (id, created_at, updated_at)
-     values ($1, now(), now())
+    `insert into social_threads (id)
+     values ($1)
      on conflict (id) do nothing`,
     [id],
   );
