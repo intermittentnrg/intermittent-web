@@ -9,8 +9,7 @@ services:
       - .:/workspace
       - ~/work/intermittent-importers:/rails
       - node-modules:/workspace/node_modules
-    ports:
-      - "3000:3000"
+    network_mode: host
     security_opt:
       - no-new-privileges:true
     stdin_open: true
