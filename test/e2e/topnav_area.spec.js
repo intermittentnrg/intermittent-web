@@ -1,4 +1,4 @@
-const { expectPath } = require('./helpers');
+import { expectPath } from './helpers.js';
 
 describe('Area Navigation', () => {
   beforeEach(async () => {
