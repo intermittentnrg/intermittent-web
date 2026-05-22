@@ -20,6 +20,7 @@ export async function getEchartsForSsr() {
     markLineComponent,
     toolboxComponent,
     transformComponent,
+    timelineComponent,
   ] = await Promise.all([
     import("echarts/core.js"),
     import("echarts/lib/renderer/installCanvasRenderer.js"),
@@ -39,6 +40,7 @@ export async function getEchartsForSsr() {
     import("echarts/lib/component/marker/installMarkLine.js"),
     import("echarts/lib/component/toolbox/install.js"),
     import("echarts/lib/component/transform/install.js"),
+    import("echarts/lib/component/timeline/install.js"),
   ]) as any[];
 
   if (!registered) {
@@ -60,6 +62,7 @@ export async function getEchartsForSsr() {
       markLineComponent.install,
       toolboxComponent.install,
       transformComponent.install,
+      timelineComponent.install,
     ]);
     registered = true;
   }

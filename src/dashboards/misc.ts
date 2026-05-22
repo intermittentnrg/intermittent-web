@@ -236,9 +236,19 @@ function priceMapOptions(frames: any[]) {
         top: 180 + ((500 - value) / 500) * 960 - 14,
         silent: true,
         style: {
-          text: `${value}€/MWh`,
+          text: `{value|€${value}}\n{unit|/MWh}`,
           fill: "#222222",
-          font: "600 24px Inter, Helvetica, Arial, sans-serif",
+          rich: {
+            value: {
+              font: "600 24px Inter, Helvetica, Arial, sans-serif",
+              lineHeight: 28,
+            },
+            unit: {
+              font: "600 24px Inter, Helvetica, Arial, sans-serif",
+              lineHeight: 28,
+              padding: [4, 0, 0, 0],
+            },
+          },
         },
       })),
       series: [

@@ -43,7 +43,7 @@ function defaultPostText() {
     month: "short",
     day: "numeric",
     timeZone: "UTC",
-  })} UTC`;
+  })}`;
 }
 
 main().catch((error) => {

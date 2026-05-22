@@ -9,9 +9,7 @@
     "build": "rm -rf dist && vite build",
     "build:lambda": "npm run build && rm -rf tmp/lambda && mkdir -p tmp/lambda/src && cp -R dist src public package.json package-lock.json tmp/lambda/ && cp -R lambda-assets/* tmp/lambda/ && npm ci --omit=dev --prefix tmp/lambda && rm -rf tmp/lambda/node_modules/@napi-rs/canvas-linux-x64-musl && find tmp/lambda/node_modules -type f \\( -name '*.map' -o -name '*.ts' -o -name '*.d.ts' -o -name '*.md' \\) -delete",
     "start": "node --experimental-strip-types src/server.ts",
-    "render:price-map:frames": "node --experimental-strip-types src/scripts/renderPriceMapFrames.ts",
-    "render:price-map:video": "node --experimental-strip-types src/scripts/renderPriceMapVideo.ts",
-    "render:price-map": "npm run render:price-map:frames && npm run render:price-map:video",
+    "render:price-map": "node --experimental-strip-types src/scripts/renderPriceMap.ts",
     "publish:price-map": "node --experimental-strip-types src/scripts/publishPriceMap.ts",
     "test": "vitest",
     "test:e2e": "wdio run ./wdio.conf.js"
