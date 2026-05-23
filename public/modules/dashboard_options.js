@@ -170,7 +170,7 @@ class DashboardOptions {
     }
     
     if (this.hasLoadSectionTarget) {
-      this.loadSectionTarget.style.display = dashboard === 'generation' ? 'flex' : 'none'
+      this.loadSectionTarget.style.display = ['electricity_mix', 'generation'].includes(dashboard) ? 'flex' : 'none'
     }
     
     if (this.hasPerUnitSectionTarget) {

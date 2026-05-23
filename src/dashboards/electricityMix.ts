@@ -4,6 +4,7 @@ import { getContext } from "./shared/context.ts";
 import { buildDualAxisOptions } from "./shared/chartOptions.ts";
 import { sendChartResponse } from "./shared/chartResponse.ts";
 import { getPriceSeries } from "./shared/prices.ts";
+import { getLoadSeries } from "./shared/load.ts";
 import type { DashboardParams, DashboardQuery, TimeMetricValueRow } from "./shared/types.ts";
 import { divergentSeries } from "./shared/series.ts";
 import { metricColor } from "./shared/colors.ts";
@@ -127,6 +128,8 @@ export async function electricityMix(
     ...genData,
   ]));
 
+  if (request.query.load) series.push(...(await getLoadSeries(request, args)));
+
   if (request.query.prices)
     (series as Array<ReturnType<typeof newSeries> | Awaited<ReturnType<typeof getPriceSeries>>[number]>).push(
       ...(await getPriceSeries(request, args, { yAxisIndex: 1 })),
@@ -152,19 +155,27 @@ function transmissionRowsToSeriesRows(rows: TransmissionRow[]): TimeMetricValueR
 }
 
 function buildSeriesFromData(data: TimeMetricValueRow[]) {
-  const seriesMap = new Map<string, ReturnType<typeof newSeries>>();
+  const rows = [...data].sort((a, b) => {
+    const metricOrder = cleanMetricName(a.metric).localeCompare(cleanMetricName(b.metric));
+    return metricOrder || a.time - b.time;
+  });
+  const series: Array<ReturnType<typeof newSeries>> = [];
+  let currentSeries: ReturnType<typeof newSeries> | undefined;
 
-  for (const row of data) {
-    const key = row.metric;
-    if (!seriesMap.has(key)) seriesMap.set(key, newSeries(key));
-    seriesMap.get(key)!.data.push([row.time, row.value * 1000]);
+  for (const row of rows) {
+    const key = cleanMetricName(row.metric);
+    if (currentSeries?.name !== key) {
+      currentSeries = newSeries(key);
+      series.push(currentSeries);
+    }
+    currentSeries.data.push([row.time, row.value * 1000]);
   }
 
-  for (const series of seriesMap.values()) {
-    series.data.sort((a, b) => a[0] - b[0]);
-  }
+  return series;
+}
 
-  return [...seriesMap.values()];
+function cleanMetricName(metric: string) {
+  return metric.replace(/^\d+_/, "");
 }
 
 function newSeries(key: string) {

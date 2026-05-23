@@ -33,12 +33,13 @@ export function buildChartOptions(
 }
 
 export function buildDualAxisOptions(
-  series: Array<{ name: string; yAxisIndex?: number }>,
+  series: Array<{ name: string; unit?: string; yAxisIndex?: number }>,
   title: string,
 ) {
-  const hasSecondary = series.some((s) => s.yAxisIndex === 1);
-  const priceSeries = series.some((s) => s.name?.includes("price"));
-  const tempSeries = series.some((s) => s.name?.includes("temp"));
+  const secondarySeries = series.filter((s) => s.yAxisIndex === 1);
+  const hasSecondary = secondarySeries.length > 0;
+  const priceSeries = secondarySeries.some((s) => s.unit === "price" || s.name?.includes("price"));
+  const tempSeries = secondarySeries.some((s) => s.unit === "temperature" || s.name?.includes("temp"));
   const secondaryFormatter = priceSeries
     ? { type: "price" }
     : tempSeries

@@ -1,22 +1,24 @@
 export function normalizedMetricKey(metric: string) {
-  return (metric.split("/").at(-1) || metric).replace(/_negative$/, "");
+  return (metric.split("/").at(-1) || metric)
+    .replace(/_negative$/, "")
+    .replace(/^\d+_/, "");
 }
 
 export function metricColor(metric: string) {
   const key = normalizedMetricKey(metric);
   return (
     {
-      "01_biomass_and_waste": "rgb(128, 224, 167)",
-      "02_nuclear": "rgb(213, 0, 50)",
-      "03_lignite": "rgb(92, 26, 35)",
-      "04_hard_coal": "rgb(137, 137, 137)",
-      "05_gas": "rgb(198, 163, 201)",
-      "06_hydro": "rgb(2, 77, 188)",
-      "07_other": "rgb(241, 194, 27)",
-      "08_other_renewable": "rgb(199, 156, 148)",
-      "09_wind": "rgb(152, 205, 251)",
-      "09_wind_onshore": "rgb(152, 205, 251)",
-      "11_solar": "rgb(236, 232, 26)",
+      biomass_and_waste: "rgb(128, 224, 167)",
+      nuclear: "rgb(213, 0, 50)",
+      lignite: "rgb(92, 26, 35)",
+      hard_coal: "rgb(137, 137, 137)",
+      gas: "rgb(198, 163, 201)",
+      hydro: "rgb(2, 77, 188)",
+      other: "rgb(241, 194, 27)",
+      other_renewable: "rgb(199, 156, 148)",
+      wind: "rgb(152, 205, 251)",
+      wind_onshore: "rgb(152, 205, 251)",
+      solar: "rgb(236, 232, 26)",
       import: "rgb(124, 46, 163)",
       export: "rgb(124, 46, 163)",
       transmission: "rgb(124, 46, 163)",

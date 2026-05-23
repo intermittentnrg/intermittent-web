@@ -19,6 +19,7 @@ import {
   sendDualAxisChart,
 } from "./shared/chartResponse.ts";
 import { getPriceSeries } from "./shared/prices.ts";
+import { getLoadSeries } from "./shared/load.ts";
 import type {
   AnyRow,
   DashboardParams,
@@ -71,7 +72,10 @@ export async function generation(
     ptIds,
   ]);
   const series: Series[] = divergentSeries(buildPowerLineSeries(rows, metricColor));
-  if (request.query.prices) series.push(...(await getPriceSeries(request, priceArgs)));
+  if (request.query.load) {
+    series.push(...(await getLoadSeries(request, priceArgs)));
+  }
+  if (request.query.prices) series.push(...(await getPriceSeries(request, priceArgs, { yAxisIndex: 1 })));
   const productionTypes = await getProductionTypeOptions(ctx.areaIds);
   return sendDualAxisChart(
     request,
