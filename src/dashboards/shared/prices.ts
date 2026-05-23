@@ -2,13 +2,18 @@ import type { FastifyRequest } from "fastify";
 import { chartQuery } from "./chartQuery.ts";
 import type { Series, TimeMetricValueRow } from "./types.ts";
 
+type PriceSeriesOptions = {
+  yAxisIndex?: number;
+  colorForMetric?: (metric: string) => string | undefined;
+};
+
 const priceSql = `
   SELECT EXTRACT(EPOCH FROM time AT TIME ZONE $5) * 1000 AS time, metric, value
   FROM (
     SELECT
       time_bucket_gapfill($1::interval, time) AS time,
-      'price/'||a.code AS metric,
-      AVG(value)/100 AS value
+      a.code AS metric,
+      LOCF(AVG(p.value)/100) AS value
     FROM prices p
     INNER JOIN areas a ON(p.area_id=a.id)
     WHERE
@@ -26,36 +31,35 @@ const priceSql = `
 export async function getPriceSeries(
   request: FastifyRequest,
   args: [string, Date, Date, number[], string],
+  options: PriceSeriesOptions = {},
 ) {
   const rows = await chartQuery<TimeMetricValueRow>(request, priceSql, args);
-  return buildPriceSeries(rows);
-}
+  const series: Series[] = [];
+  let currentSeries: Series | undefined;
 
-function buildPriceSeries(data: TimeMetricValueRow[]) {
-  const seriesMap = new Map<string, ReturnType<typeof newPriceSeries>>();
-
-  for (const row of data) {
-    const timestamp = row.time;
-
+  for (const row of rows) {
     const key = String(row.metric);
-    if (!seriesMap.has(key)) seriesMap.set(key, newPriceSeries(key));
-    const series = seriesMap.get(key)!;
-    series.data!.push([timestamp, row.value]);
+    if (currentSeries?.name !== key) {
+      currentSeries = newPriceSeries(key, options);
+      series.push(currentSeries);
+    }
+    currentSeries.data!.push([row.time, row.value]);
   }
 
-  return [...seriesMap.values()];
+  return series;
 }
 
-function newPriceSeries(key: string): Series {
+function newPriceSeries(key: string, options: PriceSeriesOptions = {}): Series {
+  const color = options.colorForMetric?.(key) || getColorForPrice(key);
   return {
     name: key,
     type: "line",
     unit: "price",
     symbol: "none",
     step: "start",
-    lineStyle: { width: 2, color: getColorForPrice(key) },
-    itemStyle: { color: getColorForPrice(key) },
-    yAxisIndex: 1,
+    lineStyle: { width: 2, color },
+    itemStyle: { color },
+    yAxisIndex: options.yAxisIndex,
     data: [] as Array<[number, number]>,
   };
 }

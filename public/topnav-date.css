@@ -52,7 +52,7 @@
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
-.interval-menu {
+.resolution-menu {
   position: fixed;
   top: 74px;
   width: 100px;
@@ -65,15 +65,15 @@
   overflow: hidden;
 }
 
-.interval-menu.open {
+.resolution-menu.open {
   display: block;
 }
 
-.interval-options {
+.resolution-options {
   padding: 8px;
 }
 
-.interval-option {
+.resolution-option {
   display: flex;
   align-items: center;
   width: 100%;
@@ -87,11 +87,11 @@
   text-align: left;
 }
 
-.interval-option:hover {
+.resolution-option:hover {
   background: #f3f4f6;
 }
 
-.interval-option.selected {
+.resolution-option.selected {
   background: #3b82f6;
   color: white;
 }

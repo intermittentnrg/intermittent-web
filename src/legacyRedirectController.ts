@@ -31,7 +31,7 @@ export async function legacyDashboardRedirect(request: FastifyRequest<{ Params: 
   const dateRange = `${from}_to_${to}`;
 
   const targetQuery = new URLSearchParams();
-  setQuery(targetQuery, "min_interval", stringQuery(query["var-min_interval"]));
+  setQuery(targetQuery, "min_resolution", stringQuery(query["var-min_interval"]));
   if (truthyLegacyFlag(stringQuery(query["var-demand"]))) targetQuery.set("load", "1");
   if (truthyLegacyFlag(stringQuery(query["var-price"]))) targetQuery.set("prices", "1");
 

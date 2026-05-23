@@ -30,16 +30,16 @@
       <label>Timezone</label>
       <span class="timezone-name"></span>
     </div>
-    <div class="topnav-item interval-selector">
-      <label>Min Interval</label>
-      <button type="button" class="dropdown-btn interval-btn">
-        <span class="dropdown-value"><%= params.min_interval || '15m' %></span>
+    <div class="topnav-item resolution-selector">
+      <label>Min Resolution</label>
+      <button type="button" class="dropdown-btn resolution-btn">
+        <span class="dropdown-value"><%= params.min_resolution || '15m' %></span>
         <span class="dropdown-arrow">▼</span>
       </button>
-      <div class="interval-menu">
-        <div class="interval-options">
-          <% intervals.forEach((int) => { %>
-            <button type="button" class="interval-option <%= params.min_interval === int ? 'selected' : '' %>" data-interval="<%= int %>"><span class="option-text"><%= int %></span></button>
+      <div class="resolution-menu">
+        <div class="resolution-options">
+          <% resolutions.forEach((res) => { %>
+            <button type="button" class="resolution-option <%= params.min_resolution === res ? 'selected' : '' %>" data-resolution="<%= res %>"><span class="option-text"><%= res %></span></button>
           <% }) %>
         </div>
       </div>

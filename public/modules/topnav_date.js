@@ -9,37 +9,37 @@ export function initTopnavDate() {
   const toInput = document.getElementById('date-to')
   const menu = root.querySelector('.date-preset-menu')
   const presetText = root.querySelector('.date-preset-btn .dropdown-value')
-  const intervalMenu = root.querySelector('.interval-menu')
-  const intervalSelectedText = root.querySelector('.interval-btn .dropdown-value')
+  const resolutionMenu = root.querySelector('.resolution-menu')
+  const resolutionSelectedText = root.querySelector('.resolution-btn .dropdown-value')
   const timezone = root.querySelector('.timezone-selector')
 
   let preset = null
   let previousFrom = null
   let previousTo = null
 
-  function getInterval() {
-    return getQuery().min_interval || '15m'
+  function getResolution() {
+    return getQuery().min_resolution || '15m'
   }
 
-  function selectInterval(button) {
-    const interval = button.dataset.interval
+  function selectResolution(button) {
+    const resolution = button.dataset.resolution
     closeAllDropdowns()
-    updateQuery({ min_interval: interval })
-    if (intervalSelectedText) intervalSelectedText.textContent = interval
-    updateIntervalSelectedState()
+    updateQuery({ min_resolution: resolution })
+    if (resolutionSelectedText) resolutionSelectedText.textContent = resolution
+    updateResolutionSelectedState()
     triggerChartUpdate()
   }
 
-  function updateIntervalSelectedState() {
-    if (!intervalMenu) return
-    const currentInterval = getInterval()
-    intervalMenu.querySelectorAll(".interval-option").forEach(option => {
-      option.classList.toggle("selected", option.dataset.interval === currentInterval)
+  function updateResolutionSelectedState() {
+    if (!resolutionMenu) return
+    const currentResolution = getResolution()
+    resolutionMenu.querySelectorAll(".resolution-option").forEach(option => {
+      option.classList.toggle("selected", option.dataset.resolution === currentResolution)
     })
   }
 
-  function updateIntervalUI() {
-    if (intervalSelectedText) intervalSelectedText.textContent = getInterval()
+  function updateResolutionUI() {
+    if (resolutionSelectedText) resolutionSelectedText.textContent = getResolution()
   }
 
   function initializeFromUrl() {
@@ -150,11 +150,11 @@ export function initTopnavDate() {
     const presetButton = event.target.closest('.date-preset-option')
     if (presetButton) return selectPreset(presetButton)
 
-    const intervalButton = event.target.closest('.interval-option')
-    if (intervalButton) return selectInterval(intervalButton)
+    const resolutionButton = event.target.closest('.resolution-option')
+    if (resolutionButton) return selectResolution(resolutionButton)
 
     if (event.target.closest('.date-preset-btn')) return toggleMenu(menu, root.querySelector('.date-preset-btn'))
-    if (event.target.closest('.interval-btn')) return toggleMenu(intervalMenu, root.querySelector('.interval-btn'))
+    if (event.target.closest('.resolution-btn')) return toggleMenu(resolutionMenu, root.querySelector('.resolution-btn'))
   })
 
   fromInput.addEventListener('focus', onDateInputFocus)
@@ -168,8 +168,8 @@ export function initTopnavDate() {
 
   function syncFromUrl() {
     initializeFromUrl()
-    updateIntervalSelectedState()
-    updateIntervalUI()
+    updateResolutionSelectedState()
+    updateResolutionUI()
     updateUI()
   }
 

@@ -129,7 +129,7 @@ export async function electricityMix(
 
   if (request.query.prices)
     (series as Array<ReturnType<typeof newSeries> | Awaited<ReturnType<typeof getPriceSeries>>[number]>).push(
-      ...(await getPriceSeries(request, args)),
+      ...(await getPriceSeries(request, args, { yAxisIndex: 1 })),
     );
 
   return sendChartResponse(

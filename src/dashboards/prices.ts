@@ -2,47 +2,29 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { chartQuery } from "./shared/chartQuery.ts";
 import { getContext } from "./shared/context.ts";
 import { buildChartOptions } from "./shared/chartOptions.ts";
-import { buildBasicSeries } from "./shared/series.ts";
 import {
   getProductionTypeIds,
   getProductionTypeOptions,
 } from "./shared/productionTypes.ts";
 import { metricColor } from "./shared/colors.ts";
+import { getPriceSeries } from "./shared/prices.ts";
 import { sendChartResponse } from "./shared/chartResponse.ts";
 import type {
   AnyRow,
   DashboardParams,
   DashboardQuery,
-  TimeMetricValueRow,
 } from "./shared/types.ts";
-
-const pricesSql = `
-  SELECT EXTRACT(EPOCH FROM time AT TIME ZONE $5) * 1000 AS time, metric, value
-  FROM (
-    SELECT time_bucket_gapfill($1::interval, time) AS time, CONCAT(a.code,'/',a.source) as metric, AVG(p.value)/100 AS value
-    FROM prices p
-    INNER JOIN areas a ON(p.area_id=a.id)
-    WHERE (area_id = ANY($4::int[]) OR area_id IN(SELECT child_id FROM area_associations WHERE parent_id = ANY($4::int[]))) AND time BETWEEN $2 AND $3
-    GROUP BY 1,2
-    ORDER BY 2,1
-  ) s
-`;
 
 export async function prices(
   request: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
 ) {
   const ctx = await getContext(request);
-  const rows = await chartQuery<TimeMetricValueRow>(request, pricesSql, [
-    `${ctx.interval} seconds`,
-    ctx.from,
-    ctx.to,
-    ctx.areaIds,
-    ctx.timezone,
-  ]);
-  const series = buildBasicSeries(rows, "line", false, "price", {
-    colorForMetric: metricColor,
-  });
+  const series = await getPriceSeries(
+    request,
+    [`${ctx.interval} seconds`, ctx.from, ctx.to, ctx.areaIds, ctx.timezone],
+    { colorForMetric: metricColor },
+  );
   const options = buildChartOptions(series, "Prices", "price");
   return sendChartResponse(request, reply, options, ctx.timezoneAbbreviation);
 }

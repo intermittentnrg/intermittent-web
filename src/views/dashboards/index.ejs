@@ -10,6 +10,7 @@
         var resolution = options && options.resolution;
         var signal = options && options.signal;
         var params = new URLSearchParams(window.location.search);
+        params.delete('min_resolution');
         if (resolution) params.set('resolution', resolution);
         var query = params.toString();
         var url = window.location.pathname + '/echarts.json' + (query ? '?' + query : '');

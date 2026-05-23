@@ -88,7 +88,7 @@ export async function dashboardSpa(request: FastifyRequest<{ Params: DashboardPa
     toRaw,
     datePresets,
     currentPreset,
-    intervals: ["5m", "15m", "30m", "1h", "6h", "12h", "1d", "1w", "1M"],
+    resolutions: ["5m", "15m", "30m", "1h", "6h", "12h", "1d", "1w", "1M"],
     ...areas,
   });
 }

@@ -114,7 +114,8 @@ class ChartModule {
     try {
       const range = parseDateRange(pathParams.from, pathParams.to)
       const width = this.chartTarget?.offsetWidth || 800
-      return calculateResolution(range.from, range.to, width, '5m')
+      const minResolution = new URLSearchParams(window.location.search).get('min_resolution') || '15m'
+      return calculateResolution(range.from, range.to, width, minResolution)
     } catch (error) {
       console.warn('Failed to calculate chart resolution:', error)
       return '15m'
