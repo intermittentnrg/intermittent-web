@@ -7,20 +7,68 @@ import type { MapSeriesOption } from "echarts/types/dist/echarts";
 import { getEchartsForSsr } from "../dashboards/shared/echartsSsr.ts";
 import { buildApp } from "../server.ts";
 
+type PriceMapProfile = {
+  region: string;
+  areaType: string;
+  area: string;
+  resolution: string;
+  output: string;
+  framerate: string;
+  fps: string;
+  aspectScale: number;
+  mapZoom: number;
+  mapCenter: [number, number];
+  currency: "EUR" | "AUD";
+};
+
+const profiles: Record<string, PriceMapProfile> = {
+  europe: {
+    region: "europe",
+    areaType: "region",
+    area: "europe",
+    resolution: "15m",
+    output: "render/price-map.mp4",
+    framerate: "10",
+    fps: "10",
+    aspectScale: 0.75,
+    mapZoom: 8.9,
+    mapCenter: [6, 54],
+    currency: "EUR",
+  },
+  australia: {
+    region: "australia",
+    areaType: "region",
+    area: "all",
+    resolution: "5m",
+    output: "render/price-map-australia.mp4",
+    framerate: "15",
+    fps: "15",
+    aspectScale: 1,
+    mapZoom: 9,
+    mapCenter: [130, -25],
+    currency: "AUD",
+  },
+};
+
+const profileName = process.env.PRICE_MAP_PROFILE || "europe";
+const profile = profiles[profileName];
+if (!profile) {
+  throw new Error(`Unknown PRICE_MAP_PROFILE=${profileName}. Expected one of: ${Object.keys(profiles).join(", ")}`);
+}
+
 const width = Number(process.env.PRICE_MAP_WIDTH || 1200);
 const height = Number(process.env.PRICE_MAP_HEIGHT || 1200);
-const output = process.argv[2] || process.env.PRICE_MAP_VIDEO || "render/price-map.mp4";
+const output = process.argv[2] || process.env.PRICE_MAP_VIDEO || profile.output;
 const dateRange = process.argv[3] || process.env.PRICE_MAP_DATE_RANGE || tomorrowDateRange();
-const url = `/europe/region/europe/${dateRange}/price_map/echarts.json?resolution=15m`;
-const framerate = process.env.PRICE_MAP_VIDEO_FRAMERATE || "10";
-const fps = process.env.PRICE_MAP_VIDEO_FPS || "10";
+const resolution = process.env.PRICE_MAP_RESOLUTION || profile.resolution;
+const url = `/${profile.region}/${profile.areaType}/${profile.area}/${dateRange}/price_map/echarts.json?resolution=${resolution}`;
+const framerate = process.env.PRICE_MAP_VIDEO_FRAMERATE || profile.framerate;
+const fps = process.env.PRICE_MAP_VIDEO_FPS || profile.fps;
 const showPriceLabels = process.env.PRICE_MAP_PRICE_LABELS !== "0";
 const hideLabelOverlap = process.env.PRICE_MAP_HIDE_LABEL_OVERLAP !== "0";
-const aspectScale = Number(process.env.PRICE_MAP_ASPECT_SCALE || 0.75);
-const mapZoom = Number(process.env.PRICE_MAP_MAP_ZOOM || 8.9);
-const mapCenter = (process.env.PRICE_MAP_MAP_CENTER || "6,54")
-  .split(",")
-  .map(Number) as [number, number];
+const aspectScale = Number(process.env.PRICE_MAP_ASPECT_SCALE || profile.aspectScale);
+const mapZoom = Number(process.env.PRICE_MAP_MAP_ZOOM || profile.mapZoom);
+const mapCenter = (process.env.PRICE_MAP_MAP_CENTER?.split(",").map(Number) || profile.mapCenter) as [number, number];
 
 
 const vf = [
@@ -206,7 +254,8 @@ function formatPriceLabel(value: unknown) {
   const numericPrice = Number(price);
   if (!Number.isFinite(numericPrice)) return "";
 
-  return `${Math.round(numericPrice)}€`;
+  const roundedPrice = Math.round(numericPrice);
+  return profile.currency === "AUD" ? `$${roundedPrice}` : `${roundedPrice}€`;
 }
 
 function registerMap(echarts: any, mapName: string, geoJsonUrl: string) {

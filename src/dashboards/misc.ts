@@ -138,14 +138,14 @@ const priceMapSql = `
     value
   FROM (
     SELECT
-      time_bucket_gapfill('15m', time) AS bucket,
+      time_bucket_gapfill($4::interval, time) AS bucket,
       a.electricitymaps_id AS metric,
       LOCF(AVG(value)/100) AS value,
       area_id
     FROM prices p
     INNER JOIN areas a ON(p.area_id=a.id)
     WHERE
-      region = 'europe' AND
+      area_id=ANY($5::int[]) AND
       electricitymaps_id IS NOT NULL AND
       time BETWEEN $1 AND $2
     GROUP BY bucket, metric, area_id
@@ -157,21 +157,19 @@ export async function priceMap(
   req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
 ) {
-  const ctx = await getContext(req, {
-    region: "europe",
-    area_type: "region",
-    area: "europe",
-  });
+  const ctx = await getContext(req);
   const rows = await chartQuery<AnyRow>(req, priceMapSql, [
     ctx.from,
     ctx.to,
     ctx.timezone,
+    `${ctx.interval} seconds`,
+    ctx.areaIds,
   ]);
   const frames = buildFrames(rows, ctx.timezone);
   return sendChartResponse(
     req,
     reply,
-    priceMapOptions(frames),
+    priceMapOptions(frames, req.params.region === "australia" ? "$" : "€"),
     ctx.timezoneAbbreviation,
     {
       frames,
@@ -182,7 +180,7 @@ export async function priceMap(
   );
 }
 
-function priceMapOptions(frames: any[]) {
+function priceMapOptions(frames: any[], currencySymbol = "€") {
   const build = (f: any) =>
     (f?.data?.[0]?.locations || []).map((loc: string, i: number) => ({
       name: loc,
@@ -205,7 +203,7 @@ function priceMapOptions(frames: any[]) {
         top: 24,
         textStyle: { fontSize: 54, fontWeight: 700 },
       },
-      tooltip: { trigger: "item", formatter: "{b}: {c} €/MWh" },
+      tooltip: { trigger: "item", formatter: `{b}: {c} ${currencySymbol}/MWh` },
       visualMap: {
         type: "continuous",
         min: 0,
@@ -236,7 +234,7 @@ function priceMapOptions(frames: any[]) {
         top: 180 + ((500 - value) / 500) * 960 - 14,
         silent: true,
         style: {
-          text: `{value|€${value}}\n{unit|/MWh}`,
+          text: `{value|${currencySymbol}${value}}\n{unit|/MWh}`,
           fill: "#222222",
           rich: {
             value: {
