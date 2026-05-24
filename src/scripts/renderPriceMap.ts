@@ -175,7 +175,7 @@ async function renderVideo(renderer: ReturnType<typeof createFrameRenderer>, fra
     "-y",
   ];
 
-  console.log(`ffmpeg ${args.map(shellQuote).join(" ")}`);
+  console.log(`ffmpeg ${args.join(" ")}`);
   const ffmpeg = spawn("ffmpeg", args, { stdio: ["pipe", "inherit", "inherit"] });
 
   for (let i = 0; i < frameCount; i++) {
@@ -254,13 +254,8 @@ function priceLabelMapSeries<T extends MapSeriesOption>(input: T[]): T[] {
 
 function formatPriceLabel(value: unknown) {
   const price = Array.isArray(value) ? value[2] : value;
-  if (price === null || price === undefined || price === "") return "";
-
-  const numericPrice = Number(price);
-  if (!Number.isFinite(numericPrice)) return "";
-
-  const roundedPrice = Math.round(numericPrice);
-  return profile.currency === "AUD" ? `$${roundedPrice}` : `${roundedPrice}€`;
+  if (Number.isNaN(price)) return "";
+  return profile.currency === "AUD" ? `$${price}` : `€${price}`;
 }
 
 function registerMap(echarts: any, mapName: string, geoJsonUrl: string) {
@@ -297,10 +292,6 @@ function writeAll(stream: NodeJS.WritableStream, chunk: Buffer) {
       stream.on("drain", onDrain);
     }
   });
-}
-
-function shellQuote(value: string) {
-  return /^[A-Za-z0-9_./:=+-]+$/.test(value) ? value : JSON.stringify(value);
 }
 
 function tomorrowDateRange() {

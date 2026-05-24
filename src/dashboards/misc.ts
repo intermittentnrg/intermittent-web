@@ -256,7 +256,7 @@ function priceMapOptions(frames: any[], currencySymbol = "€") {
         text: frames[0]?.layout?.title || "Price map",
         left: "center",
         top: 24,
-        textStyle: { fontSize: 54, fontWeight: 700 },
+        textStyle: { fontFamily: "DejaVu Sans, sans-serif", fontSize: 54, fontWeight: 700 },
       },
       tooltip: { trigger: "item", formatter: `{b}: {c} ${currencySymbol}/MWh` },
       visualMap: {

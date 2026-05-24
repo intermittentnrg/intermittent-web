@@ -74,28 +74,8 @@ async function registerMapForSsr(mapName: string, geoJsonUrl: string) {
   echarts.registerMap(mapName, JSON.parse(readFileSync(geoJsonPath, "utf8")));
 }
 
-let canvasFontsRegistered = false;
-
 async function renderEchartsPng(options: unknown, width: number, height: number) {
-  const { createCanvas, GlobalFonts } = await import("@napi-rs/canvas");
-
-  if (!canvasFontsRegistered) {
-    const fontsDir = join(process.cwd(), "fonts");
-    if (existsSync(fontsDir)) {
-      GlobalFonts.loadFontsFromDir(fontsDir);
-    }
-    const dejavuSans = join(fontsDir, "DejaVuSans.ttf");
-    const dejavuSansBold = join(fontsDir, "DejaVuSans-Bold.ttf");
-    if (existsSync(dejavuSans)) GlobalFonts.registerFromPath(dejavuSans, "DejaVu Sans");
-    if (existsSync(dejavuSansBold)) GlobalFonts.registerFromPath(dejavuSansBold, "DejaVu Sans");
-    if (GlobalFonts.has("DejaVu Sans")) {
-      GlobalFonts.setAlias("DejaVu Sans", "sans-serif");
-      GlobalFonts.setAlias("DejaVu Sans", "Inter");
-      GlobalFonts.setAlias("DejaVu Sans", "Helvetica");
-      GlobalFonts.setAlias("DejaVu Sans", "Arial");
-    }
-    canvasFontsRegistered = true;
-  }
+  const { createCanvas } = await import("@napi-rs/canvas");
 
   const echarts = await getEchartsForSsr();
   echarts.setPlatformAPI({ createCanvas: () => createCanvas(1, 1) });
