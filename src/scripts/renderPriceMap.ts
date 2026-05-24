@@ -24,8 +24,8 @@ type PriceMapProfile = {
 const profiles: Record<string, PriceMapProfile> = {
   europe: {
     region: "europe",
-    areaType: "region",
-    area: "europe",
+    areaType: "all",
+    area: "all",
     resolution: "15m",
     output: "render/price-map.mp4",
     framerate: "10",

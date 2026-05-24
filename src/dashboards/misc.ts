@@ -8,6 +8,7 @@ import {
 } from "./shared/chartOptions.ts";
 import { sendChartResponse } from "./shared/chartResponse.ts";
 import { buildStackedPowerLineSeries } from "./shared/series.ts";
+import { parseDateRange, resolutionToSeconds } from "../shared/dateParsing.ts";
 import { getProductionTypeIds } from "./shared/productionTypes.ts";
 import type { AnyRow, DashboardParams, DashboardQuery } from "./shared/types.ts";
 
@@ -157,7 +158,7 @@ export async function priceMap(
   req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
 ) {
-  const ctx = await getContext(req);
+  const ctx = await getMapContext(req);
   const rows = await chartQuery<AnyRow>(req, priceMapSql, [
     ctx.from,
     ctx.to,
@@ -178,6 +179,60 @@ export async function priceMap(
     },
     800,
   );
+}
+
+async function getMapContext(
+  req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
+) {
+  const [fromRaw, toRaw] = req.params.date_range
+    .split("_to_")
+    .map((part) => part?.replaceAll("_", " "));
+  const { from, to } = parseDateRange(fromRaw, toRaw);
+  const areaCodes = req.params.area
+    .split(",")
+    .map((code) => code.trim())
+    .filter(Boolean);
+  let areaRows: { id: number }[];
+
+  if (req.params.area_type === "all") {
+    areaRows = await querySmall<{ id: number }>(
+      "SELECT id FROM areas WHERE region=$1 AND enabled='t' AND electricitymaps_id IS NOT NULL",
+      [req.params.region],
+    );
+  } else if (areaCodes.length === 0 || areaCodes.includes("all")) {
+    areaRows = await querySmall<{ id: number }>(
+      "SELECT id FROM areas WHERE region=$1 AND type=$2 AND enabled='t' AND electricitymaps_id IS NOT NULL",
+      [req.params.region, req.params.area_type],
+    );
+  } else {
+    areaRows = await querySmall<{ id: number }>(
+      "SELECT id FROM areas WHERE region=$1 AND type=$2 AND code = ANY($3::text[]) AND enabled='t' AND electricitymaps_id IS NOT NULL",
+      [req.params.region, req.params.area_type, areaCodes],
+    );
+  }
+  const areaIds = areaRows.map((row) => row.id);
+  const [tz] = await querySmall<{ timezone: string }>(
+    "SELECT timezone FROM areas WHERE id = ANY($1::int[]) ORDER BY timezone_priority LIMIT 1",
+    [areaIds],
+  );
+  const timezone = tz?.timezone || "UTC";
+
+  return {
+    areaIds,
+    from,
+    to,
+    timezone,
+    timezoneAbbreviation: timezoneAbbr(timezone),
+    interval: resolutionToSeconds(req.query.resolution, "15m"),
+  };
+}
+
+function timezoneAbbr(timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    timeZoneName: "short",
+  }).formatToParts(new Date());
+  return parts.find((part) => part.type === "timeZoneName")?.value || timeZone;
 }
 
 function priceMapOptions(frames: any[], currencySymbol = "€") {
