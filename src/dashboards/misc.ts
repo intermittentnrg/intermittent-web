@@ -8,7 +8,8 @@ import {
 } from "./shared/chartOptions.ts";
 import { sendChartResponse } from "./shared/chartResponse.ts";
 import { buildStackedPowerLineSeries } from "./shared/series.ts";
-import { parseDateRange, resolutionToSeconds } from "../shared/dateParsing.ts";
+import { resolutionToSeconds } from "../shared/dateParsing.ts";
+import { parseDateRangeInTimeZone } from "./shared/timezoneDateRange.ts";
 import { getProductionTypeIds } from "./shared/productionTypes.ts";
 import type { AnyRow, DashboardParams, DashboardQuery } from "./shared/types.ts";
 
@@ -59,9 +60,9 @@ export async function maps(
     800,
   );
 }
-function buildFrames(rows: AnyRow[], timezone = "UTC") {
+function buildFrames(rows: AnyRow[], timeZoneLabel = "UTC") {
   const formatter = new Intl.DateTimeFormat("en-GB", {
-    timeZone: timezone,
+    timeZone: "UTC",
     weekday: "short",
     day: "2-digit",
     month: "short",
@@ -70,7 +71,6 @@ function buildFrames(rows: AnyRow[], timezone = "UTC") {
     minute: "2-digit",
     second: "2-digit",
     hour12: false,
-    timeZoneName: "short",
   });
   const map = new Map<number, any>();
   for (const r of rows) {
@@ -78,7 +78,7 @@ function buildFrames(rows: AnyRow[], timezone = "UTC") {
     if (!map.has(t))
       map.set(t, {
         data: [{ locations: [], z: [] }],
-        layout: { title: formatter.format(new Date(t)) },
+        layout: { title: `${formatter.format(new Date(t))} ${timeZoneLabel}` },
         name: String(t),
       });
     map.get(t).data[0].locations.push(r.metric);
@@ -166,7 +166,7 @@ export async function priceMap(
     `${ctx.interval} seconds`,
     ctx.areaIds,
   ]);
-  const frames = buildFrames(rows, ctx.timezone);
+  const frames = buildFrames(rows, timezoneAbbr(ctx.timezone, ctx.from));
   return sendChartResponse(
     req,
     reply,
@@ -187,7 +187,6 @@ async function getMapContext(
   const [fromRaw, toRaw] = req.params.date_range
     .split("_to_")
     .map((part) => part?.replaceAll("_", " "));
-  const { from, to } = parseDateRange(fromRaw, toRaw);
   const areaCodes = req.params.area
     .split(",")
     .map((code) => code.trim())
@@ -216,22 +215,23 @@ async function getMapContext(
     [areaIds],
   );
   const timezone = tz?.timezone || "UTC";
+  const { from, to } = parseDateRangeInTimeZone(fromRaw, toRaw, timezone);
 
   return {
     areaIds,
     from,
     to,
     timezone,
-    timezoneAbbreviation: timezoneAbbr(timezone),
+    timezoneAbbreviation: timezoneAbbr(timezone, from),
     interval: resolutionToSeconds(req.query.resolution, "15m"),
   };
 }
 
-function timezoneAbbr(timeZone: string) {
-  const parts = new Intl.DateTimeFormat("en-US", {
+function timezoneAbbr(timeZone: string, date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone,
     timeZoneName: "short",
-  }).formatToParts(new Date());
+  }).formatToParts(date);
   return parts.find((part) => part.type === "timeZoneName")?.value || timeZone;
 }
 

@@ -1,7 +1,8 @@
 import { querySmall } from "../../lib/db.ts";
 import type { FastifyRequest } from "fastify";
 import type { DashboardParams, DashboardQuery } from "./types.ts";
-import { parseDateRange, resolutionToSeconds } from "../../shared/dateParsing.ts";
+import { resolutionToSeconds } from "../../shared/dateParsing.ts";
+import { parseDateRangeInTimeZone } from "./timezoneDateRange.ts";
 
 type Context = {
   areaIds: number[];
@@ -25,7 +26,6 @@ export async function getContext(
   const [fromRaw, toRaw] = params.date_range
     .split("_to_")
     .map((part) => part?.replaceAll("_", " "));
-  const { from, to } = parseDateRange(fromRaw, toRaw);
 
   const areaCodes = params.area
     .split(",")
@@ -48,6 +48,7 @@ export async function getContext(
     [areaIds],
   );
   const timezone = tz?.timezone || "UTC";
+  const { from, to } = parseDateRangeInTimeZone(fromRaw, toRaw, timezone);
 
   return {
     areaIds,
@@ -60,7 +61,7 @@ export async function getContext(
 }
 
 function timezoneAbbr(timeZone: string) {
-  const parts = new Intl.DateTimeFormat("en-US", {
+  const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone,
     timeZoneName: "short",
   }).formatToParts(new Date());
