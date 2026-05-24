@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { getEchartsForSsr } from "../../src/dashboards/shared/echartsSsr.ts";
 
 async function renderCanvasPng() {
-  const { createCanvas } = await import("@napi-rs/canvas");
+  const { Canvas } = await import("skia-canvas");
 
-  const canvas = createCanvas(320, 180);
+  const canvas = new Canvas(320, 180);
   const context = canvas.getContext("2d");
   context.fillStyle = "#ffffff";
   context.fillRect(0, 0, 320, 180);
@@ -12,18 +12,18 @@ async function renderCanvasPng() {
   context.font = "24px DejaVu Sans, sans-serif";
   context.fillText("canvas smoke test", 20, 60);
 
-  return canvas.toBuffer("image/png");
+  return canvas.toBuffer("png");
 }
 
 async function renderEchartsCanvasPng() {
-  const { createCanvas } = await import("@napi-rs/canvas");
+  const { Canvas } = await import("skia-canvas");
 
   const echarts = await getEchartsForSsr();
-  echarts.setPlatformAPI({ createCanvas: () => createCanvas(1, 1) });
+  echarts.setPlatformAPI({ createCanvas: () => new Canvas(1, 1) });
 
   const width = 320;
   const height = 180;
-  const canvas = createCanvas(width, height);
+  const canvas = new Canvas(width, height);
   const chart = echarts.init(canvas, undefined, { renderer: "canvas", ssr: true, width, height });
 
   try {
@@ -36,7 +36,7 @@ async function renderEchartsCanvasPng() {
       series: [{ type: "line", data: [1, 3, 2] }],
     });
 
-    return chart.renderToCanvas().toBuffer("image/png");
+    return chart.renderToCanvas().toBuffer("png");
   } finally {
     chart.dispose();
   }
@@ -44,7 +44,7 @@ async function renderEchartsCanvasPng() {
 
 const echartsSsrCanvasTimeoutMs = 30_000;
 
-describe("@napi-rs/canvas", () => {
+describe("skia-canvas", () => {
   it("renders a PNG directly", async () => {
     const png = await renderCanvasPng();
 

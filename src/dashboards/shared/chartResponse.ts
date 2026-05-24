@@ -75,12 +75,12 @@ async function registerMapForSsr(mapName: string, geoJsonUrl: string) {
 }
 
 async function renderEchartsPng(options: unknown, width: number, height: number) {
-  const { createCanvas } = await import("@napi-rs/canvas");
+  const { Canvas } = await import("skia-canvas");
 
   const echarts = await getEchartsForSsr();
-  echarts.setPlatformAPI({ createCanvas: () => createCanvas(1, 1) });
+  echarts.setPlatformAPI({ createCanvas: () => new Canvas(1, 1) });
 
-  const canvas = createCanvas(width, height);
+  const canvas = new Canvas(width, height);
   const chart = echarts.init(canvas, undefined, { renderer: "canvas", ssr: true, width, height });
 
   try {
@@ -89,7 +89,7 @@ async function renderEchartsPng(options: unknown, width: number, height: number)
       ...(options as Record<string, unknown>),
     } as never);
 
-    return chart.renderToCanvas().toBuffer("image/png");
+    return chart.renderToCanvas().toBuffer("png");
   } finally {
     chart.dispose();
   }
