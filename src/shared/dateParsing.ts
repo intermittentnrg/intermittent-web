@@ -40,7 +40,7 @@ export function parseAppDate(value: string | undefined, options: { end?: boolean
     return dayBoundary(d, end);
   }
 
-  const previous = input.match(/^last\s+(week|month|year)$/i);
+  const previous = input.match(/^(?:last|previous)\s+(week|month|year)$/i);
   if (previous) return previousPeriod(previous[1], now, end);
 
   const relative = input.match(/^(\d+)\s*(hour|day|week|month|year)s?(?:\s+ago)?$/i);

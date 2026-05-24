@@ -10,17 +10,14 @@ import { getEchartsForSsr } from "../dashboards/shared/echartsSsr.ts";
 import { buildApp } from "../server.ts";
 
 type PriceMapProfile = {
-  region: string;
-  areaType: string;
-  area: string;
-  resolution: string;
+  url: string;
   output: string;
   framerate: string;
   fps: string;
   aspectScale: number;
   mapZoom: number;
   mapCenter: [number, number];
-  currency: "€" | "$";
+  label: { prefix?: string; suffix?: string; scale?: number };
 };
 
 type PriceMapPayload = {
@@ -46,30 +43,34 @@ type FrameSource = {
 
 const profiles: Record<string, PriceMapProfile> = {
   europe: {
-    region: "europe",
-    areaType: "all",
-    area: "all",
-    resolution: "15m",
+    url: "/europe/all/all/tomorrow_to_tomorrow/price_map/echarts.json?resolution=15m",
     output: "render/price-map.mp4",
     framerate: "10",
     fps: "10",
     aspectScale: 0.75,
     mapZoom: 8.9,
     mapCenter: [6, 54],
-    currency: "€",
+    label: { prefix: "€" },
   },
   australia: {
-    region: "australia",
-    areaType: "region",
-    area: "all",
-    resolution: "5m",
+    url: "/australia/region/all/tomorrow_to_tomorrow/price_map/echarts.json?resolution=5m",
     output: "render/price-map-australia.mp4",
     framerate: "15",
     fps: "15",
     aspectScale: 1,
     mapZoom: 9,
     mapCenter: [130, -25],
-    currency: "$",
+    label: { prefix: "$" },
+  },
+  nukemap: {
+    url: "/all/all/all/previous_month_to_previous_month/generation_of_peak_map/echarts.json?resolution=1h&production_type=nuclear",
+    output: "render/nukemap.mp4",
+    framerate: "30",
+    fps: "30",
+    aspectScale: 0.65,
+    mapZoom: 1.4,
+    mapCenter: [7, 10],
+    label: { suffix: "%", scale: 100 },
   },
 };
 
@@ -82,8 +83,7 @@ if (!profile) {
 const width = Number(process.env.PRICE_MAP_WIDTH || 1200);
 const height = Number(process.env.PRICE_MAP_HEIGHT || 1200);
 const output = process.argv[2] || process.env.PRICE_MAP_VIDEO || profile.output;
-const dateRange = process.argv[3] || process.env.PRICE_MAP_DATE_RANGE || tomorrowDateRange();
-const resolution = process.env.PRICE_MAP_RESOLUTION || profile.resolution;
+const url = process.argv[3] || process.env.PRICE_MAP_URL || profile.url;
 const framerate = process.env.PRICE_MAP_VIDEO_FRAMERATE || profile.framerate;
 const fps = process.env.PRICE_MAP_VIDEO_FPS || profile.fps;
 const renderMode = process.env.PRICE_MAP_RENDER_MODE || "fast";
@@ -123,16 +123,16 @@ const ffmpegArgs = [
   output,
   "-y",
 ];
-const url = `/${profile.region}/${profile.areaType}/${profile.area}/${dateRange}/price_map/echarts.json?resolution=${resolution}`;
+
 
 async function main() {
   const payload = await fetchPayload();
   const frameCount = payload.options.options.length;
   if (frameCount === 0) {
     throw new Error(
-      `No price-map frames returned for ${dateRange}. ` +
-        "Check that prices have been imported for that date range, or pass an explicit range: " +
-        "npm run render:price-map -- render/price-map.mp4 YYYY-MM-DD_to_YYYY-MM-DD",
+      `No map frames returned for ${url}. ` +
+        "Check that data has been imported for the requested date range, or pass an explicit URL: " +
+        "npm run render:price-map -- render/output.mp4 /europe/all/all/2026-05-25_to_2026-05-25/price_map/echarts.json?resolution=15m",
     );
   }
 
@@ -322,9 +322,13 @@ function priceLabelMapSeries<T extends MapSeriesOption>(series: T[]) {
 }
 
 function formatPriceLabel(value: unknown) {
-  const price = Array.isArray(value) ? value[2] : value;
-  if (Number.isNaN(price)) return "";
-  return `${profile.currency}${price}`;
+  const rawValue = Array.isArray(value) ? value[2] : value;
+  const numberValue = Number(rawValue);
+  if (Number.isNaN(numberValue)) return "";
+
+  const scaledValue = numberValue * (profile.label.scale || 1);
+  const labelValue = Number.isInteger(scaledValue) ? scaledValue : Math.round(scaledValue);
+  return `${profile.label.prefix || ""}${labelValue}${profile.label.suffix || ""}`;
 }
 
 function rgbaFrameBuffer(canvas: Canvas) {
@@ -362,16 +366,6 @@ function writeAll(stream: NodeJS.WritableStream, chunk: Buffer) {
       stream.on("drain", onDrain);
     }
   });
-}
-
-function tomorrowDateRange() {
-  const start = new Date();
-  start.setDate(start.getDate() + 1);
-  return `${datePart(start)}_to_${datePart(start)}`;
-}
-
-function datePart(date: Date) {
-  return date.toISOString().slice(0, 10);
 }
 
 async function workerMain() {

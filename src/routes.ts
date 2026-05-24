@@ -24,7 +24,7 @@ import {
   perUnitBattery,
 } from "./dashboards/perUnit.ts";
 import { capturePrice, prices } from "./dashboards/prices.ts";
-import { maps, priceMap, sweden } from "./dashboards/misc.ts";
+import { generationOfPeakMap, maps, priceMap, sweden } from "./dashboards/misc.ts";
 
 export async function registerRoutes(app: FastifyInstance) {
   app.get("/health", health);
@@ -50,6 +50,7 @@ export async function registerRoutes(app: FastifyInstance) {
     simulation,
     maps,
     price_map: priceMap,
+    generation_of_peak_map: generationOfPeakMap,
     sweden,
     prices,
   };

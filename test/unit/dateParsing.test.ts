@@ -27,6 +27,8 @@ describe("date parsing", () => {
     expect(iso(parseAppDate("yesterday", { now }))).toBe("2025-02-14T00:00:00.000Z");
     expect(iso(parseAppDate("last month", { now }))).toBe("2025-01-01T00:00:00.000Z");
     expect(iso(parseAppDate("last month", { now, end: true }))).toBe("2025-01-31T23:59:59.999Z");
+    expect(iso(parseAppDate("previous month", { now }))).toBe("2025-01-01T00:00:00.000Z");
+    expect(iso(parseAppDate("previous month", { now, end: true }))).toBe("2025-01-31T23:59:59.999Z");
   });
 
   it("parses ranges", () => {

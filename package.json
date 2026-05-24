@@ -12,6 +12,7 @@
     "render:price-map": "npm run render:price-map:europe --",
     "render:price-map:europe": "PRICE_MAP_PROFILE=europe node --experimental-strip-types src/scripts/renderPriceMap.ts",
     "render:price-map:australia": "PRICE_MAP_PROFILE=australia node --experimental-strip-types src/scripts/renderPriceMap.ts",
+    "render:nukemap": "PRICE_MAP_PROFILE=nukemap node --experimental-strip-types src/scripts/renderPriceMap.ts",
     "publish:price-map": "node --experimental-strip-types src/scripts/publishPriceMap.ts",
     "test": "vitest",
     "test:e2e": "wdio run ./wdio.conf.js"
