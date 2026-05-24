@@ -1,7 +1,7 @@
 if (env.BRANCH_NAME == 'master') {
   build('/intermittency-master/post-pricemap')
 }
-timeout(time: 15, unit: 'MINUTES') {
+timeout(time: 5, unit: 'MINUTES') {
 podTemplate(yaml: """
 kind: Pod
 spec:
@@ -22,7 +22,7 @@ spec:
   node(POD_LABEL) {
     container('app') {
       stage('render price map') {
-        sh "cd /app ; npm run render:price-map"
+        sh "cd /app ; mkdir -p render ; npm run render:price-map"
         sh "cp /app/render/price-map.mp4 ."
         archiveArtifacts 'price-map.mp4'
       }
