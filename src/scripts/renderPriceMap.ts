@@ -66,6 +66,7 @@ const framerate = process.env.PRICE_MAP_VIDEO_FRAMERATE || profile.framerate;
 const fps = process.env.PRICE_MAP_VIDEO_FPS || profile.fps;
 const showPriceLabels = process.env.PRICE_MAP_PRICE_LABELS !== "0";
 const hideLabelOverlap = process.env.PRICE_MAP_HIDE_LABEL_OVERLAP !== "0";
+const ffmpegLogLevel = process.env.PRICE_MAP_FFMPEG_LOG_LEVEL || "warning";
 const aspectScale = Number(process.env.PRICE_MAP_ASPECT_SCALE || profile.aspectScale);
 const mapZoom = Number(process.env.PRICE_MAP_MAP_ZOOM || profile.mapZoom);
 const mapCenter = (process.env.PRICE_MAP_MAP_CENTER?.split(",").map(Number) || profile.mapCenter) as [number, number];
@@ -146,6 +147,10 @@ function createFrameRenderer(echarts: any, payload: PriceMapPayload) {
 
 async function renderVideo(renderer: ReturnType<typeof createFrameRenderer>, frameCount: number) {
   const args = [
+    "-hide_banner",
+    "-loglevel",
+    ffmpegLogLevel,
+    "-stats",
     "-f",
     "rawvideo",
     "-pixel_format",
