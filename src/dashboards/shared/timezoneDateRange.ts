@@ -20,6 +20,10 @@ function parseDateInTimeZone(
 
   if (input === "now") return options.now;
   if (input === "today") return zonedDayBoundary(options.now, options.end, options.timeZone);
+  if (input === "tomorrow") {
+    const parts = datePartsInTimeZone(options.now, options.timeZone);
+    return zonedDateBoundary(parts.year, parts.month, parts.day + 1, options.end, options.timeZone);
+  }
   if (input === "yesterday") {
     const parts = datePartsInTimeZone(options.now, options.timeZone);
     return zonedDateBoundary(parts.year, parts.month, parts.day - 1, options.end, options.timeZone);

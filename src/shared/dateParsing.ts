@@ -35,6 +35,10 @@ export function parseAppDate(value: string | undefined, options: { end?: boolean
 
   if (input === "now") return now;
   if (input === "today") return dayBoundary(now, end);
+  if (input === "tomorrow") {
+    const d = addCalendar(now, "day", 1);
+    return dayBoundary(d, end);
+  }
   if (input === "yesterday") {
     const d = addCalendar(now, "day", -1);
     return dayBoundary(d, end);

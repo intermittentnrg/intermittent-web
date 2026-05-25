@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { parseDateRangeInTimeZone } from "../../src/dashboards/shared/timezoneDateRange.ts";
 import { calculateResolution, parseAppDate, parseDateRange, resolutionToSeconds } from "../../src/shared/dateParsing.ts";
 
 const now = new Date("2025-02-15T12:00:00.000Z");
@@ -24,6 +25,8 @@ describe("date parsing", () => {
   it("parses common presets", () => {
     expect(iso(parseAppDate("today", { now }))).toBe("2025-02-15T00:00:00.000Z");
     expect(iso(parseAppDate("today", { now, end: true }))).toBe("2025-02-15T23:59:59.999Z");
+    expect(iso(parseAppDate("tomorrow", { now }))).toBe("2025-02-16T00:00:00.000Z");
+    expect(iso(parseAppDate("tomorrow", { now, end: true }))).toBe("2025-02-16T23:59:59.999Z");
     expect(iso(parseAppDate("yesterday", { now }))).toBe("2025-02-14T00:00:00.000Z");
     expect(iso(parseAppDate("last month", { now }))).toBe("2025-01-01T00:00:00.000Z");
     expect(iso(parseAppDate("last month", { now, end: true }))).toBe("2025-01-31T23:59:59.999Z");
@@ -35,6 +38,12 @@ describe("date parsing", () => {
     const range = parseDateRange("2025-01", "now", now);
     expect(iso(range.from)).toBe("2025-01-01T00:00:00.000Z");
     expect(iso(range.to)).toBe("2025-02-15T12:00:00.000Z");
+  });
+
+  it("parses tomorrow ranges in a requested time zone", () => {
+    const range = parseDateRangeInTimeZone("tomorrow", "tomorrow", "Asia/Tokyo", now);
+    expect(iso(range.from)).toBe("2025-02-15T15:00:00.000Z");
+    expect(iso(range.to)).toBe("2025-02-16T14:59:59.999Z");
   });
 });
 
