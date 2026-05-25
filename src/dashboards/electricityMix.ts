@@ -51,16 +51,9 @@ const SQL_GEN_HOURLY = `
     INNER JOIN production_type_groups ptg ON(production_type_group_id=ptg.id)
     WHERE time BETWEEN $2 AND $3
     GROUP BY ptg.name, 1
-    ORDER BY 2, 1
   ) s
+  ORDER BY metric, time
 `;
-
-type TransmissionRow = {
-  time: number;
-  import: number;
-  export: number;
-  value: number;
-};
 
 const SQL_TRANS = `
   WITH _transmission AS (
@@ -91,8 +84,7 @@ const SQL_TRANS = `
   )
   SELECT
     EXTRACT(EPOCH FROM time AT TIME ZONE $5) * 1000 AS time,
-    GREATEST(0,SUM(value)) AS import,
-    LEAST(0,SUM(value)) AS export,
+    'transmission' AS metric,
     SUM(value) AS value
   FROM _transmission_avg
   INNER JOIN areas from_area ON(from_area_id=from_area.id)
@@ -118,13 +110,13 @@ export async function electricityMix(
     ctx.timezone,
   ];
 
-  const transData = await chartQuery<TransmissionRow>(request, SQL_TRANS, args);
+  const transData = await chartQuery<TimeMetricValueRow>(request, SQL_TRANS, args);
   const evenHourOffset = true; // Good enough for initial port; Rails uses TZInfo current offset.
   const genSql = ctx.interval >= 3600 && evenHourOffset ? SQL_GEN_HOURLY : SQL_GEN;
   const genData = await chartQuery<TimeMetricValueRow>(request, genSql, args);
 
   const series = divergentSeries(buildSeriesFromData([
-    ...transmissionRowsToSeriesRows(transData),
+    ...transData,
     ...genData,
   ]));
 
@@ -143,22 +135,7 @@ export async function electricityMix(
   );
 }
 
-function transmissionRowsToSeriesRows(rows: TransmissionRow[]): TimeMetricValueRow[] {
-  const output: TimeMetricValueRow[] = [];
-
-  for (const row of rows) {
-    output.push({ time: row.time, metric: "import", value: row.import });
-    output.push({ time: row.time, metric: "export", value: row.export });
-  }
-
-  return output;
-}
-
-function buildSeriesFromData(data: TimeMetricValueRow[]) {
-  const rows = [...data].sort((a, b) => {
-    const metricOrder = cleanMetricName(a.metric).localeCompare(cleanMetricName(b.metric));
-    return metricOrder || a.time - b.time;
-  });
+function buildSeriesFromData(rows: TimeMetricValueRow[]) {
   const series: Array<ReturnType<typeof newSeries>> = [];
   let currentSeries: ReturnType<typeof newSeries> | undefined;
 
@@ -183,7 +160,6 @@ function newSeries(key: string) {
     name: key,
     type: "line",
     unit: "power",
-    stack: key === "export" ? "export" : "total",
     symbol: "none",
     areaStyle: { opacity: 0.75 },
     lineStyle: { width: 0 },
