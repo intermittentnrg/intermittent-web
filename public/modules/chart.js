@@ -2,6 +2,10 @@ import echarts from "../echarts_client.js"
 import { router, parsePath } from "../router.js"
 import { calculateResolution, parseDateRange } from "../dateParsing.js"
 
+const DRAG_ZOOM_GRAPHIC_ID = 'drag-zoom-rect'
+const DRAG_ZOOM_MIN_PIXELS = 8
+const DRAG_ZOOM_MIN_MS = 60_000
+
 export function initChart() {
   const chartTarget = document.getElementById('main-chart')
   if (!chartTarget) return null
@@ -21,6 +25,7 @@ class ChartModule {
   connect() {
     this.abortController = null
     this.chart = echarts.init(this.chartTarget)
+    this.connectDragZoom()
     this.fetchData()
     this.routerUnsubscribe = router.onChange(() => this.fetchData())
     document.addEventListener('update-chart', () => this.fetchData())
@@ -137,6 +142,8 @@ class ChartModule {
       
       this.processFormatters(data.options)
       this.processTooltipFormatter(data.options)
+      delete data.options.dataZoom
+      delete data.options.toolbox
       data.options.animation = false
 
       if (data.height) {
@@ -196,6 +203,102 @@ class ChartModule {
       if (s.unit) map[i] = s.unit
     })
     return map
+  }
+
+  connectDragZoom() {
+    const zr = this.chart.getZr()
+    this.zoomDrag = null
+    zr.on('mousedown', event => this.startZoomDrag(event))
+    zr.on('mousemove', event => this.updateZoomDrag(event))
+    zr.on('mouseup', () => this.finishZoomDrag())
+    zr.on('globalout', () => this.finishZoomDrag())
+  }
+
+  startZoomDrag(event) {
+    const point = [event.offsetX, event.offsetY]
+    if (event.event?.button !== 0 || !this.isInMainGrid(point)) return
+    this.zoomDrag = { start: point, end: point, selecting: false }
+  }
+
+  updateZoomDrag(event) {
+    if (!this.zoomDrag) return
+    this.zoomDrag.end = [event.offsetX, event.offsetY]
+
+    const width = Math.abs(this.zoomDrag.end[0] - this.zoomDrag.start[0])
+    if (width < DRAG_ZOOM_MIN_PIXELS && !this.zoomDrag.selecting) return
+
+    this.zoomDrag.selecting = true
+    this.renderZoomDragSelection()
+  }
+
+  finishZoomDrag() {
+    if (!this.zoomDrag) return
+
+    const { start, end, selecting } = this.zoomDrag
+    this.zoomDrag = null
+    this.clearZoomDragSelection()
+    if (!selecting) return
+
+    const from = this.pixelToTime(start)
+    const to = this.pixelToTime(end)
+    if (!Number.isFinite(from) || !Number.isFinite(to) || Math.abs(to - from) < DRAG_ZOOM_MIN_MS) return
+
+    this.applyZoomDateRange(Math.min(from, to), Math.max(from, to))
+  }
+
+  renderZoomDragSelection() {
+    const [x1] = this.zoomDrag.start
+    const [x2] = this.zoomDrag.end
+    this.chart.setOption({
+      graphic: [{
+        id: DRAG_ZOOM_GRAPHIC_ID,
+        type: 'rect',
+        silent: true,
+        z: 100,
+        shape: {
+          x: Math.min(x1, x2),
+          y: 0,
+          width: Math.abs(x2 - x1),
+          height: this.chartTarget.clientHeight,
+        },
+        style: { fill: 'rgba(0, 119, 255, 0.18)', stroke: '#0077FF', lineWidth: 1 },
+      }]
+    }, false)
+  }
+
+  clearZoomDragSelection() {
+    this.chart.setOption({ graphic: [{ id: DRAG_ZOOM_GRAPHIC_ID, $action: 'remove' }] }, false)
+  }
+
+  isInMainGrid(point) {
+    try {
+      return this.chart.containPixel({ gridIndex: 0 }, point)
+    } catch (_error) {
+      return false
+    }
+  }
+
+  pixelToTime(point) {
+    const value = this.chart.convertFromPixel({ gridIndex: 0 }, point)
+    const raw = Array.isArray(value) ? value[0] : value
+    return raw instanceof Date ? raw.getTime() : Number(raw)
+  }
+
+  applyZoomDateRange(fromTimestamp, toTimestamp) {
+    const from = this.formatZoomDate(fromTimestamp)
+    const to = this.formatZoomDate(toTimestamp)
+    const fromInput = document.getElementById('date-from')
+    const toInput = document.getElementById('date-to')
+
+    fromInput?.classList.remove('preset-mode')
+    toInput?.classList.remove('preset-mode')
+    if (fromInput) fromInput.value = from
+    if (toInput) toInput.value = to
+    router.updatePath({ from, to })
+  }
+
+  formatZoomDate(timestamp) {
+    return new Date(timestamp).toISOString().slice(0, 16)
   }
 
   async renderChoroplethAnimation(data) {
