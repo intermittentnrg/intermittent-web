@@ -1,4 +1,5 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
+import { querySmall } from "./lib/db.ts";
 
 type GeoipTarget = { region: string; type: string; code: string };
 
@@ -11,22 +12,6 @@ const allRegionTargets: Record<string, GeoipTarget> = {
 
 const regionCodeMappings: Record<string, Record<string, string>> = {
   AU: { NSW: "NSW1", QLD: "QLD1", SA: "SA1", TAS: "TAS1", VIC: "VIC1", WA: "WEM", NT: "all", ACT: "all" },
-  CA: { ON: "CA-ON", AB: "CA-AB" },
-};
-
-const countryTargets: Record<string, GeoipTarget> = {
-  AR: { region: "argentina", type: "country", code: "AR" },
-  DE: { region: "europe", type: "country", code: "DE" },
-  FR: { region: "europe", type: "country", code: "FR" },
-  GB: { region: "europe", type: "country", code: "GB" },
-  MX: { region: "mexico", type: "country", code: "MX" },
-  TW: { region: "taiwan", type: "country", code: "TW" },
-  US: { region: "usa", type: "country", code: "US48" },
-  ZA: { region: "south_africa", type: "country", code: "ZA" },
-};
-
-const regionalTargetRegions: Record<string, string> = {
-  CA: "canada",
 };
 
 const specialFallbacks: Record<string, GeoipTarget> = {
@@ -46,27 +31,45 @@ const continentFallbacks: Record<string, GeoipTarget> = {
 };
 
 export async function geoipRedirect(request: FastifyRequest, reply: FastifyReply) {
-  const target = resolveGeoipTarget(request);
+  const target = await resolveGeoipTarget(request);
   return reply.redirect(`/${target.region}/${target.type}/${target.code}/7_days_ago_to_now/electricity_mix`, 302);
 }
 
-export function resolveGeoipTarget(request: Pick<FastifyRequest, "headers">): GeoipTarget {
+export async function resolveGeoipTarget(request: Pick<FastifyRequest, "headers">): Promise<GeoipTarget> {
   const headers = request.headers;
   const continent = String(headers["cf-ipcontinent"] || "").toUpperCase();
   const country = String(headers["cf-ipcountry"] || "").toUpperCase();
   const regionCode = String(headers["cf-region-code"] || "").toUpperCase();
 
-  const mappedRegion = regionCodeMappings[country]?.[regionCode];
-  const fallbackTarget = specialFallbacks[country] || continentFallbacks[continent] || defaultTarget;
-  let target = countryTargets[country] || fallbackTarget;
+  return (
+    (await areaByRegion(country, regionCode)) ||
+    (await areaByCountry(country)) ||
+    specialFallbacks[country] ||
+    continentFallbacks[continent] ||
+    defaultTarget
+  );
+}
 
-  if (mappedRegion === "all" && allRegionTargets[country]) {
-    target = allRegionTargets[country];
-  } else if (mappedRegion) {
-    target = { region: regionalTargetRegions[country] || target.region, type: "region", code: mappedRegion };
-  } else if (allRegionTargets[country]) {
-    target = allRegionTargets[country];
-  }
+async function areaByRegion(country: string, regionCode: string): Promise<GeoipTarget | undefined> {
+  if (!country || !regionCode) return undefined;
 
-  return target;
+  const mapping = regionCodeMappings[country]?.[regionCode];
+  if (mapping === "all") return allRegionTargets[country];
+
+  return findEnabledArea(mapping || `${country}-${regionCode}`, ["country", "region"]);
+}
+
+async function areaByCountry(country: string): Promise<GeoipTarget | undefined> {
+  if (!country) return undefined;
+
+  return findEnabledArea(country, ["country"]);
+}
+
+async function findEnabledArea(code: string, types: string[]): Promise<GeoipTarget | undefined> {
+  const [area] = await querySmall<GeoipTarget>(
+    "SELECT region, type, code FROM areas WHERE code=$1 AND type::text = ANY($2::text[]) AND enabled='t' LIMIT 1",
+    [code, types],
+  );
+
+  return area;
 }

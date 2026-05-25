@@ -19,6 +19,7 @@ describe("geoipRedirect", () => {
   });
 
   it.each([
+    ["SE", "/europe/country/SE/7_days_ago_to_now/electricity_mix"],
     ["DE", "/europe/country/DE/7_days_ago_to_now/electricity_mix"],
     ["FR", "/europe/country/FR/7_days_ago_to_now/electricity_mix"],
     ["GB", "/europe/country/GB/7_days_ago_to_now/electricity_mix"],
@@ -59,7 +60,7 @@ describe("geoipRedirect", () => {
   });
 
   it.each([
-    ["IS", "", "EU", "/europe/country/all/7_days_ago_to_now/electricity_mix"],
+    ["IS", "", "EU", "/europe/country/IS/7_days_ago_to_now/electricity_mix"],
     ["GG", "", "EU", "/europe/country/GB/7_days_ago_to_now/electricity_mix"],
     ["JP", "13", "AS", "/japan/region/all/7_days_ago_to_now/electricity_mix"],
     ["GL", "", "NA", "/usa/country/US48/7_days_ago_to_now/electricity_mix"],
