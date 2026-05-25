@@ -91,12 +91,32 @@ async function renderEchartsPng(options: unknown, width: number, height: number)
       ? chartOptions.textStyle as Record<string, unknown>
       : {};
 
+    const mapOption = (option: unknown, mapper: (item: Record<string, any>) => Record<string, any>) => {
+      const mapItem = (item: unknown) => typeof item === "object" && item !== null
+        ? mapper(item as Record<string, any>)
+        : item;
+      return Array.isArray(option) ? option.map(mapItem) : mapItem(option);
+    };
+    const scaleText = (option: unknown, fontSize: number) => mapOption(option, (item) => ({
+      ...item,
+      textStyle: { ...(item.textStyle || {}), fontSize },
+    }));
+    const scaleAxisText = (axis: unknown, fontSize: number) => mapOption(axis, (item) => ({
+      ...item,
+      axisLabel: { ...(item.axisLabel || {}), fontSize },
+      nameTextStyle: { ...(item.nameTextStyle || {}), fontSize },
+    }));
+
     chart.setOption({
       ...chartOptions,
       // Social preview cards are rendered onto arbitrary page backgrounds by crawlers.
       // Force an opaque background so the PNG never exposes the transparent canvas.
       backgroundColor: "#ffffff",
-      textStyle: { ...textStyle, fontFamily: "DejaVu Sans, sans-serif" },
+      textStyle: { ...textStyle, fontFamily: "DejaVu Sans, sans-serif", fontSize: 18 },
+      title: scaleText(chartOptions.title, 28),
+      legend: scaleText(chartOptions.legend, 18),
+      xAxis: scaleAxisText(chartOptions.xAxis, 18),
+      yAxis: scaleAxisText(chartOptions.yAxis, 18),
     } as never);
 
     const rawRgba = await chart.renderToCanvas().toBuffer("raw", { matte: "#ffffff" });
