@@ -9,14 +9,14 @@ import type { AnyRow, DashboardParams, DashboardQuery } from "./shared/types.ts"
 
 const transmissionSql = (filtered: boolean) => {
   const forwardWhere = filtered
-    ? "from_area_id=$1 AND to_area_id=$2"
+    ? "concat_ws('-', from_area_id, to_area_id) = ANY($1::text[])"
     : "from_area_id = ANY($1::int[])";
   const reverseWhere = filtered
-    ? "from_area_id=$2 AND to_area_id=$1"
+    ? "concat_ws('-', to_area_id, from_area_id) = ANY($1::text[])"
     : "to_area_id = ANY($1::int[])";
-  const fromParam = filtered ? "$3" : "$2";
-  const toParam = filtered ? "$4" : "$3";
-  const timezoneParam = filtered ? "$5" : "$4";
+  const fromParam = "$2";
+  const toParam = "$3";
+  const timezoneParam = "$4";
 
   return `
   WITH _transmission AS (
@@ -55,11 +55,10 @@ export async function transmission(
   reply: FastifyReply,
 ) {
   const ctx = await getContext(req);
-  const parts =
-    req.query.transmission?.split("-").map(Number).filter(Boolean) || [];
-  const filtered = parts.length === 2;
+  const selectedLines = req.query.transmission?.split(",").filter(Boolean) || [];
+  const filtered = selectedLines.length > 0;
   const args: any[] = filtered
-    ? [parts[0], parts[1], ctx.from, ctx.to, ctx.timezone]
+    ? [selectedLines, ctx.from, ctx.to, ctx.timezone]
     : [ctx.areaIds, ctx.from, ctx.to, ctx.timezone];
   const rows = await chartQuery<AnyRow>(req, transmissionSql(filtered), args);
   const lines = await querySmall<AnyRow>(`

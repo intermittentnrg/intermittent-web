@@ -77,6 +77,7 @@ export async function dashboardSpa(request: FastifyRequest<{ Params: DashboardPa
   const fromRaw = fromPath.replace(/_/g, " ");
   const toRaw = toPath.replace(/_/g, " ");
   const currentPreset = datePresets.find((preset) => preset.from === fromRaw && preset.to === toRaw);
+  const unitLabelText = await unitLabel(query.units);
 
   return reply.view("dashboards/index.ejs", {
     pageTitle: `${dashboardType} - ${params.area}`,
@@ -84,6 +85,7 @@ export async function dashboardSpa(request: FastifyRequest<{ Params: DashboardPa
     params: { ...params, ...query },
     dashboardType,
     productionType: productionTypeLabel(query.production_type),
+    unitLabel: unitLabelText,
     prices: query.prices === "true" || query.prices === "1",
     temps: query.temps === "true" || query.temps === "1",
     load: query.load === "true" || query.load === "1",
@@ -106,6 +108,18 @@ function productionTypeLabel(productionType?: string) {
     return types[0].replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
   }
   return `${types.length} types`;
+}
+
+async function unitLabel(units?: string) {
+  const ids = (units || "").split(",").map(Number).filter(Boolean);
+  if (ids.length === 0) return "All";
+  const rows = await querySmall<{ name: string }>(
+    "SELECT COALESCE(name, internal_id) AS name FROM units WHERE id = ANY($1::int[]) ORDER BY array_position($1::int[], id)",
+    [ids],
+  );
+  if (rows.length === 0) return "All";
+  if (rows.length > 3) return `${rows.length} units`;
+  return rows.map((row) => row.name).join(", ");
 }
 
 function echartsPngPath(params: DashboardParams, dashboardType: string, query: Record<string, string | undefined>) {

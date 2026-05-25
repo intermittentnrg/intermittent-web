@@ -22,11 +22,8 @@ export function initTopnavDate() {
   }
 
   function selectResolution(button) {
-    const resolution = button.dataset.resolution
     closeAllDropdowns()
-    updateQuery({ min_resolution: resolution })
-    if (resolutionSelectedText) resolutionSelectedText.textContent = resolution
-    updateResolutionSelectedState()
+    updateQuery({ min_resolution: button.dataset.resolution })
   }
 
   function updateResolutionSelectedState() {
@@ -84,9 +81,6 @@ export function initTopnavDate() {
     const to = toInput.value
     if (from === previousFrom && to === previousTo) return
 
-    preset = findMatchingPreset() || ''
-    updateSelectedState()
-    updateUI()
     updateUrl()
   }
 
@@ -99,9 +93,7 @@ export function initTopnavDate() {
     toInput.value = button.dataset.to || ''
     preset = button.dataset.preset || ''
 
-    updateSelectedState()
     closeAllDropdowns()
-    updateUI()
     updateUrl()
 
     if (typeof window.gtag === 'function') {

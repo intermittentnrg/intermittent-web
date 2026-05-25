@@ -82,15 +82,11 @@
          style="display: <%= perUnitDashboards.has(dashboardType) ? 'flex' : 'none' %>;">
       <label>Units</label>
       <button type="button" class="dropdown-btn">
-        <span class="dropdown-value" id="dashboard-options-unit-selected-text"><%= params.units ? `${params.units.split(',').length} units` : 'All units' %></span>
+        <span class="dropdown-value" id="dashboard-options-unit-selected-text"><%= unitLabel || 'All' %></span>
         <span class="dropdown-arrow">▼</span>
       </button>
       <div class="dropdown-menu" id="dashboard-options-unit-menu">
-        <div class="step-areas" id="dashboard-options-unit-options">
-          <div class="dropdown-option"><input type="checkbox" class="dropdown-checkbox unit-checkbox" id="unit-all" value="all"><label class="dropdown-label" for="unit-all">All units</label></div>
-          <div class="dropdown-option-divider"></div>
-          <div class="individual-units"></div>
-        </div>
+        <div class="step-areas" id="dashboard-options-unit-options"></div>
         <div class="step-actions"><button type="button" class="action-btn apply">Apply</button></div>
       </div>
     </div>

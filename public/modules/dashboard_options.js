@@ -15,6 +15,68 @@ function kebab(value) {
   return value.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`)
 }
 
+function renderMultiSelectOptions(container, options, { idPrefix, selected = [], checkboxClass = 'dropdown-checkbox', label = option => option.label, value = option => option.value }) {
+  const selectedValues = selected.filter(Boolean).filter(v => v !== 'all')
+  const allSelected = selectedValues.length === 0
+  const regularOptions = options.filter(option => String(value(option)) !== 'all')
+  const checkbox = ({ optionValue, optionLabel, checked, divider = false }) => `
+    ${divider ? '<div class="dropdown-option-divider"></div>' : ''}
+    <div class="dropdown-option">
+      <input type="checkbox" class="${checkboxClass}" id="${idPrefix}-${optionValue}" value="${optionValue}" ${checked ? 'checked' : ''}>
+      <label class="dropdown-label" for="${idPrefix}-${optionValue}">${optionLabel}</label>
+    </div>
+  `
+
+  container.innerHTML = [
+    checkbox({ optionValue: 'all', optionLabel: 'All', checked: allSelected }),
+    ...regularOptions.map(option => {
+      const optionValue = String(value(option))
+      return checkbox({
+        optionValue,
+        optionLabel: label(option),
+        checked: !allSelected && selectedValues.includes(optionValue),
+        divider: true,
+      })
+    }),
+  ].join('')
+}
+
+function checkedValues(container, selector = '.dropdown-checkbox:checked') {
+  return Array.from(container.querySelectorAll(selector)).map(cb => cb.value)
+}
+
+function updateAllCheckboxSelection(container, checkbox, selector = '.dropdown-checkbox') {
+  if (checkbox.value === 'all') {
+    if (checkbox.checked) {
+      container.querySelectorAll(selector).forEach(cb => {
+        if (cb.value !== 'all') cb.checked = false
+      })
+    }
+  } else if (checkbox.checked) {
+    const allCheckbox = container.querySelector(`${selector}[value='all']`)
+    if (allCheckbox) allCheckbox.checked = false
+  }
+}
+
+function updateMultiSelectQuery(container, queryParam, selector = '.dropdown-checkbox:checked') {
+  const selected = checkedValues(container, selector).filter(value => value !== 'all')
+  router.updateQuery({ [queryParam]: selected.length ? selected.join(',') : null })
+}
+
+function syncCheckboxesFromQuery(container, queryParam, { selector = '.dropdown-checkbox', defaultToAll = false } = {}) {
+  if (!container) return
+  const selected = (router.getQuery()[queryParam] || '').split(',').filter(Boolean)
+  const allSelected = defaultToAll && selected.length === 0
+
+  container.querySelectorAll(selector).forEach(cb => {
+    cb.checked = cb.value === 'all' ? allSelected : selected.includes(cb.value)
+  })
+}
+
+function titleize(value) {
+  return value.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+}
+
 export function initDashboardOptions() {
   const root = document.getElementById('topnav-content')
   if (!root) return
@@ -35,7 +97,7 @@ class DashboardOptions {
   }
 
   connect() {
-    this.updateVisibilityFromRouter()
+    this.updateVisibility()
     router.onChange(() => this.updateVisibilityFromRouter())
 
     document.addEventListener('production-types-loaded', (event) => {
@@ -70,9 +132,8 @@ class DashboardOptions {
   }
 
   handleChange(event) {
-    if (event.target.closest('.production-type-selector .dropdown-checkbox')) return this.toggleProductionType(event)
-    if (event.target.closest('#dashboard-options-unit-section .unit-checkbox')) return this.toggleUnit(event)
-    if (event.target.closest('#dashboard-options-transmission-section .dropdown-checkbox')) return this.toggleTransmission(event)
+    const checkbox = event.target.closest('.dropdown-checkbox')
+    if (checkbox) return this.toggleMultiSelectCheckbox(checkbox)
     if (event.target.id === 'topnav-prices-checkbox') return this.togglePrices(event)
     if (event.target.id === 'topnav-temps-checkbox') return this.toggleTemps(event)
     if (event.target.id === 'topnav-load-checkbox') return this.toggleLoad(event)
@@ -127,6 +188,13 @@ class DashboardOptions {
     if (dashboard === 'simulation' && !this.multiplierMenuTarget?.classList.contains('open')) {
       this.populateMultipliersFromUrl()
     }
+
+    syncCheckboxesFromQuery(this.productionTypeOptionsTarget, 'production_type', { defaultToAll: true })
+    syncCheckboxesFromQuery(this.transmissionOptionsTarget, 'transmission')
+    syncCheckboxesFromQuery(this.unitOptionsTarget, 'units', { selector: '.unit-checkbox', defaultToAll: true })
+    this.updateUI()
+    this.updateTransmissionUI()
+    this.filterUnitsByProductionType(this.getSelectedProductionTypes())
     
     this.updateVisibility()
   }
@@ -172,23 +240,11 @@ class DashboardOptions {
 
     const query = router.getQuery()
     const currentTypes = query.production_type ? query.production_type.split(',') : []
-    const isAllSelected = currentTypes.length === 0 || currentTypes.includes('all')
 
-    let html = ""
-    productionTypes.forEach(type => {
-      const isAll = type.value === 'all'
-      const shouldBeChecked = isAll ? isAllSelected : (!isAllSelected && currentTypes.includes(type.value))
-      html += `
-        <div class="dropdown-option">
-          <input type="checkbox" class="dropdown-checkbox" id="production-type-${type.value}"
-                 value="${type.value}" ${shouldBeChecked ? "checked" : ""}
-                >
-          <label class="dropdown-label" for="production-type-${type.value}">${type.label}</label>
-        </div>
-      `
+    renderMultiSelectOptions(this.productionTypeOptionsTarget, productionTypes, {
+      idPrefix: 'production-type',
+      selected: currentTypes,
     })
-
-    this.productionTypeOptionsTarget.innerHTML = html
     this.updateUI()
   }
 
@@ -197,35 +253,24 @@ class DashboardOptions {
 
     const query = router.getQuery()
     const selected = (query.units || '').split(',').filter(Boolean)
-    const isAllSelected = selected.includes('all')
+    const isAllSelected = selected.length === 0
     const selectedNames = []
 
-    const allCheckbox = this.unitOptionsTarget.querySelector(".unit-checkbox[value='all']")
-    if (allCheckbox) allCheckbox.checked = isAllSelected
-
-    let html = ""
     units.forEach(unit => {
-      const isSelected = !isAllSelected && selected.includes(String(unit.id))
-      if (isSelected) selectedNames.push(unit.name)
-      html += `
-        <div class="dropdown-option">
-          <input type="checkbox" class="dropdown-checkbox unit-checkbox" id="unit-${unit.id}"
-                 value="${unit.id}" data-production-type="${unit.production_type}"
-                 ${isSelected ? "checked" : ""}
-                >
-          <label class="dropdown-label" for="unit-${unit.id}">${unit.name} (${unit.area})</label>
-        </div>
-      `
+      if (!isAllSelected && selected.includes(String(unit.id))) selectedNames.push(unit.name)
     })
 
-    const individualUnitsContainer = this.unitOptionsTarget.querySelector('.individual-units')
-    if (individualUnitsContainer) {
-      individualUnitsContainer.innerHTML = html
-    }
+    renderMultiSelectOptions(this.unitOptionsTarget, units, {
+      idPrefix: 'unit',
+      selected,
+      checkboxClass: 'dropdown-checkbox unit-checkbox',
+      value: unit => unit.id,
+      label: unit => `${unit.name} (${unit.area})`,
+    })
     
     if (this.hasUnitSelectedTextTarget) {
       if (isAllSelected || selectedNames.length === 0) {
-        this.unitSelectedTextTarget.textContent = 'All units'
+        this.unitSelectedTextTarget.textContent = 'All'
       } else {
         this.unitSelectedTextTarget.textContent = selectedNames.length > 3 
           ? `${selectedNames.length} units` 
@@ -237,9 +282,10 @@ class DashboardOptions {
   filterUnitsByProductionType(productionTypes) {
     if (!this.units.length) return
     
-    const filtered = productionTypes.includes('all') 
-      ? this.units 
-      : this.units.filter(u => productionTypes.includes(u.production_type))
+    const selected = productionTypes.filter(type => type !== 'all')
+    const filtered = selected.length === 0
+      ? this.units
+      : this.units.filter(u => selected.includes(u.production_type))
     
     this.renderUnits(filtered)
   }
@@ -248,151 +294,72 @@ class DashboardOptions {
     if (!this.hasTransmissionOptionsTarget) return
 
     const query = router.getQuery()
-    const currentId = query.transmission || ''
+    const selected = (query.transmission || '').split(',').filter(Boolean)
 
-    let html = ""
-    transmissionLines.forEach(line => {
-      const isSelected = line.id === currentId
-      html += `
-        <div class="dropdown-option">
-          <input type="checkbox" class="dropdown-checkbox" id="transmission-${line.id}"
-                 value="${line.id}" ${isSelected ? "checked" : ""}
-                >
-          <label class="dropdown-label" for="transmission-${line.id}">${line.label}</label>
-        </div>
-      `
+    renderMultiSelectOptions(this.transmissionOptionsTarget, transmissionLines, {
+      idPrefix: 'transmission',
+      selected,
+      value: line => line.id,
     })
-
-    this.transmissionOptionsTarget.innerHTML = html
     this.updateTransmissionUI()
   }
 
-  toggleTransmission(event) {
-    const checkbox = event.currentTarget
-    const id = checkbox.value
+  toggleMultiSelectCheckbox(checkbox) {
+    const container = checkbox.closest('.step-areas')
+    updateAllCheckboxSelection(container, checkbox, checkbox.classList.contains('unit-checkbox') ? '.unit-checkbox' : '.dropdown-checkbox')
 
-    if (checkbox.checked) {
-      this.transmissionOptionsTarget.querySelectorAll(".dropdown-checkbox").forEach(cb => {
-        if (cb.value !== id) cb.checked = false
-      })
-    }
+    if (container === this.productionTypeOptionsTarget) this.updateUI()
+    if (container === this.transmissionOptionsTarget) this.updateTransmissionUI()
+  }
 
+  toggleTransmission() {
     this.updateTransmissionUI()
   }
 
   updateTransmissionUI() {
     if (!this.hasTransmissionSelectedTextTarget) return
-    const lines = this.transmissionLines
-    const currentId = router.getQuery().transmission || ''
+    const selected = this.getSelectedTransmissions()
 
-    if (currentId && lines.length > 0) {
-      const selected = lines.find(l => l.id === currentId)
-      this.transmissionSelectedTextTarget.textContent = selected ? selected.label : 'Select line'
+    const selectedLines = selected.filter(value => value !== 'all')
+
+    if (selectedLines.length === 0) {
+      this.transmissionSelectedTextTarget.textContent = 'All'
+    } else if (selectedLines.length === 1) {
+      const line = this.transmissionLines.find(l => l.id === selectedLines[0])
+      this.transmissionSelectedTextTarget.textContent = line ? line.label : '1 line'
     } else {
-      this.transmissionSelectedTextTarget.textContent = 'Select line'
+      this.transmissionSelectedTextTarget.textContent = `${selectedLines.length} lines`
     }
   }
 
   applyTransmission() {
     closeAllDropdowns()
-
-    const selectedId = this.getSelectedTransmissionId()
-    if (selectedId) {
-      router.updateQuery({ transmission: selectedId })
-    } else {
-      router.updateQuery({ transmission: null })
-    }
-
+    updateMultiSelectQuery(this.transmissionOptionsTarget, 'transmission')
   }
 
-  getSelectedTransmissionId() {
-    const checked = this.transmissionOptionsTarget.querySelector(".dropdown-checkbox:checked")
-    return checked ? checked.value : null
+  getSelectedTransmissions() {
+    return checkedValues(this.transmissionOptionsTarget)
   }
 
   toggleTransmissionMenu(event) {
     toggleMenu(this.transmissionMenuTarget, event.target.closest('#dashboard-options-transmission-section > .dropdown-btn'))
   }
 
-  toggleProductionType(event) {
-    const checkbox = event.target.closest('.dropdown-checkbox')
-
-    if (checkbox.value === 'all') {
-      if (checkbox.checked) {
-        this.productionTypeOptionsTarget.querySelectorAll(".dropdown-checkbox").forEach(cb => {
-          if (cb.value !== 'all') cb.checked = false
-        })
-      }
-    } else {
-      const allCheckbox = this.productionTypeOptionsTarget.querySelector(".dropdown-checkbox[value='all']")
-      if (allCheckbox) allCheckbox.checked = false
-    }
-
-    this.updateUI()
-  }
-
   applyProductionType() {
     closeAllDropdowns()
-
-    const selectedTypes = this.getSelectedProductionTypes()
-    if (selectedTypes.includes('all') || selectedTypes.length === 0) {
-      router.updateQuery({ production_type: null })
-    } else {
-      router.updateQuery({ production_type: selectedTypes.join(',') })
-    }
-    this.filterUnitsByProductionType(selectedTypes)
-
+    updateMultiSelectQuery(this.productionTypeOptionsTarget, 'production_type')
   }
 
   getSelectedProductionTypes() {
-    const checked = this.productionTypeOptionsTarget.querySelectorAll(".dropdown-checkbox:checked")
-    return Array.from(checked).map(cb => cb.value)
-  }
-
-  toggleUnit(event) {
-    const checkbox = event.currentTarget
-    const value = checkbox.value
-
-    if (value === 'all') {
-      if (checkbox.checked) {
-        this.unitOptionsTarget.querySelectorAll(".unit-checkbox").forEach(cb => {
-          if (cb.value !== 'all') cb.checked = false
-        })
-      }
-    } else if (checkbox.checked) {
-      const allCheckbox = this.unitOptionsTarget.querySelector(".unit-checkbox[value='all']")
-      if (allCheckbox) allCheckbox.checked = false
-    }
+    return this.hasProductionTypeOptionsTarget ? checkedValues(this.productionTypeOptionsTarget) : []
   }
 
   applyUnits() {
     closeAllDropdowns()
-
-    const selected = this.getSelectedUnits()
-    if (selected.includes('all') || selected.length === 0) {
-      const allCheckbox = this.unitOptionsTarget.querySelector(".unit-checkbox[value='all']")
-      if (allCheckbox) allCheckbox.checked = true
-      this.unitOptionsTarget.querySelectorAll(".unit-checkbox:checked").forEach(cb => {
-        if (cb.value !== 'all') cb.checked = false
-      })
-      router.updateQuery({ units: null })
-    } else {
-      router.updateQuery({ units: selected.sort((a, b) => a - b).join(',') })
-    }
-
+    updateMultiSelectQuery(this.unitOptionsTarget, 'units', '.unit-checkbox:checked')
   }
 
 
-  getSelectedUnits() {
-    const allCheckbox = this.unitOptionsTarget.querySelector(".unit-checkbox[value='all']")
-    if (allCheckbox?.checked) return ['all']
-    
-    const ids = []
-    this.unitOptionsTarget.querySelectorAll(".unit-checkbox:checked").forEach(cb => {
-      ids.push(parseInt(cb.value))
-    })
-    return ids
-  }
 
   toggleUnitMenu(event) {
     toggleMenu(this.unitMenuTarget, event.target.closest('#dashboard-options-unit-section > .dropdown-btn'))
@@ -402,10 +369,10 @@ class DashboardOptions {
     if (!this.hasSelectedTextTarget) return
     const types = this.getSelectedProductionTypes()
     
-    if (types.includes('all') || types.length === 0) {
+    if (types.length === 0 || types.includes('all')) {
       this.selectedTextTarget.textContent = 'All'
     } else if (types.length === 1) {
-      this.selectedTextTarget.textContent = types[0].replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+      this.selectedTextTarget.textContent = titleize(types[0])
     } else {
       this.selectedTextTarget.textContent = `${types.length} types`
     }

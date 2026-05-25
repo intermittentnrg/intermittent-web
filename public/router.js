@@ -74,7 +74,7 @@ export function updateQuery(updates) {
     if (merged[key] === null) delete merged[key]
   })
   const newSearch = Object.entries(merged)
-    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .map(([key, value]) => `${key}=${value}`)
     .join('&')
   const newUrl = window.location.pathname + (newSearch ? '?' + newSearch : '')
   const currentUrl = window.location.pathname + window.location.search
