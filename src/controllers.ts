@@ -9,6 +9,11 @@ const productionDashboards = new Set([
   "generation_yoy",
   "capture_price",
   "simulation",
+  "per_unit",
+  "per_unit_peak",
+  "per_unit_total",
+  "per_unit_moving_capacity",
+  "per_unit_battery",
 ]);
 
 const perUnitDashboards = new Set([

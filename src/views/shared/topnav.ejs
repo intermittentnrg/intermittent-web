@@ -78,19 +78,6 @@
       </div>
     </div>
 
-    <div id="dashboard-options-per-unit-production-type-section" class="topnav-item per-unit-production-type-selector dashboard-options-per-unit-section"
-         style="display: <%= perUnitDashboards.has(dashboardType) ? 'flex' : 'none' %>;">
-      <label>Production Type</label>
-      <button type="button" class="dropdown-btn">
-        <span class="dropdown-value" id="dashboard-options-per-unit-production-type-selected-text"><%= productionType || 'All' %></span>
-        <span class="dropdown-arrow">▼</span>
-      </button>
-      <div class="dropdown-menu" id="dashboard-options-per-unit-production-type-menu">
-        <div class="step-areas" id="dashboard-options-per-unit-production-type-options"></div>
-        <div class="step-actions"><button type="button" class="action-btn apply">Apply</button></div>
-      </div>
-    </div>
-
     <div id="dashboard-options-unit-section" class="topnav-item unit-selector dashboard-options-per-unit-section"
          style="display: <%= perUnitDashboards.has(dashboardType) ? 'flex' : 'none' %>;">
       <label>Units</label>

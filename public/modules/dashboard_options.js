@@ -1,7 +1,7 @@
 import { router } from "../router.js"
 import { closeAllDropdowns, toggleMenu } from "../dropdown_utils.js"
 
-const targetNames = ["menu", "selectedText", "productionTypeSection", "simulationSection", "electricityMixSection", "tempsSection", "loadSection", "productionTypeOptions", "perUnitSection", "unitOptions", "unitSelectedText", "unitMenu", "transmissionSection", "transmissionOptions", "transmissionSelectedText", "transmissionMenu", "perUnitProductionTypeMenu", "perUnitProductionTypeOptions", "perUnitProductionTypeSelectedText", "multiplierMenu", "multiplierSelectedText", "nuclearInput", "windInput", "solarInput", "demandInput"]
+const targetNames = ["menu", "selectedText", "productionTypeSection", "simulationSection", "electricityMixSection", "tempsSection", "loadSection", "productionTypeOptions", "perUnitSection", "unitOptions", "unitSelectedText", "unitMenu", "transmissionSection", "transmissionOptions", "transmissionSelectedText", "transmissionMenu", "multiplierMenu", "multiplierSelectedText", "nuclearInput", "windInput", "solarInput", "demandInput"]
 
 function targetSelector(target) {
   return `#dashboard-options-${kebab(target)}`
@@ -40,17 +40,11 @@ class DashboardOptions {
 
     document.addEventListener('production-types-loaded', (event) => {
       this.renderProductionTypes(event.detail.production_types || [])
-      this.renderPerUnitProductionTypes(event.detail.production_types || [])
     })
 
     document.addEventListener('units-loaded', (event) => {
       this.units = event.detail.units || []
-      const productionType = this.getSelectedPerUnitProductionType()
-      if (productionType && productionType !== 'all') {
-        this.renderUnits(this.units.filter(u => u.production_type === productionType))
-      } else {
-        this.renderUnits(this.units)
-      }
+      this.filterUnitsByProductionType(this.getSelectedProductionTypes())
     })
 
     document.addEventListener('transmission-lines-loaded', (event) => {
@@ -71,15 +65,12 @@ class DashboardOptions {
     if (event.target.closest('.multiplier-selector .action-btn.apply')) return this.applyMultipliers(event)
     if (event.target.closest('#dashboard-options-transmission-section > .dropdown-btn')) return this.toggleTransmissionMenu(event)
     if (event.target.closest('#dashboard-options-transmission-section .action-btn.apply')) return this.applyTransmission(event)
-    if (event.target.closest('#dashboard-options-per-unit-production-type-section > .dropdown-btn')) return this.togglePerUnitProductionTypeMenu(event)
-    if (event.target.closest('#dashboard-options-per-unit-production-type-section .action-btn.apply')) return this.applyPerUnitProductionType(event)
     if (event.target.closest('#dashboard-options-unit-section > .dropdown-btn')) return this.toggleUnitMenu(event)
     if (event.target.closest('#dashboard-options-unit-section .action-btn.apply')) return this.applyUnits(event)
   }
 
   handleChange(event) {
     if (event.target.closest('.production-type-selector .dropdown-checkbox')) return this.toggleProductionType(event)
-    if (event.target.closest('#dashboard-options-per-unit-production-type-section .dropdown-checkbox')) return this.togglePerUnitProductionType(event)
     if (event.target.closest('#dashboard-options-unit-section .unit-checkbox')) return this.toggleUnit(event)
     if (event.target.closest('#dashboard-options-transmission-section .dropdown-checkbox')) return this.toggleTransmission(event)
     if (event.target.id === 'topnav-prices-checkbox') return this.togglePrices(event)
@@ -144,7 +135,7 @@ class DashboardOptions {
     const dashboard = router.parsePath()?.dashboard || ''
 
     if (this.hasProductionTypeSectionTarget) {
-      this.productionTypeSectionTarget.style.display = ['generation', 'generation_min_max', 'generation_total', 'generation_yoy', 'capture_price', 'simulation'].includes(dashboard) ? 'flex' : 'none'
+      this.productionTypeSectionTarget.style.display = ['generation', 'generation_min_max', 'generation_total', 'generation_yoy', 'capture_price', 'simulation', 'per_unit', 'per_unit_peak', 'per_unit_total', 'per_unit_moving_capacity', 'per_unit_battery'].includes(dashboard) ? 'flex' : 'none'
     }
     
     if (this.hasSimulationSectionTarget) {
@@ -199,29 +190,6 @@ class DashboardOptions {
 
     this.productionTypeOptionsTarget.innerHTML = html
     this.updateUI()
-  }
-
-  renderPerUnitProductionTypes(productionTypes) {
-    if (!this.hasPerUnitProductionTypeOptionsTarget) return
-
-    const query = router.getQuery()
-    const currentType = query.production_type || 'all'
-
-    let html = ""
-    productionTypes.forEach(type => {
-      const isSelected = type.value === currentType
-      html += `
-        <div class="dropdown-option">
-          <input type="checkbox" class="dropdown-checkbox" id="per-unit-production-type-${type.value}"
-                 value="${type.value}" ${isSelected ? "checked" : ""}
-                >
-          <label class="dropdown-label" for="per-unit-production-type-${type.value}">${type.label}</label>
-        </div>
-      `
-    })
-
-    this.perUnitProductionTypeOptionsTarget.innerHTML = html
-    this.updatePerUnitProductionTypeUI()
   }
 
   renderUnits(units) {
@@ -372,59 +340,13 @@ class DashboardOptions {
     } else {
       router.updateQuery({ production_type: selectedTypes.join(',') })
     }
+    this.filterUnitsByProductionType(selectedTypes)
 
   }
 
   getSelectedProductionTypes() {
     const checked = this.productionTypeOptionsTarget.querySelectorAll(".dropdown-checkbox:checked")
     return Array.from(checked).map(cb => cb.value)
-  }
-
-  togglePerUnitProductionType(event) {
-    const checkbox = event.target.closest('.dropdown-checkbox')
-
-    if (checkbox.checked) {
-      this.perUnitProductionTypeOptionsTarget.querySelectorAll(".dropdown-checkbox").forEach(cb => {
-        if (cb.value !== checkbox.value) cb.checked = false
-      })
-    } else {
-      const allCheckbox = this.perUnitProductionTypeOptionsTarget.querySelector(".dropdown-checkbox[value='all']")
-      if (allCheckbox) allCheckbox.checked = true
-    }
-
-    this.updatePerUnitProductionTypeUI()
-    this.filterUnitsByProductionType([this.getSelectedPerUnitProductionType()])
-  }
-
-  updatePerUnitProductionTypeUI() {
-    if (!this.hasPerUnitProductionTypeSelectedTextTarget) return
-    const type = this.getSelectedPerUnitProductionType()
-    if (type === 'all') {
-      this.perUnitProductionTypeSelectedTextTarget.textContent = 'All'
-    } else {
-      this.perUnitProductionTypeSelectedTextTarget.textContent = type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-    }
-  }
-
-  getSelectedPerUnitProductionType() {
-    const checked = this.perUnitProductionTypeOptionsTarget.querySelector(".dropdown-checkbox:checked")
-    return checked ? checked.value : 'all'
-  }
-
-  togglePerUnitProductionTypeMenu(event) {
-    toggleMenu(this.perUnitProductionTypeMenuTarget, event.target.closest('#dashboard-options-per-unit-production-type-section > .dropdown-btn'))
-  }
-
-  applyPerUnitProductionType() {
-    closeAllDropdowns()
-
-    const type = this.getSelectedPerUnitProductionType()
-    if (type && type !== 'all') {
-      router.updateQuery({ production_type: type })
-    } else {
-      router.updateQuery({ production_type: null })
-    }
-
   }
 
   toggleUnit(event) {
