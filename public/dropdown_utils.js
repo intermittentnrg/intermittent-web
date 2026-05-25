@@ -30,9 +30,6 @@ function toggleMenu(menu, button) {
   }
 }
 
-function triggerChartUpdate() {
-  document.dispatchEvent(new CustomEvent('update-chart', { bubbles: true }))
-}
 
 document.addEventListener('click', (event) => {
   const clickedInside = event.target.closest('.open, .dropdown-btn, .dropdown-open')
@@ -41,4 +38,4 @@ document.addEventListener('click', (event) => {
   }
 })
 
-export { closeAllDropdowns, positionMenu, toggleMenu, triggerChartUpdate }
+export { closeAllDropdowns, positionMenu, toggleMenu }

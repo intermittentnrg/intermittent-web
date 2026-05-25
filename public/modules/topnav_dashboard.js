@@ -3,7 +3,7 @@ import { closeAllDropdowns } from "../dropdown_utils.js"
 
 export function initTopnavDashboard() {
   const root = document.getElementById('topnav-dashboard')
-  if (!root) return null
+  if (!root) return
 
   function switchDashboard(event, link) {
     event.preventDefault()
@@ -52,5 +52,4 @@ export function initTopnavDashboard() {
   syncFromUrl()
   router.onChange(syncFromUrl)
 
-  return { syncFromUrl }
 }

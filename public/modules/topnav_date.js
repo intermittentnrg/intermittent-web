@@ -1,9 +1,9 @@
 import { router, parsePath, getQuery, updateQuery } from "../router.js"
-import { closeAllDropdowns, toggleMenu, triggerChartUpdate } from "../dropdown_utils.js"
+import { closeAllDropdowns, toggleMenu } from "../dropdown_utils.js"
 
 export function initTopnavDate() {
   const root = document.getElementById('topnav-date')
-  if (!root) return null
+  if (!root) return
 
   const fromInput = document.getElementById('date-from')
   const toInput = document.getElementById('date-to')
@@ -27,7 +27,6 @@ export function initTopnavDate() {
     updateQuery({ min_resolution: resolution })
     if (resolutionSelectedText) resolutionSelectedText.textContent = resolution
     updateResolutionSelectedState()
-    triggerChartUpdate()
   }
 
   function updateResolutionSelectedState() {
@@ -89,7 +88,6 @@ export function initTopnavDate() {
     updateSelectedState()
     updateUI()
     updateUrl()
-    triggerChartUpdate()
   }
 
   function onDateInputKeydown(event) {
@@ -105,7 +103,6 @@ export function initTopnavDate() {
     closeAllDropdowns()
     updateUI()
     updateUrl()
-    triggerChartUpdate()
 
     if (typeof window.gtag === 'function') {
       window.gtag('event', 'select_preset', { preset })
@@ -176,5 +173,4 @@ export function initTopnavDate() {
   syncFromUrl()
   router.onChange(syncFromUrl)
 
-  return { syncFromUrl }
 }

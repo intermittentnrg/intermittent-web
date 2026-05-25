@@ -1,9 +1,9 @@
 import { router, onChange, parsePath } from "../router.js"
-import { closeAllDropdowns, toggleMenu, triggerChartUpdate } from "../dropdown_utils.js"
+import { closeAllDropdowns, toggleMenu } from "../dropdown_utils.js"
 
 export function initTopnavArea() {
   const root = document.getElementById('topnav-area')
-  if (!root) return null
+  if (!root) return
 
   const menu = root.querySelector('.area-menu')
   const selectorButton = root.querySelector('.location-selector-btn')
@@ -134,7 +134,6 @@ export function initTopnavArea() {
     updateSelectionText()
     closeAllDropdowns()
     router.updatePath({ region, areaType, area: urlAreas.join(',') })
-    triggerChartUpdate()
   }
 
   function syncOpenState() {
@@ -194,5 +193,4 @@ export function initTopnavArea() {
   syncFromUrl({ params: parsePath() })
   onChange(syncFromUrl)
 
-  return { syncFromUrl }
 }

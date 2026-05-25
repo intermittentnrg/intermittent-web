@@ -8,11 +8,9 @@ const DRAG_ZOOM_MIN_MS = 60_000
 
 export function initChart() {
   const chartTarget = document.getElementById('main-chart')
-  if (!chartTarget) return null
+  if (!chartTarget) return
 
-  const chartModule = new ChartModule(chartTarget, document.getElementById('chart-error'))
-  chartModule.connect()
-  return chartModule
+  new ChartModule(chartTarget, document.getElementById('chart-error')).connect()
 }
 
 class ChartModule {
@@ -27,25 +25,9 @@ class ChartModule {
     this.chart = echarts.init(this.chartTarget)
     this.connectDragZoom()
     this.fetchData()
-    this.routerUnsubscribe = router.onChange(() => this.fetchData())
-    document.addEventListener('update-chart', () => this.fetchData())
-
+    router.onChange(() => this.fetchData())
     this.boundHandleResize = this.handleResize.bind(this)
     window.addEventListener('resize', this.boundHandleResize)
-  }
-
-  disconnect() {
-    if (this.abortController) {
-      this.abortController.abort()
-    }
-    if (this.routerUnsubscribe) {
-      this.routerUnsubscribe()
-    }
-    if (this.chart) {
-      this.chart.dispose()
-      this.chart = null
-    }
-    window.removeEventListener('resize', this.boundHandleResize)
   }
 
   handleResize() {

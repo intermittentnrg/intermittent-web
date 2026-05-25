@@ -1,26 +1,17 @@
 // Simple router for handling URL changes and navigation
 const listeners = new Set()
 
-export function navigate(path, options = {}) {
-  const { replace = false, preserveQuery = true } = options
-
+export function navigate(path) {
   let fullPath = path
-  if (preserveQuery && typeof window !== 'undefined') {
-    const currentQuery = window.location.search.slice(1)
-    if (currentQuery) {
-      fullPath = path + '?' + currentQuery
-    }
+  const currentQuery = window.location.search.slice(1)
+  if (currentQuery) {
+    fullPath = path + '?' + currentQuery
   }
 
   const currentFullPath = window.location.pathname + window.location.search
   if (fullPath === currentFullPath) return
 
-  if (replace) {
-    history.replaceState({ path: fullPath }, '', fullPath)
-  } else {
-    history.pushState({ path: fullPath }, '', fullPath)
-  }
-
+  history.pushState({ path: fullPath }, '', fullPath)
   notifyListeners()
 }
 
@@ -83,10 +74,14 @@ export function updateQuery(updates) {
     if (merged[key] === null) delete merged[key]
   })
   const newSearch = Object.entries(merged)
-    .map(([k, v]) => `${k}=${v}`)
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
     .join('&')
   const newUrl = window.location.pathname + (newSearch ? '?' + newSearch : '')
-  history.replaceState({ path: newUrl }, '', newUrl)
+  const currentUrl = window.location.pathname + window.location.search
+  if (newUrl === currentUrl) return
+
+  history.pushState({ path: newUrl }, '', newUrl)
+  notifyListeners()
 }
 
 export function updatePath(updates) {

@@ -1,5 +1,5 @@
 import { router } from "../router.js"
-import { closeAllDropdowns, toggleMenu, triggerChartUpdate } from "../dropdown_utils.js"
+import { closeAllDropdowns, toggleMenu } from "../dropdown_utils.js"
 
 const targetNames = ["menu", "selectedText", "productionTypeSection", "simulationSection", "electricityMixSection", "tempsSection", "loadSection", "productionTypeOptions", "perUnitSection", "unitOptions", "unitSelectedText", "unitMenu", "transmissionSection", "transmissionOptions", "transmissionSelectedText", "transmissionMenu", "perUnitProductionTypeMenu", "perUnitProductionTypeOptions", "perUnitProductionTypeSelectedText", "multiplierMenu", "multiplierSelectedText", "nuclearInput", "windInput", "solarInput", "demandInput"]
 
@@ -17,10 +17,8 @@ function kebab(value) {
 
 export function initDashboardOptions() {
   const root = document.getElementById('topnav-content')
-  if (!root) return null
-  const module = new DashboardOptions(root)
-  module.connect()
-  return module
+  if (!root) return
+  new DashboardOptions(root).connect()
 }
 
 class DashboardOptions {
@@ -38,7 +36,7 @@ class DashboardOptions {
 
   connect() {
     this.updateVisibilityFromRouter()
-    this.routerUnsubscribe = router.onChange(() => this.updateVisibilityFromRouter())
+    router.onChange(() => this.updateVisibilityFromRouter())
 
     document.addEventListener('production-types-loaded', (event) => {
       this.renderProductionTypes(event.detail.production_types || [])
@@ -102,12 +100,6 @@ class DashboardOptions {
     }
     if (this.hasDemandInputTarget) {
       this.demandInputTarget.value = query.demand_multiplier || 1.0
-    }
-  }
-
-  disconnect() {
-    if (this.routerUnsubscribe) {
-      this.routerUnsubscribe()
     }
   }
 
@@ -343,7 +335,6 @@ class DashboardOptions {
       router.updateQuery({ transmission: null })
     }
 
-    triggerChartUpdate()
   }
 
   getSelectedTransmissionId() {
@@ -382,7 +373,6 @@ class DashboardOptions {
       router.updateQuery({ production_type: selectedTypes.join(',') })
     }
 
-    triggerChartUpdate()
   }
 
   getSelectedProductionTypes() {
@@ -435,7 +425,6 @@ class DashboardOptions {
       router.updateQuery({ production_type: null })
     }
 
-    triggerChartUpdate()
   }
 
   toggleUnit(event) {
@@ -469,7 +458,6 @@ class DashboardOptions {
       router.updateQuery({ units: selected.sort((a, b) => a - b).join(',') })
     }
 
-    triggerChartUpdate()
   }
 
 
@@ -524,21 +512,17 @@ class DashboardOptions {
       demand_multiplier: demand === 1.0 ? null : demand.toString()
     })
 
-    triggerChartUpdate()
   }
 
   togglePrices(event) {
     router.updateQuery({ prices: event.target.checked ? '1' : null })
-    triggerChartUpdate()
   }
 
   toggleTemps(event) {
     router.updateQuery({ temps: event.target.checked ? '1' : null })
-    triggerChartUpdate()
   }
 
   toggleLoad(event) {
     router.updateQuery({ load: event.target.checked ? '1' : null })
-    triggerChartUpdate()
   }
 }
