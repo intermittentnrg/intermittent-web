@@ -5,8 +5,11 @@
   "main": "src/server.ts",
   "type": "module",
   "scripts": {
-    "dev": "node --experimental-strip-types --watch src/server.ts --dev",
-    "build": "rm -rf dist && vite build",
+    "dev": "npm run build:echarts && node --experimental-strip-types --watch src/server.ts --dev",
+    "build": "npm run build:echarts:prod && rm -rf dist && vite build",
+    "build:echarts": "node src/scripts/buildEchartsClient.js",
+    "build:echarts:prod": "NODE_ENV=production node src/scripts/buildEchartsClient.js",
+    "watch:echarts": "node src/scripts/buildEchartsClient.js --watch",
     "build:lambda": "npm run build && rm -rf tmp/lambda && mkdir -p tmp/lambda/src && cp -R dist src public package.json package-lock.json tmp/lambda/ && cp -R lambda-assets/* tmp/lambda/ && npm ci --omit=dev --prefix tmp/lambda && find tmp/lambda/node_modules -type f \\( -name '*.map' -o -name '*.ts' -o -name '*.d.ts' -o -name '*.md' \\) -delete",
     "start": "node --experimental-strip-types src/server.ts",
     "render:price-map": "npm run render:price-map:europe --",

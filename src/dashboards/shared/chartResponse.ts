@@ -2,6 +2,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PNG } from "pngjs";
+import { processEchartsFormatters } from "../../shared/echartsFormatters.ts";
 import { buildDualAxisOptions } from "./chartOptions.ts";
 import { getEchartsForSsr } from "./echartsSsr.ts";
 
@@ -85,7 +86,7 @@ async function renderEchartsPng(options: unknown, width: number, height: number)
   const chart = echarts.init(canvas, undefined, { renderer: "canvas", ssr: true, width, height });
 
   try {
-    const chartOptions = options as Record<string, unknown>;
+    const chartOptions = processEchartsFormatters(options as Record<string, unknown>);
     const textStyle = typeof chartOptions.textStyle === "object" && chartOptions.textStyle !== null
       ? chartOptions.textStyle as Record<string, unknown>
       : {};

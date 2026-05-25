@@ -1,4 +1,10 @@
-import echarts from "../echarts_client.js"
+import echarts from "../vendor/echarts_client.bundle.js"
+import {
+  formatEnergy,
+  formatPower,
+  formatPrice,
+  processEchartsFormatters,
+} from "../vendor/echarts_formatters.js"
 import { router, parsePath } from "../router.js"
 import { calculateResolution, parseDateRange } from "../dateParsing.js"
 
@@ -122,7 +128,7 @@ class ChartModule {
         await this.loadMapGeoJSON(data.geoJsonUrl, mapSeries.map)
       }
       
-      this.processFormatters(data.options)
+      data.options = processEchartsFormatters(data.options)
       this.processTooltipFormatter(data.options)
       delete data.options.dataZoom
       delete data.options.toolbox
@@ -154,12 +160,12 @@ class ChartModule {
           const unit = seriesMap[p.seriesIndex] || formatter.type
           
           if (unit === 'power') {
-            value = this.formatPower(value)
+            value = formatPower(value)
             total += p.value[1] || 0
           } else if (unit === 'energy') {
-            value = this.formatEnergy(value)
+            value = formatEnergy(value)
           } else if (unit === 'price') {
-            value = this.formatPrice(value)
+            value = formatPrice(value)
           } else if (unit === 'temperature') {
             value = value?.toFixed(0) + '°C'
           } else if (unit === 'percent') {
@@ -171,7 +177,7 @@ class ChartModule {
         })
         
         const totalStr = (formatter.type === 'power' || formatter.type === 'dual') 
-          ? `<b>Total: ${this.formatPower(total)}</b>` 
+          ? `<b>Total: ${formatPower(total)}</b>` 
           : ''
         return date + '<br/>' + (totalStr ? totalStr + '<br/>' : '') + parts.join('<br/>')
       }
@@ -322,88 +328,4 @@ class ChartModule {
     }
   }
   
-  processFormatters(options) {
-    const yAxes = Array.isArray(options.yAxis) ? options.yAxis : [options.yAxis]
-    
-    yAxes.forEach(axis => {
-      if (axis?.axisLabel?.formatter) {
-        const formatter = axis.axisLabel.formatter
-        if (typeof formatter === 'object' && formatter.type) {
-          axis.axisLabel.formatter = this.getFormatter(formatter.type)
-        } else if (typeof formatter === 'object' && formatter.unit) {
-          axis.axisLabel.formatter = this.getFormatterByUnit(formatter.unit)
-        }
-      }
-    })
-    
-    if (options.xAxis?.axisLabel?.formatter?.type === 'date') {
-      options.xAxis.axisLabel.formatter = this.getFormatter('date')
-    }
-    
-    const series = Array.isArray(options.series) ? options.series : [options.series]
-    series.forEach(s => {
-      if (s?.label?.formatter?.type) {
-        const type = s.label.formatter.type
-        s.label.formatter = (params) => this.formatByType(params.value, type)
-      }
-    })
-  }
-  
-  formatByType(value, type) {
-    if (type === 'energy') return this.formatEnergy(value)
-    if (type === 'power') return this.formatPower(value)
-    if (type === 'price') return this.formatPrice(value)
-    return value?.toString() || '-'
-  }
-  
-  getFormatter(type) {
-    const formatters = {
-      power: (value) => this.formatPower(value, 0),
-      energy: (value) => this.formatEnergy(value, 0),
-      price: (value) => this.formatPrice(value, 0),
-      date: (value) => {
-        const d = new Date(value)
-        return `${d.getMonth() + 1}/${d.getDate()}`
-      }
-    }
-    return formatters[type] || ((v) => v.toString())
-  }
-  
-  getFormatterByUnit(unit) {
-    if (unit.includes('€/MWh') || unit.includes('€')) {
-      return (value) => this.formatPrice(value, 0)
-    }
-    if (unit === 'Wh' || unit.includes('Wh')) {
-      return (value) => this.formatEnergy(value, 0)
-    }
-    if (unit === 'W' || unit.includes('W')) {
-      return (value) => this.formatPower(value, 0)
-    }
-    return (value) => value.toFixed(0)
-  }
-  
-  formatPower(value) {
-    return this.formatMagnitude(value, ['W', 'kW', 'MW', 'GW', 'TW'])
-  }
-  
-  formatEnergy(value) {
-    return this.formatMagnitude(value, ['Wh', 'kWh', 'MWh', 'GWh', 'TWh'])
-  }
-  
-  formatMagnitude(value, suffixes) {
-    if (value === null || value === undefined || isNaN(value)) return '-'
-    const absValue = Math.abs(value)
-    for (let i = suffixes.length - 1; i >= 0; i--) {
-      const threshold = Math.pow(1000, i)
-      if (absValue >= threshold) {
-        return (value / threshold).toFixed(0) + suffixes[i]
-      }
-    }
-    return value.toFixed(0) + suffixes[0]
-  }
-  
-  formatPrice(value) {
-    if (value === null || value === undefined || isNaN(value)) return '-'
-    return value.toFixed(0) + '€/MWh'
-  }
 }
