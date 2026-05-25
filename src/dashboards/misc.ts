@@ -199,7 +199,7 @@ const generationOfPeakMapSql = `
   SELECT
     EXTRACT(EPOCH FROM g.time AT TIME ZONE $3)*1000 AS time,
     a.electricitymaps_id AS metric,
-    g.value/NULLIF(peak.value,0) AS value
+    (g.value/NULLIF(peak.value,0))*100 AS value
   FROM _gen_sum g
   INNER JOIN _peak_sum peak ON(g.area_id=peak.area_id)
   INNER JOIN areas a ON(g.area_id=a.id)
@@ -333,11 +333,11 @@ function generationOfPeakMapOptions(frames: any[], title: string) {
   return buildMapTimelineOptions(frames, {
     title,
     valueName: title,
-    tooltip: (params: { name: string; value?: number }) => `${params.name}: ${Math.round(Number(params.value || 0) * 100)}%`,
+    tooltip: "{b}: {c}%",
     visualMap: {
       type: "continuous",
       min: 0,
-      max: 1,
+      max: 100,
       left: 24,
       top: 180,
       itemHeight: 960,

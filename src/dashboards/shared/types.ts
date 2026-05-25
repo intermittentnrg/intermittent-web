@@ -27,6 +27,7 @@ export type DashboardQuery = {
   transmission?: string;
   units?: string;
   prices?: string;
+  load?: string;
   nuclear_multiplier?: string;
   wind_multiplier?: string;
   solar_multiplier?: string;

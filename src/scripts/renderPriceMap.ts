@@ -17,7 +17,7 @@ type PriceMapProfile = {
   aspectScale: number;
   mapZoom: number;
   mapCenter: [number, number];
-  label: { prefix?: string; suffix?: string; scale?: number };
+  label: { prefix?: string; suffix?: string };
 };
 
 type PriceMapPayload = {
@@ -70,7 +70,7 @@ const profiles: Record<string, PriceMapProfile> = {
     aspectScale: 0.65,
     mapZoom: 1.4,
     mapCenter: [7, 10],
-    label: { suffix: "%", scale: 100 },
+    label: { suffix: "%" },
   },
 };
 
@@ -326,8 +326,7 @@ function formatPriceLabel(value: unknown) {
   const numberValue = Number(rawValue);
   if (Number.isNaN(numberValue)) return "";
 
-  const scaledValue = numberValue * (profile.label.scale || 1);
-  const labelValue = Number.isInteger(scaledValue) ? scaledValue : Math.round(scaledValue);
+  const labelValue = Number.isInteger(numberValue) ? numberValue : Math.round(numberValue);
   return `${profile.label.prefix || ""}${labelValue}${profile.label.suffix || ""}`;
 }
 
@@ -382,6 +381,7 @@ async function workerMain() {
   try {
     for (let index = workerIndex; index < frameCount; index += workerCount) {
       const frame = renderer.renderFrame(index);
+      if (!(frame.buffer instanceof ArrayBuffer)) throw new Error("Frame buffer is not transferable");
       parentPort.postMessage(
         { index, buffer: frame.buffer, byteOffset: frame.byteOffset, byteLength: frame.byteLength },
         [frame.buffer],
