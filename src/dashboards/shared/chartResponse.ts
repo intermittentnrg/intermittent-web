@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { PNG } from "pngjs";
 import { buildDualAxisOptions } from "./chartOptions.ts";
 import { getEchartsForSsr } from "./echartsSsr.ts";
 
@@ -84,12 +85,21 @@ async function renderEchartsPng(options: unknown, width: number, height: number)
   const chart = echarts.init(canvas, undefined, { renderer: "canvas", ssr: true, width, height });
 
   try {
+    const chartOptions = options as Record<string, unknown>;
+    const textStyle = typeof chartOptions.textStyle === "object" && chartOptions.textStyle !== null
+      ? chartOptions.textStyle as Record<string, unknown>
+      : {};
+
     chart.setOption({
-      textStyle: { fontFamily: "DejaVu Sans, sans-serif" },
-      ...(options as Record<string, unknown>),
+      ...chartOptions,
+      // Social preview cards are rendered onto arbitrary page backgrounds by crawlers.
+      // Force an opaque background so the PNG never exposes the transparent canvas.
+      backgroundColor: "#ffffff",
+      textStyle: { ...textStyle, fontFamily: "DejaVu Sans, sans-serif" },
     } as never);
 
-    return chart.renderToCanvas().toBuffer("png");
+    const rawRgba = await chart.renderToCanvas().toBuffer("raw", { matte: "#ffffff" });
+    return PNG.sync.write({ width, height, data: rawRgba }, { colorType: 2 });
   } finally {
     chart.dispose();
   }
