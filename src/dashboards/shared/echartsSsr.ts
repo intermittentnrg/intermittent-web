@@ -13,13 +13,9 @@ export async function getEchartsForSsr() {
     geoComponent,
     tooltipComponent,
     legendComponent,
-    dataZoomComponent,
     titleComponent,
     visualMapComponent,
     graphicComponent,
-    markLineComponent,
-    toolboxComponent,
-    transformComponent,
     timelineComponent,
   ] = await Promise.all([
     import("echarts/core.js"),
@@ -33,13 +29,9 @@ export async function getEchartsForSsr() {
     import("echarts/lib/component/geo/install.js"),
     import("echarts/lib/component/tooltip/install.js"),
     import("echarts/lib/component/legend/install.js"),
-    import("echarts/lib/component/dataZoom/install.js"),
     import("echarts/lib/component/title/install.js"),
     import("echarts/lib/component/visualMap/install.js"),
     import("echarts/lib/component/graphic/install.js"),
-    import("echarts/lib/component/marker/installMarkLine.js"),
-    import("echarts/lib/component/toolbox/install.js"),
-    import("echarts/lib/component/transform/install.js"),
     import("echarts/lib/component/timeline/install.js"),
   ]) as any[];
 
@@ -55,13 +47,9 @@ export async function getEchartsForSsr() {
       geoComponent.install,
       tooltipComponent.install,
       legendComponent.install,
-      dataZoomComponent.install,
       titleComponent.install,
       visualMapComponent.install,
       graphicComponent.install,
-      markLineComponent.install,
-      toolboxComponent.install,
-      transformComponent.install,
       timelineComponent.install,
     ]);
     registered = true;
