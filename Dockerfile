@@ -7,7 +7,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 
-COPY tsconfig.json vite.config.ts ./
+COPY tsconfig.json ./
 COPY src ./src
 COPY public ./public
 
@@ -31,7 +31,7 @@ RUN npm ci --include=dev \
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/public ./public
-COPY wdio.conf.js tsconfig.json vite.config.ts jobdsl.groovy ./
+COPY wdio.conf.js tsconfig.json jobdsl.groovy ./
 COPY test ./test
 
 EXPOSE 3000

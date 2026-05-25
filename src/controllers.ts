@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { AreaRow, DashboardParams } from "./dashboards/shared/types.ts";
 import { querySmall } from "./lib/db.ts";
+import { dashboardPageTitle } from "./shared/dashboardTitles.ts";
 
 const productionDashboards = new Set([
   "generation",
@@ -80,7 +81,7 @@ export async function dashboardSpa(request: FastifyRequest<{ Params: DashboardPa
   const unitLabelText = await unitLabel(query.units);
 
   return reply.view("dashboards/index.ejs", {
-    pageTitle: `${dashboardType} - ${params.area}`,
+    pageTitle: dashboardPageTitle(dashboardType, params.region, params.area),
     imageUrl: absoluteUrl(request, echartsPngPath(params, dashboardType, query)),
     params: { ...params, ...query },
     dashboardType,

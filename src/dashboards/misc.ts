@@ -13,6 +13,7 @@ import { parseDateRangeInTimeZone } from "./shared/timezoneDateRange.ts";
 import { getProductionTypeIds } from "./shared/productionTypes.ts";
 import type { AnyRow, DashboardParams, DashboardQuery } from "./shared/types.ts";
 import { buildMapTimelineFrames, buildMapTimelineOptions } from "./shared/mapTimeline.ts";
+import { titleize } from "./shared/text.ts";
 
 const mapSql = `WITH _gen AS (SELECT time_bucket_gapfill('1h',time) AS time, area_id, production_type_id, INTERPOLATE(AVG(value)) AS value FROM generation g INNER JOIN areas a ON(area_id=a.id) WHERE area_id=ANY($1::int[]) AND electricitymaps_id IS NOT NULL AND production_type_id=ANY($2::int[]) AND time BETWEEN $3 AND $4 GROUP BY 1,2,3), _gen_sum AS (SELECT time,area_id,SUM(value) AS value FROM _gen GROUP BY 1,2), _peak AS (SELECT area_id,production_type_id,MAX(value) AS value FROM generation g INNER JOIN areas a ON(area_id=a.id) WHERE area_id=ANY($1::int[]) AND electricitymaps_id IS NOT NULL AND production_type_id=ANY($2::int[]) AND time BETWEEN ($3::timestamptz - '1 year'::interval) AND $4::timestamptz GROUP BY 1,2), _peak_sum AS (SELECT area_id,SUM(value) AS value FROM _peak GROUP BY 1) SELECT EXTRACT(EPOCH FROM time AT TIME ZONE $5)*1000 AS time, a.electricitymaps_id AS metric, g.value/NULLIF(peak.value,0) AS value FROM _gen_sum g INNER JOIN _peak_sum peak ON(g.area_id=peak.area_id) INNER JOIN areas a ON(g.area_id=a.id) WHERE time BETWEEN $3 AND $4 ORDER BY 1`;
 export async function maps(
@@ -323,10 +324,6 @@ function timezoneAbbr(timeZone: string, date = new Date()) {
     timeZoneName: "short",
   }).formatToParts(date);
   return parts.find((part) => part.type === "timeZoneName")?.value || timeZone;
-}
-
-function titleize(value: string) {
-  return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function generationOfPeakMapOptions(frames: any[], title: string) {

@@ -16,12 +16,12 @@
       <% } %>
     <% } %>
     <%- include('critical_css') %>
-    <link rel="stylesheet" href="<%= viteEntrypointUrl('public/application.css') %>">
-    <link rel="stylesheet" href="<%= viteEntrypointUrl('public/topnav.css') %>">
-    <link rel="stylesheet" href="<%= viteEntrypointUrl('public/topnav-area.css') %>">
-    <link rel="stylesheet" href="<%= viteEntrypointUrl('public/topnav-dashboard.css') %>">
-    <link rel="stylesheet" href="<%= viteEntrypointUrl('public/topnav-date.css') %>">
-    <%- viteScriptTags('public/app.js') %>
+    <link rel="stylesheet" href="<%= entrypointUrl('public/application.css') %>">
+    <link rel="stylesheet" href="<%= entrypointUrl('public/topnav.css') %>">
+    <link rel="stylesheet" href="<%= entrypointUrl('public/topnav-area.css') %>">
+    <link rel="stylesheet" href="<%= entrypointUrl('public/topnav-dashboard.css') %>">
+    <link rel="stylesheet" href="<%= entrypointUrl('public/topnav-date.css') %>">
+    <%- scriptTags('public/app.js') %>
     <%- include('google_analytics') %>
   </head>
   <body>
