@@ -83,16 +83,16 @@ resource "tls_cert_request" "api_gateway_origin" {
   private_key_pem = tls_private_key.api_gateway_origin.private_key_pem
 
   subject {
-    common_name  = "lambda.intermittent.energy"
+    common_name  = "preview.intermittent.energy"
     organization = "intermittent.energy"
   }
 
-  dns_names = ["lambda.intermittent.energy"]
+  dns_names = ["preview.intermittent.energy"]
 }
 
 resource "cloudflare_origin_ca_certificate" "api_gateway" {
   csr                = tls_cert_request.api_gateway_origin.cert_request_pem
-  hostnames          = ["lambda.intermittent.energy"]
+  hostnames          = ["preview.intermittent.energy"]
   request_type       = "origin-rsa"
   requested_validity = 5475
 }
@@ -135,7 +135,7 @@ resource "aws_lambda_permission" "allow_apigateway" {
 }
 
 resource "aws_apigatewayv2_domain_name" "web" {
-  domain_name = "lambda.intermittent.energy"
+  domain_name = "preview.intermittent.energy"
 
   domain_name_configuration {
     certificate_arn = aws_acm_certificate.api_gateway_origin.arn
@@ -152,7 +152,7 @@ resource "aws_apigatewayv2_api_mapping" "web" {
 
 resource "cloudflare_dns_record" "lambda" {
   zone_id = "a4e4efd14989cfcf69416bfb4bfe2a6a"
-  name    = "lambda.intermittent.energy"
+  name    = "preview.intermittent.energy"
   content = aws_apigatewayv2_domain_name.web.domain_name_configuration[0].target_domain_name
   type    = "CNAME"
   proxied = true
