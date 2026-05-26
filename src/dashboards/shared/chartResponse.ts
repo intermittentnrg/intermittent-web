@@ -120,7 +120,9 @@ async function renderEchartsPng(options: unknown, width: number, height: number)
     } as never);
 
     const rawRgba = await chart.renderToCanvas().toBuffer("raw", { matte: "#ffffff" });
-    return PNG.sync.write({ width, height, data: rawRgba }, { colorType: 2 });
+    const png = new PNG({ width, height });
+    png.data = Buffer.from(rawRgba);
+    return PNG.sync.write(png, { colorType: 2 });
   } finally {
     chart.dispose();
   }

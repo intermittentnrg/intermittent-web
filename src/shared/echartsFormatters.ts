@@ -17,13 +17,20 @@ export function processEchartsFormatters<T>(options: T): T {
   }
 
   for (const series of arrayOf(processed.series)) {
-    const type = series?.label?.formatter?.type;
-    if (type) {
-      series.label.formatter = (params: { value: unknown }) => formatByType(params.value, type);
-    }
+    processSeriesLabelFormatter(series?.label);
   }
 
   return processed as T;
+}
+
+function processSeriesLabelFormatter(label: Record<string, any> | undefined) {
+  const formatter = label?.formatter;
+  const type = formatter?.type;
+  if (!label || !type) return;
+  label.formatter = (params: { value: unknown }) => {
+    if (type === "blank-invalid-template") return formatBlankInvalidTemplate(params.value, formatter.template);
+    return formatByType(params.value, type);
+  };
 }
 
 function arrayOf<T>(value: T | T[] | undefined): T[] {
@@ -55,6 +62,12 @@ export function formatByType(value: unknown, type: unknown) {
   if (type === "power") return formatPower(value);
   if (type === "price") return formatPrice(value);
   return value?.toString() || "-";
+}
+
+export function formatBlankInvalidTemplate(value: unknown, template: unknown) {
+  const numericValue = Number(value);
+  if (value === null || value === undefined || Number.isNaN(numericValue)) return "";
+  return String(template || "{c}").replaceAll("{c}", numericValue.toFixed(0));
 }
 
 export function formatPower(value: unknown) {
