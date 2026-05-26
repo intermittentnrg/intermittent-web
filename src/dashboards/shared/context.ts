@@ -1,7 +1,7 @@
 import { querySmall } from "../../lib/db.ts";
 import type { FastifyRequest } from "fastify";
 import type { DashboardParams, DashboardQuery } from "./types.ts";
-import { resolutionToSeconds } from "../../shared/dateParsing.ts";
+import { calculateResolution, resolutionToSeconds } from "../../shared/dateParsing.ts";
 import { parseDateRangeInTimeZone } from "./timezoneDateRange.ts";
 
 type Context = {
@@ -56,7 +56,16 @@ export async function getContext(
     to,
     timezone,
     timezoneAbbreviation: timezoneAbbr(timezone),
-    interval: resolutionToSeconds(req.query.resolution, "15m"),
+    interval: req.query.resolution
+      ? resolutionToSeconds(req.query.resolution, "15m")
+      // For direct requests without an explicit resolution (e.g. social preview
+      // cards), calculate the optimal resolution from the rendering width.
+      : req.url.includes("/echarts.png")
+        ? resolutionToSeconds(
+            calculateResolution(from, to, 1200, req.query.min_resolution || "15m"),
+            "15m",
+          )
+        : resolutionToSeconds(req.query.min_resolution, "15m"),
   };
 }
 

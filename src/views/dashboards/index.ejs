@@ -4,22 +4,7 @@
   <div id="main-chart"></div>
   <div id="chart-error" hidden style="padding: 20px; color: #dc2626; background: #fef2f2; border: 1px solid #dc2626; border-radius: 4px; margin-top: 10px;"></div>
 
-  <script>
-    (function () {
-      window.__fetchEchartsJson = function (options) {
-        var resolution = options && options.resolution;
-        var signal = options && options.signal;
-        var params = new URLSearchParams(window.location.search);
-        params.delete('min_resolution');
-        if (resolution) params.set('resolution', resolution);
-        var query = params.toString();
-        var url = window.location.pathname + '/echarts.json' + (query ? '?' + query : '');
-        return fetch(url, { headers: { Accept: 'application/json' }, signal: signal });
-      };
 
-      // Chart controller calculates a cache-friendly resolution bucket before fetching.
-    })();
-  </script>
   <script type="application/json" id="initial-state"><%- JSON.stringify({ params, dashboardType }) %></script>
 </main>
 <%- include('../shared/footer') %>

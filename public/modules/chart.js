@@ -55,14 +55,16 @@ class ChartModule {
     }
 
     const resolution = this.chartResolution()
-    const preloaded = window.__echartsJsonPreload
-    if (preloaded) {
-      delete window.__echartsJsonPreload
-    }
-
-    const responsePromise = preloaded
-      ? preloaded
-      : window.__fetchEchartsJson({ resolution, signal: currentAbortController.signal })
+    const params = {}
+    window.location.search.replace(/^\?/, '').split('&').filter(Boolean).forEach(pair => {
+      const [k, v] = pair.split('=', 2)
+      if (k) params[k] = v
+    })
+    delete params.min_resolution
+    if (resolution) params.resolution = resolution
+    const query = Object.entries(params).map(([k, v]) => `${k}=${v}`).join('&')
+    const url = window.location.pathname + '/echarts.json' + (query ? '?' + query : '')
+    const responsePromise = fetch(url, { headers: { Accept: 'application/json' }, signal: currentAbortController.signal })
 
     responsePromise
     .then(response => {

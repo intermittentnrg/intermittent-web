@@ -23,6 +23,7 @@ export type AreaRow = {
 
 export type DashboardQuery = {
   resolution?: string;
+  min_resolution?: string;
   production_type?: string;
   transmission?: string;
   units?: string;
