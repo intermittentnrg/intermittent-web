@@ -10,6 +10,10 @@ export const RESOLUTION_BUCKETS = [
   { label: "1M", seconds: 2592000 },
 ]
 
+const RESOLUTION_SECONDS = Object.fromEntries(
+  RESOLUTION_BUCKETS.map((bucket) => [bucket.label, bucket.seconds]),
+)
+
 export function parseDateRange(fromValue, toValue, now = new Date()) {
   return {
     from: parseAppDate(fromValue, { end: false, now }),
@@ -24,9 +28,16 @@ export function parseAppDate(value, options = {}) {
 
   if (input === "now") return now
   if (input === "today") return dayBoundary(now, end)
-  if (input === "yesterday") return dayBoundary(addCalendar(now, "day", -1), end)
+  if (input === "tomorrow") {
+    const d = addCalendar(now, "day", 1)
+    return dayBoundary(d, end)
+  }
+  if (input === "yesterday") {
+    const d = addCalendar(now, "day", -1)
+    return dayBoundary(d, end)
+  }
 
-  const previous = input.match(/^last\s+(week|month|year)$/i)
+  const previous = input.match(/^(?:last|previous)\s+(week|month|year)$/i)
   if (previous) return previousPeriod(previous[1], now, end)
 
   const relative = input.match(/^(\d+)\s*(hour|day|week|month|year)s?(?:\s+ago)?$/i)
@@ -56,11 +67,15 @@ export function parseAppDate(value, options = {}) {
   throw new Error(`Could not parse date value: ${value}`)
 }
 
+export function resolutionToSeconds(resolution, fallback = "15m") {
+  return RESOLUTION_SECONDS[resolution] || RESOLUTION_SECONDS[fallback]
+}
+
 export function calculateResolution(from, to, widthValue, minResolution = "5m") {
   const width = Math.max(Number(widthValue || 1000), 1)
   const targetSeconds = Math.max(0, (to.getTime() - from.getTime()) / 1000 / width)
-  const minBucket = RESOLUTION_BUCKETS.find(bucket => bucket.label === minResolution) || RESOLUTION_BUCKETS[0]
-  return (RESOLUTION_BUCKETS.find(bucket => bucket.seconds >= targetSeconds && bucket.seconds >= minBucket.seconds) || RESOLUTION_BUCKETS.at(-1)).label
+  const minSeconds = resolutionToSeconds(minResolution, "5m")
+  return RESOLUTION_BUCKETS.find((bucket) => bucket.seconds >= targetSeconds && bucket.seconds >= minSeconds)?.label || "1M"
 }
 
 function dayBoundary(date, end) {

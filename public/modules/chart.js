@@ -6,7 +6,7 @@ import {
   processEchartsFormatters,
 } from "../vendor/echarts_formatters.js"
 import { router, parsePath } from "../router.js"
-import { calculateResolution, parseDateRange } from "../dateParsing.js"
+import { calculateResolution, parseDateRange } from "../../src/shared/dateParsing.js"
 
 const DRAG_ZOOM_GRAPHIC_ID = 'drag-zoom-rect'
 const DRAG_ZOOM_MIN_PIXELS = 8
@@ -106,7 +106,7 @@ class ChartModule {
     if (!pathParams?.from || !pathParams?.to) return '15m'
     try {
       const range = parseDateRange(pathParams.from, pathParams.to)
-      const width = this.chartTarget?.offsetWidth || 800
+      const width = window.innerWidth
       const minResolution = new URLSearchParams(window.location.search).get('min_resolution') || '15m'
       return calculateResolution(range.from, range.to, width, minResolution)
     } catch (error) {
