@@ -18,16 +18,7 @@ RUN apt-get update \
     fonts-dejavu-core \
     postgresql-client \
     unzip \
-  && dpkg_arch="$(dpkg --print-architecture)" \
-  && case "$dpkg_arch" in \
-    amd64) terraform_arch="amd64" ;; \
-    arm64) terraform_arch="arm64" ;; \
-    *) echo "Unsupported architecture for Terraform: $dpkg_arch" >&2; exit 1 ;; \
-  esac \
-  && curl -fsSLo /tmp/terraform.zip "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_${terraform_arch}.zip" \
-  && unzip /tmp/terraform.zip -d /usr/local/bin \
-  && rm /tmp/terraform.zip \
-  && terraform version \
+  && npm install -g @earendil-works/pi-coding-agent \
   && rm -rf /var/lib/apt/lists/* \
   && mkdir -p /workspace/node_modules \
   && chown -R node: /workspace
