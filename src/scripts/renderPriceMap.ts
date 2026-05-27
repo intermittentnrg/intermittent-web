@@ -15,6 +15,7 @@ type PriceMapProfile = {
   mapZoom: number;
   mapCenter: [number, number];
   labelFormatter: string;
+  geoJsonUrl?: string;
 };
 
 type PriceMapPayload = {
@@ -36,6 +37,7 @@ const profiles: Record<string, PriceMapProfile> = {
     mapZoom: 8.9,
     mapCenter: [6, 54],
     labelFormatter: "€{c}",
+    geoJsonUrl: "/europe.geojson",
   },
   australia: {
     url: "/australia/region/all/tomorrow_to_tomorrow/price_map/echarts.json?resolution=5m",
@@ -100,7 +102,7 @@ async function main() {
       payload: {
         ...payload,
         mapName: payload.mapName || "world",
-        geoJsonUrl: payload.geoJsonUrl || "/assets/world-rewound.geojson",
+        geoJsonUrl: profile.geoJsonUrl || payload.geoJsonUrl || "/world-rewound.geojson",
       },
       frameOptions,
       baseOption,

@@ -20,7 +20,8 @@
     "render:electricity-mix:gb": "RENDER_PROFILE=gb node --experimental-strip-types src/scripts/renderElectricityMix.ts",
     "publish:price-map": "node --experimental-strip-types src/scripts/publishPriceMap.ts",
     "test": "vitest",
-    "test:e2e": "wdio run ./wdio.conf.js"
+    "test:e2e": "wdio run ./wdio.conf.js",
+    "merge:europe": "node src/scripts/merge-and-filter.js"
   },
   "keywords": [],
   "author": "",
@@ -31,6 +32,7 @@
     "@fastify/compress": "^8.3.1",
     "@fastify/static": "^9.1.3",
     "@fastify/view": "^11.1.1",
+    "@turf/union": "^7.3.5",
     "@xdevplatform/xdk": "^0.5.0",
     "dotenv": "^17.4.2",
     "echarts": "^6.0.0",
