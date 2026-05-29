@@ -109,7 +109,7 @@ body {
   cursor: pointer;
 }
 
-.dropdown-btn {
+.dropdown__trigger {
   padding: 4px 12px 4px 8px;
   border: 1px solid #d1d5db;
   border-radius: 4px;
@@ -122,7 +122,7 @@ body {
   min-width: 120px;
 }
 
-.dropdown-value {
+.dropdown__value {
   flex: 1;
   font-size: 13px;
   color: #1f2937;
@@ -132,7 +132,7 @@ body {
   text-align: left;
 }
 
-.dropdown-arrow {
+.dropdown__arrow {
   font-size: 10px;
   color: #6b7280;
 }
@@ -141,50 +141,16 @@ body {
   display: contents;
 }
 
-#topnav-date-preset {
-  flex-shrink: 0;
-}
-
-#topnav-date-range {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 8px;
-}
-
-.date-input-group {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
 .resolution-selector {
   flex: 0 0 auto;
 }
 
-.date-preset-btn {
+.date-range-btn {
   width: 162px;
 }
 
 .resolution-btn {
   width: 80px;
-}
-
-.date-input {
-  padding: 4px 8px;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  font-size: 12px;
-  width: 120px;
-  height: 28px;
-  box-sizing: border-box;
-}
-
-.date-input.preset-mode {
-  background-color: #f3f4f6;
-  color: #6b7280;
-  font-style: italic;
-  border-color: #d1d5db;
 }
 
 .dashboard-tabs {
@@ -249,16 +215,12 @@ body {
     gap: 12px;
   }
 
-  .dropdown-value {
+  .dropdown__value {
     font-size: 12px;
   }
 
-  .date-preset-btn {
+  .date-range-btn {
     width: 110px;
-  }
-
-  .date-input {
-    width: 80px;
   }
 
   .resolution-btn {
@@ -292,7 +254,7 @@ body {
 }
 
 @media (max-width: 480px) {
-  .dropdown-value {
+  .dropdown__value {
     max-width: 80px;
   }
 }

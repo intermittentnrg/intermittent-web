@@ -7,10 +7,10 @@ export function initTopnavDate() {
 
   const fromInput = document.getElementById('date-from')
   const toInput = document.getElementById('date-to')
-  const menu = root.querySelector('.date-preset-menu')
-  const presetText = root.querySelector('.date-preset-btn .dropdown-value')
+  const menu = root.querySelector('.date-range-menu')
+  const presetText = root.querySelector('.date-range-btn .dropdown__value')
   const resolutionMenu = root.querySelector('.resolution-menu')
-  const resolutionSelectedText = root.querySelector('.resolution-btn .dropdown-value')
+  const resolutionSelectedText = root.querySelector('.resolution-btn .dropdown__value')
   const timezone = root.querySelector('.timezone-selector')
 
   let preset = null
@@ -29,7 +29,7 @@ export function initTopnavDate() {
   function updateResolutionSelectedState() {
     if (!resolutionMenu) return
     const currentResolution = getResolution()
-    resolutionMenu.querySelectorAll(".resolution-option").forEach(option => {
+    resolutionMenu.querySelectorAll(".dropdown__option").forEach(option => {
       option.classList.toggle("selected", option.dataset.resolution === currentResolution)
     })
   }
@@ -45,7 +45,7 @@ export function initTopnavDate() {
     if (pathParams?.from && pathParams?.to) {
       fromInput.value = pathParams.from
       toInput.value = pathParams.to
-      preset = findMatchingPreset() || presetAttr
+      preset = findMatchingPreset() || ''
     } else {
       const presetButton = menu.querySelector(`[data-preset="${presetAttr}"]`)
       if (presetButton && presetButton.dataset.from) {
@@ -64,7 +64,7 @@ export function initTopnavDate() {
   function findMatchingPreset() {
     const from = fromInput.value
     const to = toInput.value
-    for (const button of menu.querySelectorAll('.date-preset-option[data-preset]')) {
+    for (const button of menu.querySelectorAll('.dropdown__option[data-preset]')) {
       if (button.dataset.from === from && button.dataset.to === to) return button.dataset.preset
     }
     return null
@@ -81,11 +81,16 @@ export function initTopnavDate() {
     const to = toInput.value
     if (from === previousFrom && to === previousTo) return
 
-    updateUrl()
+    // Re-evaluate whether the current values match a preset
+    preset = findMatchingPreset() || ''
+    updateSelectedState()
+    updateUI()
   }
 
   function onDateInputKeydown(event) {
-    if (event.key === 'Enter') event.target.blur()
+    if (event.key === 'Enter') {
+      applyDateRange()
+    }
   }
 
   function selectPreset(button) {
@@ -101,18 +106,26 @@ export function initTopnavDate() {
     }
   }
 
+  function applyDateRange() {
+    preset = findMatchingPreset() || ''
+    updateSelectedState()
+    updateUI()
+    closeAllDropdowns()
+    updateUrl()
+  }
+
   function updateUrl() {
     router.updatePath({ from: fromInput.value, to: toInput.value })
   }
 
   function updateSelectedState() {
-    menu.querySelectorAll(".date-preset-option").forEach(option => {
+    menu.querySelectorAll(".dropdown__option").forEach(option => {
       option.classList.toggle("selected", option.dataset.preset === preset)
     })
   }
 
   function updateUI() {
-    if (presetText) presetText.textContent = preset ? getPresetDisplayName(preset) : 'Custom'
+    if (presetText) presetText.textContent = preset ? getPresetDisplayName(preset) : `${fromInput.value} - ${toInput.value}`
     fromInput.classList.toggle('preset-mode', !!preset)
     toInput.classList.toggle('preset-mode', !!preset)
   }
@@ -126,6 +139,7 @@ export function initTopnavDate() {
   function switchToCustom() {
     if (preset) {
       preset = ''
+      updateSelectedState()
       updateUI()
     }
   }
@@ -136,13 +150,16 @@ export function initTopnavDate() {
   }
 
   root.addEventListener('click', event => {
-    const presetButton = event.target.closest('.date-preset-option')
+    const presetButton = event.target.closest('.dropdown__option')
     if (presetButton) return selectPreset(presetButton)
 
-    const resolutionButton = event.target.closest('.resolution-option')
+    const applyButton = event.target.closest('.dropdown__apply')
+    if (applyButton) return applyDateRange()
+
+    const resolutionButton = event.target.closest('.dropdown__option')
     if (resolutionButton) return selectResolution(resolutionButton)
 
-    if (event.target.closest('.date-preset-btn')) return toggleMenu(menu, root.querySelector('.date-preset-btn'))
+    if (event.target.closest('.date-range-btn')) return toggleMenu(menu, root.querySelector('.date-range-btn'))
     if (event.target.closest('.resolution-btn')) return toggleMenu(resolutionMenu, root.querySelector('.resolution-btn'))
   })
 

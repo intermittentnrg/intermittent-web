@@ -32,7 +32,7 @@ function toggleMenu(menu, button) {
 
 
 document.addEventListener('click', (event) => {
-  const clickedInside = event.target.closest('.open, .dropdown-btn, .dropdown-open')
+  const clickedInside = event.target.closest('.open, .dropdown__trigger, .dropdown-open')
   if (!clickedInside) {
     closeAllDropdowns()
   }

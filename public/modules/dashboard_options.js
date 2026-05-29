@@ -15,37 +15,31 @@ function kebab(value) {
   return value.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`)
 }
 
-function renderMultiSelectOptions(container, options, { idPrefix, selected = [], checkboxClass = 'dropdown-checkbox', label = option => option.label, value = option => option.value }) {
+function renderMultiSelectOptions(container, options, { idPrefix, selected = [], checkboxClass = 'dropdown__checkbox', label = option => option.label, value = option => option.value }) {
   const selectedValues = selected.filter(Boolean).filter(v => v !== 'all')
   const allSelected = selectedValues.length === 0
   const regularOptions = options.filter(option => String(value(option)) !== 'all')
-  const checkbox = ({ optionValue, optionLabel, checked, divider = false }) => `
-    ${divider ? '<div class="dropdown-option-divider"></div>' : ''}
-    <div class="dropdown-option">
-      <input type="checkbox" class="${checkboxClass}" id="${idPrefix}-${optionValue}" value="${optionValue}" ${checked ? 'checked' : ''}>
-      <label class="dropdown-label" for="${idPrefix}-${optionValue}">${optionLabel}</label>
-    </div>
+  const optionHtml = (optionValue, optionLabel, checked) => `
+    <label class="dropdown__option${checked ? ' selected' : ''}">
+      <input type="checkbox" class="${checkboxClass}" value="${optionValue}" ${checked ? 'checked' : ''}>
+      <span class="dropdown__label">${optionLabel}</span>
+    </label>
   `
 
   container.innerHTML = [
-    checkbox({ optionValue: 'all', optionLabel: 'All', checked: allSelected }),
+    optionHtml('all', 'All', allSelected),
     ...regularOptions.map(option => {
       const optionValue = String(value(option))
-      return checkbox({
-        optionValue,
-        optionLabel: label(option),
-        checked: !allSelected && selectedValues.includes(optionValue),
-        divider: true,
-      })
+      return optionHtml(optionValue, label(option), !allSelected && selectedValues.includes(optionValue))
     }),
   ].join('')
 }
 
-function checkedValues(container, selector = '.dropdown-checkbox:checked') {
+function checkedValues(container, selector = '.dropdown__checkbox:checked') {
   return Array.from(container.querySelectorAll(selector)).map(cb => cb.value)
 }
 
-function updateAllCheckboxSelection(container, checkbox, selector = '.dropdown-checkbox') {
+function updateAllCheckboxSelection(container, checkbox, selector = '.dropdown__checkbox') {
   if (checkbox.value === 'all') {
     if (checkbox.checked) {
       container.querySelectorAll(selector).forEach(cb => {
@@ -58,18 +52,20 @@ function updateAllCheckboxSelection(container, checkbox, selector = '.dropdown-c
   }
 }
 
-function updateMultiSelectQuery(container, queryParam, selector = '.dropdown-checkbox:checked') {
+function updateMultiSelectQuery(container, queryParam, selector = '.dropdown__checkbox:checked') {
   const selected = checkedValues(container, selector).filter(value => value !== 'all')
   router.updateQuery({ [queryParam]: selected.length ? selected.join(',') : null })
 }
 
-function syncCheckboxesFromQuery(container, queryParam, { selector = '.dropdown-checkbox', defaultToAll = false } = {}) {
+function syncCheckboxesFromQuery(container, queryParam, { selector = '.dropdown__checkbox', defaultToAll = false } = {}) {
   if (!container) return
   const selected = (router.getQuery()[queryParam] || '').split(',').filter(Boolean)
   const allSelected = defaultToAll && selected.length === 0
 
   container.querySelectorAll(selector).forEach(cb => {
     cb.checked = cb.value === 'all' ? allSelected : selected.includes(cb.value)
+    const option = cb.closest('.dropdown__option')
+    if (option) option.classList.toggle('selected', cb.checked)
   })
 }
 
@@ -121,18 +117,18 @@ class DashboardOptions {
   }
 
   handleClick(event) {
-    if (event.target.closest('.production-type-selector > .dropdown-btn')) return this.toggleMenu(event)
-    if (event.target.closest('.production-type-selector .action-btn.apply')) return this.applyProductionType(event)
-    if (event.target.closest('.multiplier-selector > .dropdown-btn')) return this.toggleMultiplierMenu(event)
-    if (event.target.closest('.multiplier-selector .action-btn.apply')) return this.applyMultipliers(event)
-    if (event.target.closest('#dashboard-options-transmission-section > .dropdown-btn')) return this.toggleTransmissionMenu(event)
-    if (event.target.closest('#dashboard-options-transmission-section .action-btn.apply')) return this.applyTransmission(event)
-    if (event.target.closest('#dashboard-options-unit-section > .dropdown-btn')) return this.toggleUnitMenu(event)
-    if (event.target.closest('#dashboard-options-unit-section .action-btn.apply')) return this.applyUnits(event)
+    if (event.target.closest('.production-type-selector > .dropdown__trigger')) return this.toggleMenu(event)
+    if (event.target.closest('.production-type-selector .dropdown__apply')) return this.applyProductionType(event)
+    if (event.target.closest('.multiplier-selector > .dropdown__trigger')) return this.toggleMultiplierMenu(event)
+    if (event.target.closest('.multiplier-selector .dropdown__apply')) return this.applyMultipliers(event)
+    if (event.target.closest('#dashboard-options-transmission-section > .dropdown__trigger')) return this.toggleTransmissionMenu(event)
+    if (event.target.closest('#dashboard-options-transmission-section .dropdown__apply')) return this.applyTransmission(event)
+    if (event.target.closest('#dashboard-options-unit-section > .dropdown__trigger')) return this.toggleUnitMenu(event)
+    if (event.target.closest('#dashboard-options-unit-section .dropdown__apply')) return this.applyUnits(event)
   }
 
   handleChange(event) {
-    const checkbox = event.target.closest('.dropdown-checkbox')
+    const checkbox = event.target.closest('.dropdown__checkbox')
     if (checkbox) return this.toggleMultiSelectCheckbox(checkbox)
     if (event.target.id === 'topnav-prices-checkbox') return this.togglePrices(event)
     if (event.target.id === 'topnav-temps-checkbox') return this.toggleTemps(event)
@@ -263,7 +259,7 @@ class DashboardOptions {
     renderMultiSelectOptions(this.unitOptionsTarget, units, {
       idPrefix: 'unit',
       selected,
-      checkboxClass: 'dropdown-checkbox unit-checkbox',
+      checkboxClass: 'dropdown__checkbox unit-checkbox',
       value: unit => unit.id,
       label: unit => `${unit.name} (${unit.area})`,
     })
@@ -305,8 +301,14 @@ class DashboardOptions {
   }
 
   toggleMultiSelectCheckbox(checkbox) {
-    const container = checkbox.closest('.step-areas')
-    updateAllCheckboxSelection(container, checkbox, checkbox.classList.contains('unit-checkbox') ? '.unit-checkbox' : '.dropdown-checkbox')
+    const container = checkbox.closest('.dropdown__content')
+    updateAllCheckboxSelection(container, checkbox, checkbox.classList.contains('unit-checkbox') ? '.unit-checkbox' : '.dropdown__checkbox')
+
+    // Sync .selected class on parent rows
+    container.querySelectorAll('.dropdown__checkbox').forEach(cb => {
+      const option = cb.closest('.dropdown__option')
+      if (option) option.classList.toggle('selected', cb.checked)
+    })
 
     if (container === this.productionTypeOptionsTarget) this.updateUI()
     if (container === this.transmissionOptionsTarget) this.updateTransmissionUI()
@@ -342,7 +344,7 @@ class DashboardOptions {
   }
 
   toggleTransmissionMenu(event) {
-    toggleMenu(this.transmissionMenuTarget, event.target.closest('#dashboard-options-transmission-section > .dropdown-btn'))
+    toggleMenu(this.transmissionMenuTarget, event.target.closest('#dashboard-options-transmission-section > .dropdown__trigger'))
   }
 
   applyProductionType() {
@@ -362,7 +364,7 @@ class DashboardOptions {
 
 
   toggleUnitMenu(event) {
-    toggleMenu(this.unitMenuTarget, event.target.closest('#dashboard-options-unit-section > .dropdown-btn'))
+    toggleMenu(this.unitMenuTarget, event.target.closest('#dashboard-options-unit-section > .dropdown__trigger'))
   }
 
   updateUI() {
@@ -379,11 +381,11 @@ class DashboardOptions {
   }
 
   toggleMenu(event) {
-    toggleMenu(this.menuTarget, event.target.closest('.production-type-selector > .dropdown-btn'))
+    toggleMenu(this.menuTarget, event.target.closest('.production-type-selector > .dropdown__trigger'))
   }
 
   toggleMultiplierMenu(event) {
-    toggleMenu(this.multiplierMenuTarget, event.target.closest('.multiplier-selector > .dropdown-btn'))
+    toggleMenu(this.multiplierMenuTarget, event.target.closest('.multiplier-selector > .dropdown__trigger'))
   }
 
   applyMultipliers() {

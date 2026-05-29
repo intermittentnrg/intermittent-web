@@ -32,7 +32,7 @@ export function initTopnavDashboard() {
 
   function updateWindowTitle() {
     const selectedTab = root.querySelector(".dashboard-tab.selected")
-    const areaButton = document.querySelector("#topnav-area .dropdown-value")
+    const areaButton = document.querySelector("#topnav-area .dropdown__value")
     const dashboardTitle = selectedTab?.textContent.trim()
     const areaText = areaButton?.textContent.trim()
     if (dashboardTitle && areaText) document.title = `${dashboardTitle} • ${areaText}`

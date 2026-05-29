@@ -1,5 +1,5 @@
 /* Shared dropdown menu styles */
-.dropdown-menu {
+.dropdown__panel {
   position: fixed;
   top: 74px;
   display: none;
@@ -12,18 +12,18 @@
   overflow: hidden;
 }
 
-.dropdown-menu.open {
+.dropdown__panel.open {
   display: flex;
   flex-direction: column;
   max-height: 400px;
   box-sizing: border-box;
 }
 
-.dropdown-menu .step-actions {
+.dropdown__panel .dropdown__actions {
   flex-shrink: 0;
 }
 
-.dropdown-menu .step-areas {
+.dropdown__panel .dropdown__content {
   flex: 1 1 auto;
   overflow-y: auto;
   min-height: 0;
@@ -31,7 +31,32 @@
   padding: 8px 12px;
 }
 
-.dropdown-btn:hover {
+/* Shared dropdown option button */
+.dropdown__option {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  margin-bottom: 4px;
+  transition: all 0.15s;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.dropdown__option:hover {
+  background: #f3f4f6;
+}
+
+.dropdown__option.selected {
+  background: #3b82f6;
+  color: white;
+}
+
+.dropdown__trigger:hover {
   border-color: #9ca3af;
   background: #f9fafb;
 }
@@ -41,7 +66,7 @@
   text-decoration: underline;
 }
 
-.area-menu .step-areas {
+.area-menu .dropdown__content {
   max-height: none;
   padding: 0;
 }

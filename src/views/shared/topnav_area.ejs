@@ -1,10 +1,10 @@
 <div id="topnav-area" class="topnav-item">
   <label for="location-selector-btn">Location</label>
-  <button type="button" id="location-selector-btn" class="dropdown-btn location-selector-btn">
+  <button type="button" id="location-selector-btn" class="dropdown__trigger location-selector-btn">
     <% const selectedRegionLabel = params.region.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) %>
     <% const selectedAreasLabel = params.area === 'all' ? 'All areas' : params.area %>
-    <span class="dropdown-value"><%= selectedRegionLabel %> • <%= selectedAreasLabel %></span>
-    <span class="dropdown-arrow">▼</span>
+    <span class="dropdown__value"><%= selectedRegionLabel %> • <%= selectedAreasLabel %></span>
+    <span class="dropdown__arrow">▼</span>
   </button>
 
   <div class="area-menu">
@@ -33,18 +33,17 @@
 
                 <ul class="area-tree child-tree">
                   <li class="area-node is-leaf" data-node-type="area" data-region="<%= region %>" data-area-type="<%= areaType %>" data-area="all">
-                    <label class="dropdown-option">
-                      <input type="checkbox" class="dropdown-checkbox" value="all">
-                      <span class="dropdown-label">All areas</span>
+                    <label class="dropdown__option">
+                      <input type="checkbox" class="dropdown__checkbox" value="all">
+                      <span class="dropdown__label">All areas</span>
                     </label>
                   </li>
-                  <li class="dropdown-option-divider" aria-hidden="true"></li>
 
                   <% (areasData[region][areaType] || []).forEach((area) => { %>
                     <li class="area-node is-leaf" data-node-type="area" data-region="<%= region %>" data-area-type="<%= areaType %>" data-area="<%= area.code %>">
-                      <label class="dropdown-option">
-                        <input type="checkbox" class="dropdown-checkbox" value="<%= area.code %>">
-                        <span class="dropdown-label"><%= area.label %></span>
+                      <label class="dropdown__option">
+                        <input type="checkbox" class="dropdown__checkbox" value="<%= area.code %>">
+                        <span class="dropdown__label"><%= area.label %></span>
                       </label>
                     </li>
                   <% }) %>
@@ -56,8 +55,8 @@
       <% }) %>
     </ul>
 
-    <div class="step-actions">
-      <button type="button" class="action-btn apply">Apply</button>
+    <div class="dropdown__actions">
+      <button type="button" class="dropdown__apply">Apply</button>
     </div>
   </div>
 </div>

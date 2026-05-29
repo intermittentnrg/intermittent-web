@@ -1,48 +1,57 @@
 <div id="topnav-date" class="topnav-date-wrapper" data-topnav-date-preset-value="<%= currentPreset?.preset || 'last_7_days' %>">
-  <div id="topnav-date-preset" class="topnav-item">
-    <label>Preset</label>
-    <div class="date-preset-selector">
-      <button type="button" class="dropdown-btn date-preset-btn">
-        <span class="dropdown-value"><%= currentPreset?.label || 'Custom' %></span>
-        <span class="dropdown-arrow">▼</span>
-      </button>
-      <div class="date-preset-menu">
-        <div class="date-preset-options">
+  <div class="topnav-item date-range-selector">
+    <label>Date Range</label>
+    <button type="button" class="dropdown__trigger date-range-btn">
+      <span class="dropdown__value"><%= currentPreset?.label || (fromRaw + ' - ' + toRaw) %></span>
+      <span class="dropdown__arrow">▼</span>
+    </button>
+    <div class="date-range-menu dropdown__panel">
+      <div class="date-range-panes">
+        <div class="date-range-preset">
           <% datePresets.forEach((p) => { %>
-            <button type="button" class="date-preset-option <%= currentPreset?.preset === p.preset ? 'selected' : '' %>" data-preset="<%= p.preset %>" data-from="<%= p.from %>" data-to="<%= p.to %>">
+            <button type="button" class="dropdown__option <%= currentPreset?.preset === p.preset ? 'selected' : '' %>" data-preset="<%= p.preset %>" data-from="<%= p.from %>" data-to="<%= p.to %>">
               <span class="option-text"><%= p.label %></span>
             </button>
           <% }) %>
         </div>
-      </div>
-    </div>
-  </div>
-  <div id="topnav-date-range">
-    <div class="topnav-item date-input-group">
-      <label>From</label>
-      <input type="text" id="date-from" class="date-input <%= currentPreset ? 'preset-mode' : '' %>" placeholder="yesterday" value="<%= fromRaw %>">
-    </div>
-    <div class="topnav-item date-input-group">
-      <label>To</label>
-      <input type="text" id="date-to" class="date-input <%= currentPreset ? 'preset-mode' : '' %>" placeholder="today" value="<%= toRaw %>">
-    </div>
-    <div class="topnav-item timezone-selector">
-      <label>Timezone</label>
-      <span class="timezone-name"></span>
-    </div>
-    <div class="topnav-item resolution-selector">
-      <label>Min Resolution</label>
-      <button type="button" class="dropdown-btn resolution-btn">
-        <span class="dropdown-value"><%= params.min_resolution || '15m' %></span>
-        <span class="dropdown-arrow">▼</span>
-      </button>
-      <div class="resolution-menu">
-        <div class="resolution-options">
-          <% resolutions.forEach((res) => { %>
-            <button type="button" class="resolution-option <%= params.min_resolution === res ? 'selected' : '' %>" data-resolution="<%= res %>"><span class="option-text"><%= res %></span></button>
-          <% }) %>
+        <div class="date-range-fromto">
+          <div class="date-range-fromto-body">
+            <div class="date-input-group">
+              <label>From</label>
+              <input type="text" id="date-from" class="date-input <%= currentPreset ? 'preset-mode' : '' %>" placeholder="yesterday" value="<%= fromRaw %>">
+            </div>
+            <div class="date-input-group">
+              <label>To</label>
+              <input type="text" id="date-to" class="date-input <%= currentPreset ? 'preset-mode' : '' %>" placeholder="today" value="<%= toRaw %>">
+            </div>
+            <div class="date-range-hint">
+              <div class="date-range-hint-label">Try:</div>
+              <div>2024-01-15</div>
+              <div>7 days ago</div>
+              <div>yesterday &middot; now</div>
+            </div>
+          </div>
+          <div class="dropdown__actions">
+            <button type="button" class="dropdown__apply">Apply</button>
+          </div>
         </div>
       </div>
     </div>
+  </div>
+  <div class="topnav-item resolution-selector">
+    <label>Min Resolution</label>
+    <button type="button" class="dropdown__trigger resolution-btn">
+      <span class="dropdown__value"><%= params.min_resolution || '15m' %></span>
+      <span class="dropdown__arrow">▼</span>
+    </button>
+    <div class="resolution-menu dropdown__panel">
+      <% resolutions.forEach((res) => { %>
+        <button type="button" class="dropdown__option <%= params.min_resolution === res ? 'selected' : '' %>" data-resolution="<%= res %>"><span class="option-text"><%= res %></span></button>
+      <% }) %>
+    </div>
+  </div>
+  <div class="topnav-item timezone-selector">
+    <label>Timezone</label>
+    <span class="timezone-name"></span>
   </div>
 </div>

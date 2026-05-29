@@ -17,33 +17,33 @@
     <div class="topnav-item production-type-selector" id="dashboard-options-production-type-section"
      style="display: <%= productionDashboards.has(dashboardType) ? 'flex' : 'none' %>;">
       <label>Production Type</label>
-      <button type="button" class="dropdown-btn">
-        <span class="dropdown-value" id="dashboard-options-selected-text"><%= productionType || 'All' %></span>
-        <span class="dropdown-arrow">▼</span>
+      <button type="button" class="dropdown__trigger">
+        <span class="dropdown__value" id="dashboard-options-selected-text"><%= productionType || 'All' %></span>
+        <span class="dropdown__arrow">▼</span>
       </button>
-      <div class="dropdown-menu" id="dashboard-options-menu">
-        <div class="step-areas" id="dashboard-options-production-type-options"></div>
-        <div class="step-actions">
-          <button type="button" class="action-btn apply">Apply</button>
+      <div class="dropdown__panel" id="dashboard-options-menu">
+        <div class="dropdown__content" id="dashboard-options-production-type-options"></div>
+        <div class="dropdown__actions">
+          <button type="button" class="dropdown__apply">Apply</button>
         </div>
       </div>
     </div>
 
-    <div class="topnav-item multiplier-selector" id="dashboard-options-simulation-section"
+    <div class="topnav-item multiplier-selector dashboard-options-simulation-section" id="dashboard-options-simulation-section"
          style="display: <%= dashboardType === 'simulation' ? 'flex' : 'none' %>;">
       <label>Multipliers</label>
-      <button type="button" class="dropdown-btn">
-        <span class="dropdown-value" id="dashboard-options-multiplier-selected-text">Edit</span>
-        <span class="dropdown-arrow">▼</span>
+      <button type="button" class="dropdown__trigger">
+        <span class="dropdown__value" id="dashboard-options-multiplier-selected-text">Edit</span>
+        <span class="dropdown__arrow">▼</span>
       </button>
-      <div class="dropdown-menu" id="dashboard-options-multiplier-menu">
+      <div class="dropdown__panel" id="dashboard-options-multiplier-menu">
         <div class="multiplier-options">
           <div class="multiplier-row"><label>Nuclear</label><input type="number" class="multiplier-input" value="1.0" step="0.1" min="0" max="10" id="dashboard-options-nuclear-input"></div>
           <div class="multiplier-row"><label>Wind</label><input type="number" class="multiplier-input" value="1.0" step="0.1" min="0" max="10" id="dashboard-options-wind-input"></div>
           <div class="multiplier-row"><label>Solar</label><input type="number" class="multiplier-input" value="1.0" step="0.1" min="0" max="10" id="dashboard-options-solar-input"></div>
           <div class="multiplier-row"><label>Demand</label><input type="number" class="multiplier-input" value="1.0" step="0.1" min="0" max="10" id="dashboard-options-demand-input"></div>
         </div>
-        <div class="step-actions"><button type="button" class="action-btn apply">Apply</button></div>
+        <div class="dropdown__actions"><button type="button" class="dropdown__apply">Apply</button></div>
       </div>
     </div>
 
@@ -68,26 +68,26 @@
     <div id="dashboard-options-transmission-section" class="topnav-item transmission-selector"
          style="display: <%= dashboardType === 'transmission' ? 'flex' : 'none' %>;">
       <label>Transmission Line</label>
-      <button type="button" class="dropdown-btn">
-        <span class="dropdown-value" id="dashboard-options-transmission-selected-text">Select line</span>
-        <span class="dropdown-arrow">▼</span>
+      <button type="button" class="dropdown__trigger">
+        <span class="dropdown__value" id="dashboard-options-transmission-selected-text">Select line</span>
+        <span class="dropdown__arrow">▼</span>
       </button>
-      <div class="dropdown-menu" id="dashboard-options-transmission-menu">
-        <div class="step-areas" id="dashboard-options-transmission-options"></div>
-        <div class="step-actions"><button type="button" class="action-btn apply">Apply</button></div>
+      <div class="dropdown__panel" id="dashboard-options-transmission-menu">
+        <div class="dropdown__content" id="dashboard-options-transmission-options"></div>
+        <div class="dropdown__actions"><button type="button" class="dropdown__apply">Apply</button></div>
       </div>
     </div>
 
     <div id="dashboard-options-unit-section" class="topnav-item unit-selector dashboard-options-per-unit-section"
          style="display: <%= perUnitDashboards.has(dashboardType) ? 'flex' : 'none' %>;">
       <label>Units</label>
-      <button type="button" class="dropdown-btn">
-        <span class="dropdown-value" id="dashboard-options-unit-selected-text"><%= unitLabel || 'All' %></span>
-        <span class="dropdown-arrow">▼</span>
+      <button type="button" class="dropdown__trigger">
+        <span class="dropdown__value" id="dashboard-options-unit-selected-text"><%= unitLabel || 'All' %></span>
+        <span class="dropdown__arrow">▼</span>
       </button>
-      <div class="dropdown-menu" id="dashboard-options-unit-menu">
-        <div class="step-areas" id="dashboard-options-unit-options"></div>
-        <div class="step-actions"><button type="button" class="action-btn apply">Apply</button></div>
+      <div class="dropdown__panel" id="dashboard-options-unit-menu">
+        <div class="dropdown__content" id="dashboard-options-unit-options"></div>
+        <div class="dropdown__actions"><button type="button" class="dropdown__apply">Apply</button></div>
       </div>
     </div>
   </div>
