@@ -31,7 +31,7 @@ RUN npm ci --include=dev \
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/public ./public
-COPY wdio.conf.js tsconfig.json jobdsl.groovy ./
+COPY vitest.config.ts wdio.conf.js tsconfig.json jobdsl.groovy ./
 COPY test ./test
 
 EXPOSE 3000
