@@ -4,6 +4,7 @@ export function buildChartOptions(
   series: Series[],
   title: string,
   formatterType: string,
+  showLegend = true,
 ) {
   return {
     useUTC: true,
@@ -13,11 +14,13 @@ export function buildChartOptions(
       axisPointer: { type: "cross" },
       formatter: { type: formatterType },
     },
-    legend: {
-      orient: "horizontal",
-      bottom: 0,
-      data: [...new Set(series.map((s) => s.name))],
-    },
+    legend: showLegend
+      ? {
+          orient: "horizontal",
+          bottom: 0,
+          data: [...new Set(series.map((s) => s.name))],
+        }
+      : undefined,
     grid: {
       left: "3%",
       right: "4%",

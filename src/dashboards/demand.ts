@@ -89,6 +89,7 @@ export async function demandMinMax(
       buildMinMaxSeries(rows),
       "Demand Min/Max",
       "power",
+      false,
     ),
     ctx.timezoneAbbreviation,
   );

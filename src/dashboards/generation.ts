@@ -175,6 +175,7 @@ export async function generationMinMax(
     buildMinMaxSeries(rows),
     "Generation Min/Max",
     "power",
+    false,
   );
   return sendChartResponse(req, reply, options, ctx.timezoneAbbreviation, {
     production_types: await getProductionTypeOptions(ctx.areaIds),
