@@ -5,10 +5,14 @@ services:
       dockerfile: Dockerfile.dev
     image: intermittent-web:dev
     container_name: intermittent-web-dev
+    environment:
+      TERM:
+      COLORTERM:
     volumes:
       - .:/workspace
       - ~/work/intermittent-importers:/rails
       - node-modules:/workspace/node_modules
+      - home-node:/home/node
     network_mode: host
     security_opt:
       - no-new-privileges:true
@@ -16,3 +20,4 @@ services:
     tty: true
 volumes:
   node-modules:
+  home-node:
