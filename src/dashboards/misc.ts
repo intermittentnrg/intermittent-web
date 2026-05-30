@@ -226,10 +226,57 @@ export async function priceMap(
     ctx.areaIds,
   ]);
   const frames = buildMapTimelineFrames(rows, timezoneAbbr(ctx.timezone, ctx.from));
+  const currencySymbol = req.params.region === "australia" ? "$" : "€";
   return sendChartResponse(
     req,
     reply,
-    priceMapOptions(frames, req.params.region === "australia" ? "$" : "€"),
+    buildMapTimelineOptions(frames, {
+      title: "Price map",
+      valueName: "Price",
+      tooltip: `{b}: {c} ${currencySymbol}/MWh`,
+      visualMap: {
+        type: "continuous",
+        min: 0,
+        max: 500,
+        left: 24,
+        top: 50,
+        bottom: 60,
+        itemHeight: 700,
+        itemWidth: 34,
+        text: ["", ""],
+        calculable: true,
+        realtime: false,
+        inRange: {
+          color: ["#0077FF", "#00E676", "#FFFF00", "#FFAA00", "#FF3300", "#CC0000", "#331111", "#000000"],
+        },
+      },
+      graphics: [0, 100, 200, 300, 400, 500].map((value) => ({
+        type: "text",
+        left: 82,
+        top: 50 + ((500 - value) / 500) * 690,
+        $value: value,
+        silent: true,
+        style: {
+          text: `{value|${currencySymbol}${value}}\n{unit|/MWh}`,
+          fill: "#222222",
+          rich: {
+            value: { font: "600 24px Inter, Helvetica, Arial, sans-serif", lineHeight: 28 },
+            unit: { font: "600 24px Inter, Helvetica, Arial, sans-serif", lineHeight: 28, padding: [4, 0, 0, 0] },
+          },
+        },
+      })),
+      map: { center: [7, 52], zoom: 7.5 },
+      label: {
+        show: true,
+        color: "#111111",
+        fontFamily: "Inter, Helvetica, Arial, sans-serif",
+        fontSize: 18,
+        fontWeight: "bold",
+        textBorderColor: "#ffffff",
+        textBorderWidth: 4,
+        formatter: { type: "blank-invalid-template", template: `{c} ${currencySymbol}/MWh` },
+      },
+    }),
     ctx.timezoneAbbreviation,
     {
       frames,
@@ -256,10 +303,42 @@ export async function generationOfPeakMap(
     productionTypeIds,
   ]);
   const frames = buildMapTimelineFrames(rows, timezoneAbbr(ctx.timezone, ctx.from));
+  const optTitle = `${productionTypeTitle} generation % of peak`;
   return sendChartResponse(
     req,
     reply,
-    generationOfPeakMapOptions(frames, `${productionTypeTitle} generation % of peak`),
+    buildMapTimelineOptions(frames, {
+      title: optTitle,
+      valueName: optTitle,
+      tooltip: "{b}: {c}%",
+      visualMap: {
+        type: "continuous",
+        min: 0,
+        max: 100,
+        left: 24,
+        top: 180,
+        itemHeight: 960,
+        itemWidth: 34,
+        text: ["", ""],
+        calculable: true,
+        realtime: false,
+        inRange: { color: ["#000000", "#330000", "#660000", "#990000", "#cc0000", "#ff3300", "#ff9900", "#ffff00"] },
+      },
+      graphics: [0, 25, 50, 75, 100].map((value) => ({
+        type: "text",
+        left: 82,
+        top: 180 + ((100 - value) / 100) * 960 - 14,
+        silent: true,
+        style: {
+          text: `{value|${value}%}`,
+          fill: "#222222",
+          rich: {
+            value: { font: "600 24px Inter, Helvetica, Arial, sans-serif", lineHeight: 28 },
+          },
+        },
+      })),
+      map: { center: [7, 52], zoom: 1.4 },
+    }),
     ctx.timezoneAbbreviation,
     {
       frames,
@@ -335,90 +414,6 @@ function timezoneAbbr(timeZone: string, date = new Date()) {
   return parts.find((part) => part.type === "timeZoneName")?.value || timeZone;
 }
 
-function generationOfPeakMapOptions(frames: any[], title: string) {
-  return buildMapTimelineOptions(frames, {
-    title,
-    valueName: title,
-    tooltip: "{b}: {c}%",
-    visualMap: {
-      type: "continuous",
-      min: 0,
-      max: 100,
-      left: 24,
-      top: 180,
-      itemHeight: 960,
-      itemWidth: 34,
-      text: ["", ""],
-      calculable: true,
-      realtime: false,
-      inRange: { color: ["#000000", "#330000", "#660000", "#990000", "#cc0000", "#ff3300", "#ff9900", "#ffff00"] },
-    },
-    graphics: [0, 25, 50, 75, 100].map((value) => ({
-      type: "text",
-      left: 82,
-      top: 180 + ((100 - value) / 100) * 960 - 14,
-      silent: true,
-      style: {
-        text: `{value|${value}%}`,
-        fill: "#222222",
-        rich: {
-          value: { font: "600 24px Inter, Helvetica, Arial, sans-serif", lineHeight: 28 },
-        },
-      },
-    })),
-    map: { center: [7, 52], zoom: 1.4 },
-  });
-}
-
-function priceMapOptions(frames: any[], currencySymbol = "€") {
-  return buildMapTimelineOptions(frames, {
-    title: "Price map",
-    valueName: "Price",
-    tooltip: `{b}: {c} ${currencySymbol}/MWh`,
-    visualMap: {
-      type: "continuous",
-      min: 0,
-      max: 500,
-      left: 24,
-      top: 50,
-      bottom: 60,
-      itemHeight: 700,
-      itemWidth: 34,
-      text: ["", ""],
-      calculable: true,
-      realtime: false,
-      inRange: {
-        color: ["#0077FF", "#00E676", "#FFFF00", "#FFAA00", "#FF3300", "#CC0000", "#331111", "#000000"],
-      },
-    },
-    graphics: [0, 100, 200, 300, 400, 500].map((value) => ({
-      type: "text",
-      left: 82,
-      top: 50 + ((500 - value) / 500) * 690,
-      $value: value,
-      silent: true,
-      style: {
-        text: `{value|${currencySymbol}${value}}\n{unit|/MWh}`,
-        fill: "#222222",
-        rich: {
-          value: { font: "600 24px Inter, Helvetica, Arial, sans-serif", lineHeight: 28 },
-          unit: { font: "600 24px Inter, Helvetica, Arial, sans-serif", lineHeight: 28, padding: [4, 0, 0, 0] },
-        },
-      },
-    })),
-    map: { center: [7, 52], zoom: 7.5 },
-    label: {
-      show: true,
-      color: "#111111",
-      fontFamily: "Inter, Helvetica, Arial, sans-serif",
-      fontSize: 18,
-      fontWeight: "bold",
-      textBorderColor: "#ffffff",
-      textBorderWidth: 4,
-      formatter: { type: "blank-invalid-template", template: `{c} ${currencySymbol}/MWh` },
-    },
-  });
-}
 
 export async function sweden(
   req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
