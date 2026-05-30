@@ -26,6 +26,39 @@ export function metricColor(metric: string) {
   )[key];
 }
 
+/**
+ * Cool-to-warm-to-black gradient: pale blue → blue → purple → pink → yellow → orange → red → near-black.
+ * Oldest years are faded cool tones, current year is bold near-black.
+ * A pink intermediate avoids muddy browns when transitioning from purple to yellow.
+ * @param t position in [0, 1] — 0 gives pale blue, 1 gives near-black
+ * @returns CSS rgb() string
+ */
+export function yoyColor(t: number): string {
+  const stops: Array<[number, number, number, number]> = [
+    [0.0, 210, 230, 245],  // pale blue
+    [0.2, 90, 165, 230],   // blue
+    [0.4, 165, 105, 200],  // purple
+    [0.55, 245, 225, 60],  // bright yellow
+    [0.7, 245, 160, 45],   // orange
+    [0.85, 230, 65, 65],   // red
+    [1.0, 25, 25, 25],     // near-black
+  ];
+
+  const pos = Math.max(0, Math.min(1, t));
+
+  for (let i = 0; i < stops.length - 1; i++) {
+    if (pos >= stops[i][0] && pos <= stops[i + 1][0]) {
+      const segment = (pos - stops[i][0]) / (stops[i + 1][0] - stops[i][0]);
+      const r = Math.round(stops[i][1] + (stops[i + 1][1] - stops[i][1]) * segment);
+      const g = Math.round(stops[i][2] + (stops[i + 1][2] - stops[i][2]) * segment);
+      const b = Math.round(stops[i][3] + (stops[i + 1][3] - stops[i][3]) * segment);
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+  }
+
+  return "rgb(25, 25, 25)";
+}
+
 export function areaColor(area: string) {
   return (
     (

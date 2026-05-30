@@ -1,3 +1,4 @@
+import { yoyColor } from "./colors.ts";
 import type { AnyRow, Series, TimeMetricValueRow } from "./types.ts";
 
 type RowsToSeriesOptions<Row extends AnyRow> = {
@@ -135,7 +136,30 @@ export function buildYoySeries(rows: AnyRow[]): Series[] {
       ]);
   }
 
-  return [...seriesByMetric.values()];
+  // Assign gray ramp colors sorted by year, current year gets thicker line
+  const series = [...seriesByMetric.values()];
+  const years = series
+    .map((s) => Number(s.name))
+    .filter((y) => !isNaN(y))
+    .sort((a, b) => a - b);
+
+  if (years.length > 0) {
+    const minYear = years[0];
+    const maxYear = years[years.length - 1];
+    const yearRange = maxYear - minYear;
+
+    for (const s of series) {
+      const year = Number(s.name);
+      if (isNaN(year)) continue;
+      const t = yearRange > 0 ? (year - minYear) / yearRange : 1;
+      const color = yoyColor(t);
+      const width = year === maxYear ? 3 : 2;
+      s.lineStyle = { ...(s.lineStyle as object), color, width };
+      s.itemStyle = { color };
+    }
+  }
+
+  return series;
 }
 
 export function buildBasicSeries(
