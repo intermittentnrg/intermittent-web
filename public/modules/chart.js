@@ -303,6 +303,26 @@ class ChartModule {
       await this.loadMapGeoJSON(data.geoJsonUrl, data.mapName || 'world')
     }
 
+    data.options = processEchartsFormatters(data.options)
+
+    // Size visualMap to fill available chart height
+    if (data.options?.baseOption?.visualMap) {
+      const chartHeight = this.chartTarget.clientHeight || 800
+      const top = data.options.baseOption.visualMap.top || 50
+      const bottom = data.options.baseOption.visualMap.bottom || 60
+      const itemHeight = chartHeight - top - bottom
+      data.options.baseOption.visualMap.itemHeight = itemHeight
+
+      // Reposition graphics text to match the visualMap height
+      if (data.options.baseOption.graphic) {
+        for (const g of data.options.baseOption.graphic) {
+          if (g.type === 'text' && g.$value != null) {
+            g.top = top + ((500 - g.$value) / 500) * itemHeight
+          }
+        }
+      }
+    }
+
     this.chart.setOption(data.options, true)
     window.nextPriceMap = () => this.nextPriceMap()
   }

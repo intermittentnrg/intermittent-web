@@ -1,30 +1,50 @@
+export type CustomSeriesLabelFormatter = {
+  type: string;
+  template?: string;
+};
+
 export function processEchartsFormatters<T>(options: T): T {
   const processed = structuredClone(options) as Record<string, any>;
 
-  for (const axis of arrayOf(processed.yAxis)) {
-    const formatter = axis?.axisLabel?.formatter;
-    if (typeof formatter === "object" && formatter !== null && "type" in formatter) {
-      axis.axisLabel.formatter = formatterForType(formatter.type);
-    } else if (typeof formatter === "object" && formatter !== null && "unit" in formatter) {
-      axis.axisLabel.formatter = formatterForUnit(formatter.unit);
+  // Process a single chart options object (not timeline format)
+  function processChartOptions(obj: Record<string, any>) {
+    for (const axis of arrayOf(obj.yAxis)) {
+      const formatter = axis?.axisLabel?.formatter;
+      if (typeof formatter === "object" && formatter !== null && "type" in formatter) {
+        axis.axisLabel.formatter = formatterForType(formatter.type);
+      } else if (typeof formatter === "object" && formatter !== null && "unit" in formatter) {
+        axis.axisLabel.formatter = formatterForUnit(formatter.unit);
+      }
+    }
+
+    for (const axis of arrayOf(obj.xAxis)) {
+      if (axis?.axisLabel?.formatter?.type === "date") {
+        axis.axisLabel.formatter = formatterForType("date");
+      }
+    }
+
+    for (const series of arrayOf(obj.series)) {
+      processSeriesLabelFormatter(series?.label);
     }
   }
 
-  for (const axis of arrayOf(processed.xAxis)) {
-    if (axis?.axisLabel?.formatter?.type === "date") {
-      axis.axisLabel.formatter = formatterForType("date");
+  // Handle timeline format (baseOption + options array)
+  if (processed.baseOption) {
+    processChartOptions(processed.baseOption);
+    if (Array.isArray(processed.options)) {
+      for (const frame of processed.options) {
+        processChartOptions(frame);
+      }
     }
-  }
-
-  for (const series of arrayOf(processed.series)) {
-    processSeriesLabelFormatter(series?.label);
+  } else {
+    processChartOptions(processed);
   }
 
   return processed as T;
 }
 
 function processSeriesLabelFormatter(label: Record<string, any> | undefined) {
-  const formatter = label?.formatter;
+  const formatter = label?.formatter as CustomSeriesLabelFormatter | undefined;
   const type = formatter?.type;
   if (!label || !type) return;
   label.formatter = (params: { value: unknown }) => {

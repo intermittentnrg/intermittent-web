@@ -1,10 +1,16 @@
 import type { MapSeriesOption } from "echarts/types/dist/echarts";
 import type { AnyRow } from "./types.ts";
+import type { CustomSeriesLabelFormatter } from "../../shared/echartsFormatters.ts";
 
 export type MapTimelineFrame = {
   name: string;
   layout: { title: string };
   data: [{ locations: string[]; z: number[] }];
+};
+
+/** A label option that accepts either a standard ECharts formatter or our custom descriptor. */
+type CustomLabel = Omit<NonNullable<MapSeriesOption["label"]>, "formatter"> & {
+  formatter?: CustomSeriesLabelFormatter;
 };
 
 export type MapTimelineOptions = {
@@ -14,6 +20,7 @@ export type MapTimelineOptions = {
   visualMap: Record<string, unknown>;
   graphics?: unknown[];
   map?: Partial<MapSeriesOption>;
+  label?: CustomLabel | MapSeriesOption["label"];
 };
 
 export function buildMapTimelineFrames(rows: AnyRow[], timeZoneLabel = "UTC") {
@@ -60,7 +67,7 @@ export function buildMapTimelineOptions(frames: MapTimelineFrame[], options: Map
       timeline: {
         axisType: "category",
         autoPlay: false,
-        playInterval: 500,
+        playInterval: 150,
         data: frames.map((frame, index) => ({ value: index, text: frame.layout.title })),
         left: "10%",
         right: "10%",
@@ -94,6 +101,7 @@ export function buildMapTimelineOptions(frames: MapTimelineFrame[], options: Map
             },
           },
           ...options.map,
+          label: options.label,
           data: build(frames[0]),
         },
       ],

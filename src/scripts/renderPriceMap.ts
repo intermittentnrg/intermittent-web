@@ -29,7 +29,7 @@ type PriceMapPayload = {
 
 const profiles: Record<string, PriceMapProfile> = {
   europe: {
-    url: "/europe/all/all/tomorrow_to_tomorrow/price_map/echarts.json?resolution=15m",
+    url: "/europe/country/all/tomorrow_to_tomorrow/price_map/echarts.json?resolution=15m",
     output: "render/price-map.mp4",
     framerate: "10",
     fps: "10",

@@ -148,9 +148,12 @@ const priceMapSql = `
     FROM prices p
     INNER JOIN areas a ON(p.area_id=a.id)
     WHERE
-      area_id=ANY($5::int[]) AND
+      time BETWEEN $1 AND $2 AND
       electricitymaps_id IS NOT NULL AND
-      time BETWEEN $1 AND $2
+      (
+        area_id=ANY($5::int[]) OR
+        area_id IN(SELECT child_id FROM area_associations WHERE parent_id=ANY($5::int[]))
+      )
     GROUP BY bucket, metric, area_id
   ) s
   ORDER BY 1,2
@@ -284,19 +287,25 @@ async function getMapContext(
       "SELECT id FROM areas WHERE enabled='t' AND electricitymaps_id IS NOT NULL",
       [],
     );
-  } else if (req.params.area_type === "all") {
-    areaRows = await querySmall<{ id: number }>(
-      "SELECT id FROM areas WHERE region=$1 AND enabled='t' AND electricitymaps_id IS NOT NULL",
-      [req.params.region],
-    );
   } else if (areaCodes.length === 0 || areaCodes.includes("all")) {
-    areaRows = await querySmall<{ id: number }>(
-      "SELECT id FROM areas WHERE region=$1 AND type=$2 AND enabled='t' AND electricitymaps_id IS NOT NULL",
+    areaRows = await querySmall<{ id: number }>(`
+      SELECT id FROM areas
+      WHERE
+        region=$1 AND
+        type=$2 AND
+        enabled='t'
+      `,
       [req.params.region, req.params.area_type],
     );
   } else {
-    areaRows = await querySmall<{ id: number }>(
-      "SELECT id FROM areas WHERE region=$1 AND type=$2 AND code = ANY($3::text[]) AND enabled='t' AND electricitymaps_id IS NOT NULL",
+    areaRows = await querySmall<{ id: number }>(`
+      SELECT id FROM areas
+      WHERE
+        region=$1 AND
+        type=$2 AND
+        code = ANY($3::text[]) AND
+        enabled='t'
+      `,
       [req.params.region, req.params.area_type, areaCodes],
     );
   }
@@ -371,8 +380,9 @@ function priceMapOptions(frames: any[], currencySymbol = "€") {
       min: 0,
       max: 500,
       left: 24,
-      top: 180,
-      itemHeight: 960,
+      top: 50,
+      bottom: 60,
+      itemHeight: 700,
       itemWidth: 34,
       text: ["", ""],
       calculable: true,
@@ -384,7 +394,8 @@ function priceMapOptions(frames: any[], currencySymbol = "€") {
     graphics: [0, 100, 200, 300, 400, 500].map((value) => ({
       type: "text",
       left: 82,
-      top: 180 + ((500 - value) / 500) * 960 - 14,
+      top: 50 + ((500 - value) / 500) * 690,
+      $value: value,
       silent: true,
       style: {
         text: `{value|${currencySymbol}${value}}\n{unit|/MWh}`,
@@ -396,6 +407,16 @@ function priceMapOptions(frames: any[], currencySymbol = "€") {
       },
     })),
     map: { center: [7, 52], zoom: 7.5 },
+    label: {
+      show: true,
+      color: "#111111",
+      fontFamily: "Inter, Helvetica, Arial, sans-serif",
+      fontSize: 18,
+      fontWeight: "bold",
+      textBorderColor: "#ffffff",
+      textBorderWidth: 4,
+      formatter: { type: "blank-invalid-template", template: `{c} ${currencySymbol}/MWh` },
+    },
   });
 }
 

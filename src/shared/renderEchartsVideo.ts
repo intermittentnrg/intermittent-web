@@ -236,6 +236,24 @@ async function createTimelineRenderer(options: TimelineRendererOptions): Promise
   const chart = echarts.init(canvas, undefined, { renderer: "canvas", ssr: true, width: options.width, height: options.height });
   const chartOption = processEchartsFormatters(options.payload.options);
   const baseOption = options.baseOption ? processEchartsFormatters(options.baseOption) : chartOption;
+
+  // Size visualMap to fill canvas height
+  if (baseOption.visualMap) {
+    const top = baseOption.visualMap.top || 50;
+    const bottom = baseOption.visualMap.bottom || 60;
+    const itemHeight = options.height - top - bottom;
+    baseOption.visualMap.itemHeight = itemHeight;
+
+    // Reposition graphics text to match the visualMap height
+    if (Array.isArray(baseOption.graphic)) {
+      for (const g of baseOption.graphic) {
+        if (g.type === "text" && g.$value != null) {
+          g.top = top + ((500 - g.$value) / 500) * itemHeight;
+        }
+      }
+    }
+  }
+
   chart.setOption({
     baseOption: {
       backgroundColor: "#ffffff",

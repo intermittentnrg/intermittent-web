@@ -27,9 +27,9 @@
       </div>
     </div>
     <div class="dashboard-tab-group has-dropdown">
-      <a href="prices" class="dashboard-tab dashboard-tab-trigger <%= ['prices', 'capture_price'].includes(dashboardType) ? 'selected' : '' %>">Prices</a>
+      <a href="prices" class="dashboard-tab dashboard-tab-trigger <%= ['prices', 'capture_price', 'price_map'].includes(dashboardType) ? 'selected' : '' %>">Prices</a>
       <div class="dashboard-dropdown">
-        <% [['prices','Prices'],['capture_price','Capture Price']].forEach(([key,label]) => { %>
+        <% [['prices','Prices'],['capture_price','Capture Price'],['price_map','Price Map']].forEach(([key,label]) => { %>
           <a href="<%= key %>" class="dashboard-dropdown-item <%= dashboardType === key ? 'selected' : '' %>"><%= label %></a>
         <% }) %>
       </div>
