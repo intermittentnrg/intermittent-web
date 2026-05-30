@@ -150,13 +150,13 @@ export function initTopnavDate() {
   }
 
   root.addEventListener('click', event => {
-    const presetButton = event.target.closest('.dropdown__option')
+    const presetButton = event.target.closest('.date-range-menu .dropdown__option')
     if (presetButton) return selectPreset(presetButton)
 
     const applyButton = event.target.closest('.dropdown__apply')
     if (applyButton) return applyDateRange()
 
-    const resolutionButton = event.target.closest('.dropdown__option')
+    const resolutionButton = event.target.closest('.resolution-menu .dropdown__option')
     if (resolutionButton) return selectResolution(resolutionButton)
 
     if (event.target.closest('.date-range-btn')) return toggleMenu(menu, root.querySelector('.date-range-btn'))
