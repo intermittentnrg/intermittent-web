@@ -30,7 +30,7 @@ window.addEventListener('popstate', () => notifyListeners())
 
 export function formatDatePath(dateStr) {
   if (!dateStr) return 'now'
-  return dateStr.toLowerCase().replace(/\s+/g, '_')
+  return dateStr.replace(/\s+/g, '_')
 }
 
 export function buildPath(region, areaType, area, from, to, dashboard) {

@@ -7,11 +7,12 @@ import {
   buildDualAxisOptions,
 } from "./shared/chartOptions.ts";
 import { sendChartResponse } from "./shared/chartResponse.ts";
-import { buildStackedPowerLineSeries } from "./shared/series.ts";
+import { divergentSeries, buildStackedPowerLineSeries } from "./shared/series.ts";
 import { resolutionToSeconds } from "../shared/dateParsing.ts";
 import { parseDateRangeInTimeZone } from "./shared/timezoneDateRange.ts";
 import { getProductionTypeIds } from "./shared/productionTypes.ts";
 import type { AnyRow, DashboardParams, DashboardQuery } from "./shared/types.ts";
+import { metricColor } from "./shared/colors.ts";
 import { buildMapTimelineFrames, buildMapTimelineOptions } from "./shared/mapTimeline.ts";
 import { titleize } from "./shared/text.ts";
 
@@ -415,29 +416,327 @@ function timezoneAbbr(timeZone: string, date = new Date()) {
 }
 
 
+const swedenGenSql = `
+SELECT
+  EXTRACT(EPOCH FROM time AT TIME ZONE $5)*1000 AS time,
+  metric,
+  SUM(value) AS value
+FROM (
+  SELECT time_bucket_gapfill($1::interval,time) AS time, a.code||'/load' AS metric, INTERPOLATE(AVG(l.value)) AS value
+  FROM load l
+  INNER JOIN areas a ON(l.area_id=a.id)
+  WHERE
+    time BETWEEN $2 AND $3 AND
+    area_id=ANY($4::int[])
+  GROUP BY 1,2
+UNION
+  SELECT time_bucket_gapfill($1::interval,time) AS time, a.code||'/'||pt.name AS metric, INTERPOLATE(AVG(g.value)) AS value
+  FROM generation g
+  INNER JOIN areas a ON(g.area_id=a.id)
+  INNER JOIN production_types pt ON(g.production_type_id=pt.id)
+  WHERE
+    time BETWEEN $2 AND $3 AND
+    area_id=ANY($4::int[])
+  GROUP BY 1,2
+) s
+GROUP BY 1,metric
+ORDER BY 2,1
+`;
+
+const swedenTransSql = `
+  WITH _transmission AS (
+    SELECT
+      time_bucket_gapfill($1::interval, time) AS time,
+      from_area_id,
+      to_area_id,
+      INTERPOLATE(AVG(value)) AS value
+    FROM transmission_data t
+    INNER JOIN areas_areas aa ON(areas_area_id=aa.id)
+    WHERE
+      from_area_id = ANY($2::int[]) AND
+      time BETWEEN $3 AND $4
+    GROUP BY 1,2,3
+  UNION
+    SELECT
+      time_bucket_gapfill($1::interval, time) AS time,
+      to_area_id AS from_area_id,
+      from_area_id AS to_area_id,
+      INTERPOLATE(-AVG(value)) AS value
+    FROM transmission_data t
+    INNER JOIN areas_areas aa ON(areas_area_id=aa.id)
+    WHERE
+      to_area_id = ANY($2::int[]) AND
+      time BETWEEN $3 AND $4
+    GROUP BY 1,2,3
+  ), _transmission_avg AS (
+    SELECT time, from_area_id, to_area_id, AVG(value) AS value
+    FROM _transmission
+    GROUP BY 1,2,3
+  )
+  SELECT
+    EXTRACT(EPOCH FROM time AT TIME ZONE $5) * 1000 AS time,
+    from_area_id AS area_id,
+    CASE WHEN to_area_id = ANY($2::int[]) THEN SUM(value) * 1000 ELSE 0 END AS transmission_domestic,
+    CASE WHEN NOT (to_area_id = ANY($2::int[])) THEN SUM(value) * 1000 ELSE 0 END AS transmission_international
+  FROM _transmission_avg
+  GROUP BY 1, 2, to_area_id = ANY($2::int[])
+  ORDER BY 2, 1
+`;
+
+const swedenPriceSql = `
+  SELECT
+    EXTRACT(EPOCH FROM time AT TIME ZONE $5)*1000 AS time,
+    a.code AS metric,
+    AVG(value)/100 AS value
+  FROM (
+    SELECT
+      time_bucket_gapfill($1::interval, time) AS time,
+      a.code AS metric,
+      area_id,
+      AVG(p.value)/100 AS value
+    FROM prices p
+    INNER JOIN areas a ON(p.area_id=a.id)
+    WHERE
+      area_id=ANY($2::int[]) AND
+      time BETWEEN $3 AND $4
+    GROUP BY 2, time_bucket_gapfill($1::interval, time), area_id
+  ) s
+  ORDER BY 2,1
+`;
+
 export async function sweden(
   req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
 ) {
   const ctx = await getContext(req, {
     region: "europe",
-    area_type: "region",
+    area_type: "zone",
     area: "SE1,SE2,SE3,SE4",
   });
-  const sql = `SELECT EXTRACT(EPOCH FROM time AT TIME ZONE $5)*1000 AS time, metric, SUM(value) AS value FROM (SELECT time_bucket_gapfill($1::interval,time) AS time, a.code||'/load' AS metric, INTERPOLATE(AVG(l.value)) AS value FROM load l INNER JOIN areas a ON(l.area_id=a.id) WHERE time BETWEEN $2 AND $3 AND area_id=ANY($4::int[]) GROUP BY 1,2 UNION SELECT time_bucket_gapfill($1::interval,time) AS time, a.code||'/'||pt.name AS metric, INTERPOLATE(AVG(g.value)) AS value FROM generation g INNER JOIN areas a ON(g.area_id=a.id) INNER JOIN production_types pt ON(g.production_type_id=pt.id) WHERE time BETWEEN $2 AND $3 AND area_id=ANY($4::int[]) GROUP BY 1,2) s GROUP BY 1,metric ORDER BY 2,1`;
-  const rows = await chartQuery<AnyRow>(req, sql, [
+
+  const genRows = await chartQuery<AnyRow>(req, swedenGenSql, [
     `${ctx.interval} seconds`,
     ctx.from,
     ctx.to,
     ctx.areaIds,
     ctx.timezone,
   ]);
+
+  const showTrans = req.query.transmission === "true" || req.query.transmission === "1";
+  const transRows = showTrans
+    ? await chartQuery<AnyRow>(req, swedenTransSql, [
+        `${ctx.interval} seconds`,
+        ctx.areaIds,
+        ctx.from,
+        ctx.to,
+        ctx.timezone,
+      ])
+    : [];
+
+  const showPrice = req.query.prices === "true" || req.query.prices === "1";
+  const showLoad = req.query.load === "true" || req.query.load === "1";
+  const priceRows = showPrice
+    ? await chartQuery<AnyRow>(req, swedenPriceSql, [
+        `${ctx.interval} seconds`,
+        ctx.areaIds,
+        ctx.from,
+        ctx.to,
+        ctx.timezone,
+      ])
+    : [];
+
+  const options = buildSwedenOptions(genRows, transRows, priceRows, showLoad);
+
   return sendChartResponse(
     req,
     reply,
-    buildChartOptions(buildStackedPowerLineSeries(rows), "Sweden", "power"),
+    options,
     ctx.timezoneAbbreviation,
     {},
-    768,
+    900,
   );
+}
+
+function buildSwedenOptions(genRows: AnyRow[], transRows: AnyRow[], priceRows: AnyRow[], showLoad = false) {
+  const areaCodes = ["SE1", "SE2", "SE3", "SE4"];
+  const numAreas = areaCodes.length;
+
+  // Map area IDs to area codes (they are in order: SE1,SE2,SE3,SE4)
+  const areaIdToCode = new Map<number, string>();
+  // We only have areaIds in context, but the order is SE1-SE4.
+  // Extract unique area_ids from trans rows to build the mapping.
+  for (const row of transRows) {
+    const aid = row.area_id as number;
+    if (!areaIdToCode.has(aid)) {
+      const idx = areaIdToCode.size;
+      areaIdToCode.set(aid, areaCodes[idx] || `area_${aid}`);
+    }
+  }
+
+  // Build series — SQL returns data ordered by metric, so we track the last compound
+  // key and push a new series when it changes (same pattern as electricity mix).
+  const allSeries: AnyRow[] = [];
+
+  let lastKey = "";
+  function pushCurrent(key: string, make: () => AnyRow, row: AnyRow, pushValue: number) {
+    let cur = allSeries[allSeries.length - 1];
+    if (key !== lastKey || !cur) {
+      cur = { ...make(), data: [] as [number, number][] };
+      allSeries.push(cur);
+      lastKey = key;
+    }
+    cur.data.push([row.time as number, pushValue]);
+  }
+
+  // Generation — ordered by metric like "SE1/nuclear", "SE1/wind", "SE2/nuclear"
+  for (const row of genRows) {
+    const metric = String(row.metric);
+    const slashIdx = metric.indexOf("/");
+    if (slashIdx === -1) continue;
+    const areaCode = metric.substring(0, slashIdx);
+    const type = metric.substring(slashIdx + 1);
+    const areaIdx = areaCodes.indexOf(areaCode);
+    if (areaIdx === -1) continue;
+    if (type === "load" && !showLoad) continue;
+
+    const key = `${areaCode}/${type}`;
+    if (type === "load") {
+      pushCurrent(key, () => ({
+        name: type, type: "line", unit: "power", symbol: "none",
+        lineStyle: { width: 2, color: "#000" }, itemStyle: { color: "#000" },
+        xAxisIndex: areaIdx, yAxisIndex: areaIdx,
+      }), row, (row.value as number) * 1000);
+    } else {
+      const color = metricColor(type);
+      pushCurrent(key, () => ({
+        name: type, type: "line", unit: "power", symbol: "none",
+        lineStyle: { width: 0 }, areaStyle: { opacity: 0.75 },
+        ...(color ? { itemStyle: { color } } : {}),
+        xAxisIndex: areaIdx, yAxisIndex: areaIdx,
+      }), row, (row.value as number) * 1000);
+    }
+  }
+
+  // Transmission — ordered by area_id, each row has domestic + international columns
+  lastKey = "";
+  for (const row of transRows) {
+    const areaId = row.area_id as number;
+    const areaCode = areaIdToCode.get(areaId) || String(areaId);
+    const areaIdx = areaCodes.indexOf(areaCode);
+    if (areaIdx === -1) continue;
+
+    const domValue = row.transmission_domestic as number;
+    if (domValue != null) {
+      pushCurrent(`dom_${areaId}`, () => ({
+        name: "domestic", type: "line", unit: "power", symbol: "none",
+        lineStyle: { width: 0 }, areaStyle: { opacity: 0.75 },
+        itemStyle: { color: "rgb(163, 82, 204)" },
+        xAxisIndex: areaIdx, yAxisIndex: areaIdx,
+      }), row, domValue);
+    }
+  }
+
+  lastKey = "";
+  for (const row of transRows) {
+    const areaId = row.area_id as number;
+    const areaCode = areaIdToCode.get(areaId) || String(areaId);
+    const areaIdx = areaCodes.indexOf(areaCode);
+    if (areaIdx === -1) continue;
+
+    const intValue = row.transmission_international as number;
+    if (intValue != null) {
+      pushCurrent(`int_${areaId}`, () => ({
+        name: "international", type: "line", unit: "power", symbol: "none",
+        lineStyle: { width: 0 }, areaStyle: { opacity: 0.75 },
+        itemStyle: { color: "rgb(124, 46, 163)" },
+        xAxisIndex: areaIdx, yAxisIndex: areaIdx,
+      }), row, intValue);
+    }
+  }
+
+  // Price — ordered by area code
+  lastKey = "";
+  for (const row of priceRows) {
+    const areaCode = String(row.metric);
+    const areaIdx = areaCodes.indexOf(areaCode);
+    if (areaIdx === -1) continue;
+
+    pushCurrent(`price_${areaCode}`, () => ({
+      name: "Price", type: "line", unit: "price", symbol: "none",
+      lineStyle: { color: "green", width: 2 }, itemStyle: { color: "green" },
+      xAxisIndex: areaIdx, yAxisIndex: numAreas + areaIdx,
+    }), row, row.value as number);
+  }
+
+  // divergentSeries handles stack assignment (pos/neg) for all series
+  const series = divergentSeries(allSeries);
+  // Make stacks unique per panel so they don't interfere across grids
+  for (const s of series) {
+    if (s.stack) s.stack = `${s.stack}_${s.xAxisIndex}`;
+  }
+
+  // Build 4 vertically stacked grids with linked axes
+  const grids: AnyRow[] = [];
+  const xAxes: AnyRow[] = [];
+  const yAxes: AnyRow[] = [];
+
+  for (let i = 0; i < numAreas; i++) {
+    grids.push({
+      left: "8%",
+      right: "8%",
+      top: `${10 + i * 22}%`,
+      height: "18%",
+      containLabel: true,
+    });
+    xAxes.push({
+      type: "time",
+      gridIndex: i,
+      axisLabel: { show: i === numAreas - 1 },
+    });
+    yAxes.push({
+      type: "value",
+      gridIndex: i,
+      axisLabel: { formatter: { type: "power" } },
+    });
+  }
+
+  // Price secondary y-axes (right side) for each panel (only if price is shown)
+  const showPrice = priceRows.length > 0;
+  if (showPrice) {
+    for (let i = 0; i < numAreas; i++) {
+      yAxes.push({
+        type: "value",
+        gridIndex: i,
+        name: "\u20AC/MWh",
+        nameLocation: "center",
+        nameGap: 40,
+        position: "right",
+        axisLabel: { formatter: { type: "price" } },
+      });
+    }
+  }
+
+  return {
+    height: 900,
+    title: {
+      text: "Sweden - SE1/SE2/SE3/SE4",
+      left: "center",
+      top: 5,
+    },
+    tooltip: {
+      trigger: "axis",
+      axisPointer: { type: "cross" },
+      formatter: { type: "multi" },
+    },
+    legend: {
+      type: "scroll",
+      orient: "horizontal",
+      top: 35,
+      data: [...new Set(series.map((s) => s.name))],
+    },
+    grid: grids,
+    xAxis: xAxes,
+    yAxis: yAxes,
+    series,
+  };
 }

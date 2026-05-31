@@ -17,7 +17,7 @@ export function buildChartOptions(
     legend: showLegend
       ? {
           orient: "horizontal",
-          bottom: 0,
+          top: "86%",
           data: [...new Set(series.map((s) => s.name))],
         }
       : undefined,
@@ -73,7 +73,7 @@ export function buildDualAxisOptions(
     },
     legend: {
       orient: "horizontal",
-      bottom: 0,
+      top: "86%",
       data: [...new Set(series.map((s) => s.name))],
     },
     grid: {

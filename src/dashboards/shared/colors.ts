@@ -14,6 +14,7 @@ export function metricColor(metric: string) {
       hard_coal: "rgb(137, 137, 137)",
       gas: "rgb(198, 163, 201)",
       hydro: "rgb(2, 77, 188)",
+      hydro_water_reservoir: "rgb(2, 77, 188)",
       other: "rgb(241, 194, 27)",
       other_renewable: "rgb(199, 156, 148)",
       wind: "rgb(152, 205, 251)",
