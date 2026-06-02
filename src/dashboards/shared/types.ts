@@ -34,6 +34,7 @@ export type DashboardQuery = {
   solar_multiplier?: string;
   demand_multiplier?: string;
   colors?: string;
+  production_type_groups?: string;
 };
 
 export type AnyRow = Record<string, any>;

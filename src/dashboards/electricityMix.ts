@@ -27,7 +27,7 @@ const SQL_GEN = `
     SUM(value) AS value
   FROM _g
   INNER JOIN production_type_groups ptg ON(production_type_group_id=ptg.id)
-  WHERE value IS NOT NULL
+  WHERE value IS NOT NULL AND ($6::text[] IS NULL OR ptg.name = ANY($6::text[]))
   GROUP BY ptg.name, 1
   ORDER BY 2, 1
 `;
@@ -49,7 +49,7 @@ const SQL_GEN_HOURLY = `
       INTERPOLATE(AVG(value)) AS value
     FROM _g
     INNER JOIN production_type_groups ptg ON(production_type_group_id=ptg.id)
-    WHERE time BETWEEN $2 AND $3
+    WHERE time BETWEEN $2 AND $3 AND ($6::text[] IS NULL OR ptg.name = ANY($6::text[]))
     GROUP BY ptg.name, 1
   ) s
   ORDER BY metric, time
@@ -102,20 +102,27 @@ export async function electricityMix(
     return reply.code(400).send({ error: "No valid areas found" });
 
   const intervalSql = `${ctx.interval} seconds`;
-  const args: [string, Date, Date, number[], string] = [
+  const productionTypeGroups = request.query.production_type_groups
+    ? request.query.production_type_groups.split(",").map((s) => s.trim()).filter(Boolean)
+    : null;
+  const baseArgs: [string, Date, Date, number[], string] = [
     intervalSql,
     ctx.from,
     ctx.to,
     ctx.areaIds,
     ctx.timezone,
   ];
+  const genArgs: [...typeof baseArgs, string[] | null] = [
+    ...baseArgs,
+    productionTypeGroups,
+  ];
 
   const transData = request.query.transmission !== "0"
-    ? await chartQuery<TimeMetricValueRow>(request, SQL_TRANS, args)
+    ? await chartQuery<TimeMetricValueRow>(request, SQL_TRANS, baseArgs)
     : [];
   const evenHourOffset = true; // Good enough for initial port; Rails uses TZInfo current offset.
   const genSql = ctx.interval >= 3600 && evenHourOffset ? SQL_GEN_HOURLY : SQL_GEN;
-  const genData = await chartQuery<TimeMetricValueRow>(request, genSql, args);
+  const genData = await chartQuery<TimeMetricValueRow>(request, genSql, genArgs);
 
   const colorFn = colorsFromQuery(request.query.colors);
 
@@ -124,11 +131,11 @@ export async function electricityMix(
     ...genData,
   ], colorFn));
 
-  if (request.query.load) series.push(...(await getLoadSeries(request, args)));
+  if (request.query.load) series.push(...(await getLoadSeries(request, baseArgs)));
 
   if (request.query.prices)
     (series as Array<ReturnType<typeof newSeries> | Awaited<ReturnType<typeof getPriceSeries>>[number]>).push(
-      ...(await getPriceSeries(request, args, { yAxisIndex: 1 })),
+      ...(await getPriceSeries(request, baseArgs, { yAxisIndex: 1 })),
     );
 
   return sendChartResponse(
