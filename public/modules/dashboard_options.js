@@ -181,7 +181,7 @@ class DashboardOptions {
     if (this.hasTransmissionCheckboxSectionTarget) {
       const checkbox = this.transmissionCheckboxSectionTarget.querySelector('input[type="checkbox"]')
       if (checkbox) {
-        checkbox.checked = query.transmission === '1'
+        checkbox.checked = query.transmission !== '0'
       }
     }
 
@@ -229,7 +229,7 @@ class DashboardOptions {
     }
 
     if (this.hasTransmissionCheckboxSectionTarget) {
-      this.transmissionCheckboxSectionTarget.style.display = ['electricity_mix', 'generation', 'sweden'].includes(dashboard) ? 'flex' : 'none'
+      this.transmissionCheckboxSectionTarget.style.display = ['electricity_mix', 'generation', 'simulation', 'sweden'].includes(dashboard) ? 'flex' : 'none'
     }
 
     if (this.hasPerUnitSectionTarget) {
@@ -426,6 +426,6 @@ class DashboardOptions {
   }
 
   toggleTransmission(event) {
-    router.updateQuery({ transmission: event.target.checked ? '1' : null })
+    router.updateQuery({ transmission: event.target.checked ? null : '0' })
   }
 }

@@ -110,7 +110,9 @@ export async function electricityMix(
     ctx.timezone,
   ];
 
-  const transData = await chartQuery<TimeMetricValueRow>(request, SQL_TRANS, args);
+  const transData = request.query.transmission !== "0"
+    ? await chartQuery<TimeMetricValueRow>(request, SQL_TRANS, args)
+    : [];
   const evenHourOffset = true; // Good enough for initial port; Rails uses TZInfo current offset.
   const genSql = ctx.interval >= 3600 && evenHourOffset ? SQL_GEN_HOURLY : SQL_GEN;
   const genData = await chartQuery<TimeMetricValueRow>(request, genSql, args);

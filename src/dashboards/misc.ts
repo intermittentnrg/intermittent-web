@@ -522,7 +522,7 @@ export async function sweden(
     ctx.timezone,
   ]);
 
-  const showTrans = req.query.transmission === "true" || req.query.transmission === "1";
+  const showTrans = req.query.transmission !== "0";
   const transRows = showTrans
     ? await chartQuery<AnyRow>(req, swedenTransSql, [
         `${ctx.interval} seconds`,

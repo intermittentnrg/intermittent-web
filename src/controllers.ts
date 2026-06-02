@@ -90,7 +90,7 @@ export async function dashboardSpa(request: FastifyRequest<{ Params: DashboardPa
     prices: query.prices === "true" || query.prices === "1",
     temps: query.temps === "true" || query.temps === "1",
     load: query.load === "true" || query.load === "1",
-    transmission: query.transmission === "true" || query.transmission === "1",
+    transmission: query.transmission !== "0",
     productionDashboards,
     perUnitDashboards,
     fromRaw,

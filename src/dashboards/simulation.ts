@@ -26,6 +26,51 @@ export async function simulation(
     solar: Number(req.query.solar_multiplier || 1),
     demand: Number(req.query.demand_multiplier || 1),
   };
+  const includeTransmission = req.query.transmission !== "0";
+  const transmissionCte = includeTransmission ? `,
+
+_transmission AS (
+  SELECT
+    time,
+    CASE WHEN SUM(value)<0 THEN 'export' ELSE 'import' END AS metric,
+    SUM(value) AS value
+  FROM (
+    (
+      SELECT
+        time_bucket_gapfill($1::interval,time) AS time,
+        from_area_id,
+        to_area_id,
+        INTERPOLATE(AVG(t.value)) AS value
+      FROM transmission_data t
+      INNER JOIN areas_areas aa ON(t.areas_area_id=aa.id)
+      WHERE
+        aa.from_area_id=ANY($4::int[]) AND
+        NOT (aa.to_area_id=ANY($4::int[])) AND
+        time BETWEEN $2 AND $3
+      GROUP BY 1,2,3
+    ) UNION (
+      SELECT
+        time_bucket_gapfill($1::interval,time) AS time,
+        to_area_id AS from_area_id,
+        from_area_id AS to_area_id,
+        INTERPOLATE(-AVG(t.value)) AS value
+      FROM transmission_data t
+      INNER JOIN areas_areas aa ON(t.areas_area_id=aa.id)
+      WHERE
+        aa.to_area_id=ANY($4::int[]) AND
+        NOT (aa.from_area_id=ANY($4::int[])) AND
+        time BETWEEN $2 AND $3
+      GROUP BY 1,2,3
+    )
+  ) s
+  INNER JOIN areas from_area ON(from_area_id=from_area.id)
+  INNER JOIN areas to_area ON(to_area_id=to_area.id)
+  WHERE
+    (from_area.type <> 'country' OR to_area.type='country')
+  GROUP BY 1
+)` : ``;
+  const transmissionSelect = includeTransmission ? "COALESCE(t.value,0)" : "0";
+  const transmissionJoin = includeTransmission ? "\nLEFT JOIN _transmission t USING(time)" : "";
   const summarySql = `
 WITH _generation AS (
   SELECT
@@ -81,62 +126,20 @@ _load AS (
     GROUP BY 1
   ) s
   GROUP BY 1
-),
-
-_transmission AS (
-  SELECT
-    time,
-    CASE WHEN SUM(value)<0 THEN 'export' ELSE 'import' END AS metric,
-    SUM(value) AS value
-  FROM (
-    (
-      SELECT
-        time_bucket_gapfill($1::interval,time) AS time,
-        from_area_id,
-        to_area_id,
-        INTERPOLATE(AVG(t.value)) AS value
-      FROM transmission_data t
-      INNER JOIN areas_areas aa ON(t.areas_area_id=aa.id)
-      WHERE
-        aa.from_area_id=ANY($4::int[]) AND
-        NOT (aa.to_area_id=ANY($4::int[])) AND
-        time BETWEEN $2 AND $3
-      GROUP BY 1,2,3
-    ) UNION (
-      SELECT
-        time_bucket_gapfill($1::interval,time) AS time,
-        to_area_id AS from_area_id,
-        from_area_id AS to_area_id,
-        INTERPOLATE(-AVG(t.value)) AS value
-      FROM transmission_data t
-      INNER JOIN areas_areas aa ON(t.areas_area_id=aa.id)
-      WHERE
-        aa.to_area_id=ANY($4::int[]) AND
-        NOT (aa.from_area_id=ANY($4::int[])) AND
-        time BETWEEN $2 AND $3
-      GROUP BY 1,2,3
-    )
-  ) s
-  INNER JOIN areas from_area ON(from_area_id=from_area.id)
-  INNER JOIN areas to_area ON(to_area_id=to_area.id)
-  WHERE
-    (from_area.type <> 'country' OR to_area.type='country')
-  GROUP BY 1
-)
+)${transmissionCte}
 
 SELECT
   EXTRACT(EPOCH FROM time AT TIME ZONE $5)*1000 AS time,
-  COALESCE(t.value,0) AS transmission,
+  ${transmissionSelect} AS transmission,
   g.value AS gen,
   l.value AS load,
-  g.value+COALESCE(t.value,0)-l.value AS diff,
-  add_max_terra(g.value+COALESCE(t.value,0)-l.value) OVER (ORDER BY time) AS sum_deficit,
-  SUM(GREATEST(0, g.value+COALESCE(t.value,0)-l.value)) OVER (ORDER BY time) AS cum_surplus,
-  SUM(LEAST(0, g.value+COALESCE(t.value,0)-l.value)) OVER (ORDER BY time) AS cum_deficit,
-  SUM(LEAST(g.value+COALESCE(t.value,0),l.value)) OVER (ORDER BY time) AS cum_matched
+  g.value+${transmissionSelect}-l.value AS diff,
+  add_max_terra(g.value+${transmissionSelect}-l.value) OVER (ORDER BY time) AS sum_deficit,
+  SUM(GREATEST(0, g.value+${transmissionSelect}-l.value)) OVER (ORDER BY time) AS cum_surplus,
+  SUM(LEAST(0, g.value+${transmissionSelect}-l.value)) OVER (ORDER BY time) AS cum_deficit,
+  SUM(LEAST(g.value+${transmissionSelect},l.value)) OVER (ORDER BY time) AS cum_matched
 FROM _generation g
-INNER JOIN _load l USING(time)
-LEFT JOIN _transmission t USING(time)
+INNER JOIN _load l USING(time)${transmissionJoin}
 ORDER BY time`;
   const args = [
     `${ctx.interval} seconds`,
@@ -153,7 +156,7 @@ ORDER BY time`;
     pt,
     mult.demand,
   ]);
-  const options = await simulationOptions(req, args, mult, pt, summary);
+  const options = await simulationOptions(req, args, mult, pt, summary, includeTransmission);
   return sendChartResponse(
     req,
     reply,
@@ -170,6 +173,7 @@ async function simulationOptions(
   mult: { nuclear: number; wind: number; solar: number; demand: number },
   productionTypeIds: number[],
   summaryRows: AnyRow[],
+  includeTransmission: boolean,
 ) {
   const summary = summaryRows.at(-1) ?? {};
   const options: any = {
@@ -183,7 +187,7 @@ async function simulationOptions(
     series: [],
   };
 
-  await addGenerationPanel(options, req, args, mult, productionTypeIds);
+  await addGenerationPanel(options, req, args, mult, productionTypeIds, includeTransmission);
   addSummaryPanel(options, summary);
   addCumulativeDeficitPanel(options, summaryRows);
   addDifferencePanel(options, summaryRows);
@@ -295,6 +299,7 @@ async function addGenerationPanel(
   args: unknown[],
   mult: { nuclear: number; wind: number; solar: number; demand: number },
   productionTypeIds: number[],
+  includeTransmission: boolean,
 ) {
   const genRows = await chartQuery<AnyRow>(req, genSql, [
     ...args,
@@ -304,7 +309,7 @@ async function addGenerationPanel(
     productionTypeIds,
   ]);
   const demandRows = await chartQuery<AnyRow>(req, demandSql, [...args, mult.demand]);
-  const transRows = await chartQuery<AnyRow>(req, transSql, args);
+  const transRows = includeTransmission ? await chartQuery<AnyRow>(req, transSql, args) : [];
   const genSeries = divergentSeries(buildStackedPowerLineSeries(genRows)).map((s) => ({
     ...s,
     itemStyle: { color: metricColor(s.name) },
@@ -317,11 +322,11 @@ async function addGenerationPanel(
     lineStyle: { width: 2 },
     itemStyle: { color: "rgb(36, 41, 46)" },
   }));
-  const transSeries = divergentSeries(buildStackedPowerLineSeries(transRows)).map((s) => ({
+  const transSeries = includeTransmission ? divergentSeries(buildStackedPowerLineSeries(transRows)).map((s) => ({
     ...s,
     name: "transmission",
     itemStyle: { color: metricColor("transmission") },
-  }));
+  })) : [];
   const gridIndex = options.grid.length;
   const series = [
     ...transSeries,
