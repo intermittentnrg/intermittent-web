@@ -1,5 +1,7 @@
 /* Dashboard Switcher */
 .dashboard-tab {
+  display: inline-flex;
+  align-items: center;
   transition: all 0.15s;
 }
 

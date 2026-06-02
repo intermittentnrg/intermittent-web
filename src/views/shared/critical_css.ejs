@@ -171,6 +171,8 @@ body {
   line-height: 1.5;
   border-radius: 3px;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
 }
 
 .dashboard-tab.selected {
@@ -181,18 +183,18 @@ body {
 
 .dashboard-tab-group {
   position: relative;
+  display: flex;
+  align-items: center;
 }
 
 .dashboard-tab-group.has-dropdown > .dashboard-tab::after {
   content: "";
-  display: inline-block;
   margin-left: 6px;
   width: 0;
   height: 0;
   border-left: 4px solid transparent;
   border-right: 4px solid transparent;
   border-top: 4px solid currentColor;
-  vertical-align: middle;
   opacity: 0.6;
 }
 
