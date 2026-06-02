@@ -38,29 +38,29 @@ _transmission AS (
   FROM (
     (
       SELECT
-        time_bucket_gapfill($1::interval,time) AS time,
+        time_bucket_gapfill('1h'::interval,time) AS time,
         from_area_id,
         to_area_id,
         INTERPOLATE(AVG(t.value)) AS value
       FROM transmission_data t
       INNER JOIN areas_areas aa ON(t.areas_area_id=aa.id)
       WHERE
-        aa.from_area_id=ANY($4::int[]) AND
-        NOT (aa.to_area_id=ANY($4::int[])) AND
-        time BETWEEN $2 AND $3
+        aa.from_area_id=ANY($3::int[]) AND
+        NOT (aa.to_area_id=ANY($3::int[])) AND
+        time BETWEEN $1 AND $2
       GROUP BY 1,2,3
     ) UNION (
       SELECT
-        time_bucket_gapfill($1::interval,time) AS time,
+        time_bucket_gapfill('1h'::interval,time) AS time,
         to_area_id AS from_area_id,
         from_area_id AS to_area_id,
         INTERPOLATE(-AVG(t.value)) AS value
       FROM transmission_data t
       INNER JOIN areas_areas aa ON(t.areas_area_id=aa.id)
       WHERE
-        aa.to_area_id=ANY($4::int[]) AND
-        NOT (aa.from_area_id=ANY($4::int[])) AND
-        time BETWEEN $2 AND $3
+        aa.to_area_id=ANY($3::int[]) AND
+        NOT (aa.from_area_id=ANY($3::int[])) AND
+        time BETWEEN $1 AND $2
       GROUP BY 1,2,3
     )
   ) s
@@ -80,16 +80,16 @@ WITH _generation AS (
     SUM(value) AS value
   FROM (
     SELECT
-      time_bucket_gapfill($1::interval,time) AS time,
+      time_bucket_gapfill('1h'::interval,time) AS time,
       pt.name AS production_type,
-      INTERPOLATE(CASE WHEN pt.name='nuclear' THEN AVG(g.value)*$6 WHEN pt.name LIKE 'wind%' THEN AVG(g.value)*$7 WHEN pt.name LIKE 'solar%' THEN AVG(g.value)*$8 ELSE AVG(g.value) END) AS value
+      INTERPOLATE(CASE WHEN pt.name='nuclear' THEN AVG(g.value)*$5 WHEN pt.name LIKE 'wind%' THEN AVG(g.value)*$6 WHEN pt.name LIKE 'solar%' THEN AVG(g.value)*$7 ELSE AVG(g.value) END) AS value
     FROM generation_data g
     INNER JOIN areas_production_types apt ON(g.areas_production_type_id=apt.id)
     INNER JOIN production_types pt ON(apt.production_type_id=pt.id)
     WHERE
-      time BETWEEN $2 AND $3 AND
-      apt.area_id=ANY($4::int[]) AND
-      apt.production_type_id=ANY($9::int[])
+      time BETWEEN $1 AND $2 AND
+      apt.area_id=ANY($3::int[]) AND
+      apt.production_type_id=ANY($8::int[])
     GROUP BY 1,pt.name,apt.area_id
   ) s
   GROUP BY 1
@@ -99,29 +99,29 @@ _load AS (
   SELECT
     time,
     'load' AS metric,
-    SUM(value)*$10 AS value
+    SUM(value)*$9 AS value
   FROM (
     SELECT
-      time_bucket_gapfill($1::interval,time) AS time,
+      time_bucket_gapfill('1h'::interval,time) AS time,
       INTERPOLATE(AVG(l.value)) AS value
     FROM load l
     WHERE
-      time BETWEEN $2 AND $3 AND
-      area_id=ANY($4::int[])
+      time BETWEEN $1 AND $2 AND
+      area_id=ANY($3::int[])
     GROUP BY 1
 
     UNION
 
     SELECT
-      time_bucket_gapfill($1::interval,time) AS time,
+      time_bucket_gapfill('1h'::interval,time) AS time,
       INTERPOLATE(AVG(g.value)) AS value
     FROM generation_data g
     INNER JOIN areas_production_types apt ON(g.areas_production_type_id=apt.id)
     INNER JOIN production_types pt ON(apt.production_type_id=pt.id)
     INNER JOIN areas a ON(apt.area_id=a.id)
     WHERE
-      time BETWEEN $2 AND $3 AND
-      apt.area_id=ANY($4::int[]) AND
+      time BETWEEN $1 AND $2 AND
+      apt.area_id=ANY($3::int[]) AND
       pt.name='solar_rooftop' AND
       a.source='aemo'
     GROUP BY 1
@@ -130,7 +130,7 @@ _load AS (
 )${transmissionCte}
 
 SELECT
-  EXTRACT(EPOCH FROM time AT TIME ZONE $5)*1000 AS time,
+  EXTRACT(EPOCH FROM time AT TIME ZONE $4)*1000 AS time,
   ${transmissionSelect} AS transmission,
   g.value AS gen,
   l.value AS load,
@@ -143,7 +143,6 @@ FROM _generation g
 INNER JOIN _load l USING(time)${transmissionJoin}
 ORDER BY time`;
   const args = [
-    `${ctx.interval} seconds`,
     ctx.from,
     ctx.to,
     ctx.areaIds,
@@ -198,22 +197,22 @@ async function simulationOptions(
 
 const genSql = `
 SELECT
-  EXTRACT(EPOCH FROM time AT TIME ZONE $5)*1000 AS time,
+  EXTRACT(EPOCH FROM time AT TIME ZONE $4)*1000 AS time,
   name2 AS metric,
   SUM(value) AS value
 FROM (
   SELECT
-    time_bucket_gapfill($1::interval,time) AS time,
+    time_bucket_gapfill('1h'::interval,time) AS time,
     pt.name,
     pt.name2,
-    INTERPOLATE(CASE WHEN pt.name='nuclear' THEN AVG(g.value)*$6 WHEN pt.name LIKE 'wind%' THEN AVG(g.value)*$7 WHEN pt.name LIKE 'solar%' THEN AVG(g.value)*$8 ELSE AVG(g.value) END) AS value
+    INTERPOLATE(CASE WHEN pt.name='nuclear' THEN AVG(g.value)*$5 WHEN pt.name LIKE 'wind%' THEN AVG(g.value)*$6 WHEN pt.name LIKE 'solar%' THEN AVG(g.value)*$7 ELSE AVG(g.value) END) AS value
   FROM generation_data g
   INNER JOIN areas_production_types apt ON(g.areas_production_type_id=apt.id)
   INNER JOIN production_types pt ON(apt.production_type_id=pt.id)
   WHERE
-    time BETWEEN $2 AND $3 AND
-    apt.area_id=ANY($4::int[]) AND
-    apt.production_type_id=ANY($9::int[])
+    time BETWEEN $1 AND $2 AND
+    apt.area_id=ANY($3::int[]) AND
+    apt.production_type_id=ANY($8::int[])
   GROUP BY 1,pt.name,pt.name2
 ) s
 GROUP BY 1,name2
@@ -221,31 +220,31 @@ ORDER BY 2,1
 `;
 const demandSql = `
 SELECT
-  EXTRACT(EPOCH FROM time AT TIME ZONE $5)*1000 AS time,
+  EXTRACT(EPOCH FROM time AT TIME ZONE $4)*1000 AS time,
   'demand' AS metric,
-  SUM(value)*$6 AS value
+  SUM(value)*$5 AS value
 FROM (
   SELECT
-    time_bucket_gapfill($1::interval,time) AS time,
+    time_bucket_gapfill('1h'::interval,time) AS time,
     INTERPOLATE(AVG(l.value)) AS value
   FROM load l
   WHERE
-    time BETWEEN $2 AND $3 AND
-    area_id=ANY($4::int[])
+    time BETWEEN $1 AND $2 AND
+    area_id=ANY($3::int[])
   GROUP BY 1
 
   UNION
 
   SELECT
-    time_bucket_gapfill($1::interval,time) AS time,
+    time_bucket_gapfill('1h'::interval,time) AS time,
     INTERPOLATE(AVG(g.value)) AS value
   FROM generation_data g
   INNER JOIN areas_production_types apt ON(g.areas_production_type_id=apt.id)
   INNER JOIN production_types pt ON(apt.production_type_id=pt.id)
   INNER JOIN areas a ON(apt.area_id=a.id)
   WHERE
-    time BETWEEN $2 AND $3 AND
-    apt.area_id=ANY($4::int[]) AND
+    time BETWEEN $1 AND $2 AND
+    apt.area_id=ANY($3::int[]) AND
     pt.name='solar_rooftop' AND
     a.source='aemo'
   GROUP BY 1
@@ -255,35 +254,35 @@ ORDER BY 1
 `;
 const transSql = `
 SELECT
-  EXTRACT(EPOCH FROM time AT TIME ZONE $5)*1000 AS time,
+  EXTRACT(EPOCH FROM time AT TIME ZONE $4)*1000 AS time,
   'transmission' AS metric,
   SUM(value) AS value
 FROM (
   (
     SELECT
-      time_bucket_gapfill($1::interval,time) AS time,
+      time_bucket_gapfill('1h'::interval,time) AS time,
       from_area_id,
       to_area_id,
       INTERPOLATE(AVG(t.value)) AS value
     FROM transmission_data t
     INNER JOIN areas_areas aa ON(t.areas_area_id=aa.id)
     WHERE
-      aa.from_area_id=ANY($4::int[]) AND
-      NOT (aa.to_area_id=ANY($4::int[])) AND
-      time BETWEEN $2 AND $3
+      aa.from_area_id=ANY($3::int[]) AND
+      NOT (aa.to_area_id=ANY($3::int[])) AND
+      time BETWEEN $1 AND $2
     GROUP BY 1,2,3
   ) UNION (
     SELECT
-      time_bucket_gapfill($1::interval,time) AS time,
+      time_bucket_gapfill('1h'::interval,time) AS time,
       to_area_id AS from_area_id,
       from_area_id AS to_area_id,
       INTERPOLATE(-AVG(t.value)) AS value
     FROM transmission_data t
     INNER JOIN areas_areas aa ON(t.areas_area_id=aa.id)
     WHERE
-      aa.to_area_id=ANY($4::int[]) AND
-      NOT (aa.from_area_id=ANY($4::int[])) AND
-      time BETWEEN $2 AND $3
+      aa.to_area_id=ANY($3::int[]) AND
+      NOT (aa.from_area_id=ANY($3::int[])) AND
+      time BETWEEN $1 AND $2
     GROUP BY 1,2,3
   )
 ) s
