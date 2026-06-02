@@ -11,6 +11,7 @@ import {
   getProductionTypeOptions,
 } from "./shared/productionTypes.ts";
 import { metricColor } from "./shared/colors.ts";
+import { formatEnergy } from "../shared/echartsFormatters.ts";
 import type { AnyRow, DashboardParams, DashboardQuery } from "./shared/types.ts";
 
 
@@ -351,8 +352,7 @@ function addSummaryPanel(options: any, data: AnyRow) {
   const gridIndex = options.grid.length;
 
   options.title.push({ text: "Summary", left: "93.5%", top: 10, textAlign: "center" });
-  options.legend.push({ top: "60%", left: "89%", data: ["Surplus", "Matched", "Deficit"] });
-  options.grid.push({ left: "89%", right: "2%", top: "10%", height: "48%" });
+  options.grid.push({ left: "89%", right: "2%", top: "10%", height: "55%" });
   options.xAxis.push({ type: "category", gridIndex, data: [""] });
   options.yAxis.push(energyAxis(gridIndex));
   options.series.push(
@@ -374,6 +374,7 @@ function addCumulativeDeficitPanel(options: any, rows: AnyRow[]) {
 }
 
 function summaryBarSeries(name: string, color: string, axisIndex: number, value: number) {
+  const formattedValue = formatEnergy(value * 1000);
   return {
     name,
     type: "bar",
@@ -385,9 +386,10 @@ function summaryBarSeries(name: string, color: string, axisIndex: number, value:
     label: {
       show: true,
       position: "inside",
-      formatter: name,
+      formatter: `${name}\n${formattedValue}`,
       color: "#111827",
-      fontSize: 14,
+      fontSize: 18,
+      lineHeight: 26,
     },
     data: [value * 1000],
   };
