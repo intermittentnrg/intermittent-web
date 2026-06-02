@@ -14,6 +14,9 @@ const proxyPromise = buildApp().then((app) => awsLambdaFastify(app, {
   // are returned as text and the client receives a corrupt/invalid image even
   // though the Lambda invocation succeeds.
   binaryMimeTypes: ["image/png"],
+  // Disable automatic comma splitting — the server already splits
+  // production_type, units, colors etc. by comma internally.
+  parseCommaSeparatedQueryParams: false,
 }));
 
 export async function handler(event: APIGatewayProxyEvent, context: Context) {
