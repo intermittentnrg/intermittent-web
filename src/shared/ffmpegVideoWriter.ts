@@ -1,4 +1,6 @@
-import { spawn } from "node:child_process";
+import { spawn, execSync } from "node:child_process";
+import { unlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
 
 export type VideoProfile = {
   url: string;
@@ -9,57 +11,53 @@ export type VideoProfile = {
   fps: string;
 };
 
-export type FrameSource = {
-  frame(index: number): Promise<Buffer> | Buffer;
-  close(): Promise<void> | void;
+export type FifoVideo = {
+  fifoPath: string;
+  waitExit: () => Promise<number>;
+  close: () => void;
 };
 
-export async function renderFrameSourceToVideo(
+let fifoCounter = 0;
+
+export function spawnFifoVideo(
   profile: VideoProfile,
-  frameCount: number,
-  frames: FrameSource,
-  options: { description?: string; renderMode: { ffmpegPreset: string } },
-) {
-  const ffmpegArgs = ffmpegArgsForVideo(profile, options.renderMode);
+  options: { renderMode: { ffmpegPreset: string } },
+): FifoVideo {
+  const fifoPath = `${tmpdir()}/render-${process.pid}-${++fifoCounter}.fifo`;
+  try { unlinkSync(fifoPath); } catch {}
+  execSync(`mkfifo -m 644 "${fifoPath}"`, { stdio: "ignore" });
+
+  console.log(`Rendering to FIFO at ${fifoPath}`);
+  const ffmpegArgs = ffmpegArgsForVideo(profile, fifoPath, options.renderMode);
   console.log(`ffmpeg ${ffmpegArgs.join(" ")}`);
-  console.log(`Rendering ${frameCount} ${options.description || "frames"}`);
+  const ffmpeg = spawn("ffmpeg", ffmpegArgs, { stdio: "inherit" });
 
-  const ffmpeg = spawn("ffmpeg", ffmpegArgs, { stdio: ["pipe", "inherit", "inherit"] });
+  let cleaned = false;
+  const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
+    try { unlinkSync(fifoPath); } catch {}
+  };
 
-  try {
-    for (let i = 0; i < frameCount; i++) {
-      await writeAll(ffmpeg.stdin, await frames.frame(i));
-    }
-    ffmpeg.stdin.end();
-  } catch (error) {
-    ffmpeg.stdin.destroy(error as Error);
-    throw error;
-  } finally {
-    await frames.close();
-  }
-
-  const status = await new Promise<number>((resolve, reject) => {
-    ffmpeg.on("error", reject);
-    ffmpeg.on("exit", (code) => resolve(code ?? 1));
-  });
-  if (status !== 0) throw new Error(`ffmpeg exited with code ${status}`);
+  return {
+    fifoPath,
+    close: cleanup,
+    waitExit: () => new Promise<number>((resolve, reject) => {
+      ffmpeg.on("error", (err) => { cleanup(); reject(err); });
+      ffmpeg.on("exit", (code) => { cleanup(); resolve(code ?? 1); });
+    }),
+  };
 }
 
-function ffmpegArgsForVideo(profile: VideoProfile, renderMode: { ffmpegPreset: string }) {
-  const ffmpegPresetArgs = ["-preset", renderMode.ffmpegPreset];
+function ffmpegArgsForVideo(profile: VideoProfile, fifoPath: string, renderMode: { ffmpegPreset: string }) {
   return [
-    "-hide_banner",
-    "-loglevel", "warning",
-    "-stats",
-    "-f", "rawvideo",
-    "-pixel_format", "rgba",
+    "-hide_banner", "-loglevel", "warning", "-stats",
+    "-f", "rawvideo", "-pixel_format", "rgba",
     "-video_size", `${profile.width}x${profile.height}`,
     "-framerate", profile.framerate,
-    "-i", "pipe:0",
-    "-c:v", "libx264",
-    ...ffmpegPresetArgs,
-    "-profile:v", "high",
-    "-movflags", "+faststart",
+    "-i", fifoPath,
+    "-c:v", "libx264", "-preset", renderMode.ffmpegPreset,
+    "-profile:v", "high", "-movflags", "+faststart",
     "-filter_complex", [
       `color=c=white:s=${profile.width}x${profile.height}:r=${profile.fps}[bg]`,
       "[bg][0:v]overlay=shortest=1",
@@ -67,20 +65,6 @@ function ffmpegArgsForVideo(profile: VideoProfile, renderMode: { ffmpegPreset: s
       `fps=${profile.fps}`,
       "format=yuv420p",
     ].join(","),
-    profile.output,
-    "-y",
+    profile.output, "-y",
   ];
-}
-
-function writeAll(stream: NodeJS.WritableStream, chunk: Buffer) {
-  return new Promise<void>((resolve, reject) => {
-    const cleanup = () => {
-      stream.off("drain", onDrain);
-      stream.off("error", onError);
-    };
-    const onDrain = () => { cleanup(); resolve(); };
-    const onError = (error: Error) => { cleanup(); reject(error); };
-    stream.on("error", onError);
-    if (stream.write(chunk)) { cleanup(); resolve(); } else stream.on("drain", onDrain);
-  });
 }
