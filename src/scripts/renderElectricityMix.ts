@@ -17,12 +17,12 @@ type ElectricityMixProfile = {
 
 const profiles: Record<string, ElectricityMixProfile> = {
   de: {
-    url: "/europe/country/DE/7_days_ago_to_now/electricity_mix/echarts.json",
+    url: "/europe/country/DE/3_months_ago_to_now/electricity_mix/echarts.json",
     output: "render/electricity-mix-de.mp4",
     framerate: "30",
     fps: "30",
-    windowHours: 24,
-    stepHours: 1,
+    windowHours: 3*7*24,
+    stepHours: 3,
   },
   gb: {
     url: "/europe/country/GB/7_days_ago_to_now/electricity_mix/echarts.json",

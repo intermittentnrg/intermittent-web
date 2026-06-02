@@ -475,33 +475,33 @@ const swedenTransSql = `
   )
   SELECT
     EXTRACT(EPOCH FROM time AT TIME ZONE $5) * 1000 AS time,
-    from_area_id AS area_id,
-    CASE WHEN to_area_id = ANY($2::int[]) THEN SUM(value) * 1000 ELSE 0 END AS transmission_domestic,
-    CASE WHEN NOT (to_area_id = ANY($2::int[])) THEN SUM(value) * 1000 ELSE 0 END AS transmission_international
+    code AS area_code,
+    SUM(CASE WHEN to_area_id = ANY($2::int[]) THEN value ELSE 0 END) * 1000 AS transmission_domestic,
+    SUM(CASE WHEN NOT (to_area_id = ANY($2::int[])) THEN value ELSE 0 END) * 1000 AS transmission_international
   FROM _transmission_avg
-  GROUP BY 1, 2, to_area_id = ANY($2::int[])
+  INNER JOIN areas a ON (from_area_id = a.id)
+  GROUP BY 1, 2
   ORDER BY 2, 1
 `;
 
 const swedenPriceSql = `
   SELECT
     EXTRACT(EPOCH FROM time AT TIME ZONE $5)*1000 AS time,
-    a.code AS metric,
-    AVG(value)/100 AS value
+    metric,
+    value
   FROM (
     SELECT
       time_bucket_gapfill($1::interval, time) AS time,
       a.code AS metric,
-      area_id,
-      AVG(p.value)/100 AS value
+      LOCF(AVG(p.value)/100) AS value
     FROM prices p
     INNER JOIN areas a ON(p.area_id=a.id)
     WHERE
       area_id=ANY($2::int[]) AND
       time BETWEEN $3 AND $4
-    GROUP BY 2, time_bucket_gapfill($1::interval, time), area_id
+    GROUP BY 1,2
+    ORDER BY 2,1
   ) s
-  ORDER BY 2,1
 `;
 
 export async function sweden(
@@ -545,50 +545,69 @@ export async function sweden(
       ])
     : [];
 
-  const options = buildSwedenOptions(genRows, transRows, priceRows, showLoad);
-
-  return sendChartResponse(
-    req,
-    reply,
-    options,
-    ctx.timezoneAbbreviation,
-    {},
-    900,
-  );
-}
-
-function buildSwedenOptions(genRows: AnyRow[], transRows: AnyRow[], priceRows: AnyRow[], showLoad = false) {
   const areaCodes = ["SE1", "SE2", "SE3", "SE4"];
   const numAreas = areaCodes.length;
 
-  // Map area IDs to area codes (they are in order: SE1,SE2,SE3,SE4)
-  const areaIdToCode = new Map<number, string>();
-  // We only have areaIds in context, but the order is SE1-SE4.
-  // Extract unique area_ids from trans rows to build the mapping.
-  for (const row of transRows) {
-    const aid = row.area_id as number;
-    if (!areaIdToCode.has(aid)) {
-      const idx = areaIdToCode.size;
-      areaIdToCode.set(aid, areaCodes[idx] || `area_${aid}`);
-    }
-  }
-
-  // Build series — SQL returns data ordered by metric, so we track the last compound
-  // key and push a new series when it changes (same pattern as electricity mix).
-  const allSeries: AnyRow[] = [];
+  // Build series — process transmission first so it ends up at bottom of stack
+  // Keep stacked, load, and price series separate from the start
+  const stackedSeries: AnyRow[] = [];
+  const loadSeries: AnyRow[] = [];
+  const priceSeries: AnyRow[] = [];
 
   let lastKey = "";
-  function pushCurrent(key: string, make: () => AnyRow, row: AnyRow, pushValue: number) {
-    let cur = allSeries[allSeries.length - 1];
+  let lastTarget: AnyRow[] | null = null;
+  function pushCurrent(key: string, make: () => AnyRow, row: AnyRow, pushValue: number, target: AnyRow[]) {
+    let cur = lastTarget === target ? target[target.length - 1] : null;
     if (key !== lastKey || !cur) {
       cur = { ...make(), data: [] as [number, number][] };
-      allSeries.push(cur);
+      target.push(cur);
       lastKey = key;
+      lastTarget = target;
     }
     cur.data.push([row.time as number, pushValue]);
   }
 
+  // Transmission — ordered by area_id, each row has domestic + international columns
+  // Two separate loops to avoid lastKey toggling between dom/int
+  lastKey = "";
+  lastTarget = null;
+  for (const row of transRows) {
+    const areaCode = row.area_code as string;
+    const areaIdx = areaCodes.indexOf(areaCode);
+    if (areaIdx === -1) continue;
+
+    const domValue = row.transmission_domestic as number;
+    if (domValue != null) {
+      pushCurrent(`dom_${areaCode}`, () => ({
+        name: "domestic", type: "line", unit: "power", symbol: "none",
+        lineStyle: { width: 0 }, areaStyle: { opacity: 0.75 },
+        itemStyle: { color: "rgb(210, 180, 230)" },
+        xAxisIndex: areaIdx, yAxisIndex: areaIdx,
+      }), row, domValue, stackedSeries);
+    }
+  }
+
+  lastKey = "";
+  lastTarget = null;
+  for (const row of transRows) {
+    const areaCode = row.area_code as string;
+    const areaIdx = areaCodes.indexOf(areaCode);
+    if (areaIdx === -1) continue;
+
+    const intValue = row.transmission_international as number;
+    if (intValue != null) {
+      pushCurrent(`int_${areaCode}`, () => ({
+        name: "international", type: "line", unit: "power", symbol: "none",
+        lineStyle: { width: 0 }, areaStyle: { opacity: 0.75 },
+        itemStyle: { color: "rgb(124, 46, 163)" },
+        xAxisIndex: areaIdx, yAxisIndex: areaIdx,
+      }), row, intValue, stackedSeries);
+    }
+  }
+
   // Generation — ordered by metric like "SE1/nuclear", "SE1/wind", "SE2/nuclear"
+  lastKey = "";
+  lastTarget = null;
   for (const row of genRows) {
     const metric = String(row.metric);
     const slashIdx = metric.indexOf("/");
@@ -605,7 +624,7 @@ function buildSwedenOptions(genRows: AnyRow[], transRows: AnyRow[], priceRows: A
         name: type, type: "line", unit: "power", symbol: "none",
         lineStyle: { width: 2, color: "#000" }, itemStyle: { color: "#000" },
         xAxisIndex: areaIdx, yAxisIndex: areaIdx,
-      }), row, (row.value as number) * 1000);
+      }), row, (row.value as number) * 1000, loadSeries);
     } else {
       const color = metricColor(type);
       pushCurrent(key, () => ({
@@ -613,63 +632,27 @@ function buildSwedenOptions(genRows: AnyRow[], transRows: AnyRow[], priceRows: A
         lineStyle: { width: 0 }, areaStyle: { opacity: 0.75 },
         ...(color ? { itemStyle: { color } } : {}),
         xAxisIndex: areaIdx, yAxisIndex: areaIdx,
-      }), row, (row.value as number) * 1000);
-    }
-  }
-
-  // Transmission — ordered by area_id, each row has domestic + international columns
-  lastKey = "";
-  for (const row of transRows) {
-    const areaId = row.area_id as number;
-    const areaCode = areaIdToCode.get(areaId) || String(areaId);
-    const areaIdx = areaCodes.indexOf(areaCode);
-    if (areaIdx === -1) continue;
-
-    const domValue = row.transmission_domestic as number;
-    if (domValue != null) {
-      pushCurrent(`dom_${areaId}`, () => ({
-        name: "domestic", type: "line", unit: "power", symbol: "none",
-        lineStyle: { width: 0 }, areaStyle: { opacity: 0.75 },
-        itemStyle: { color: "rgb(163, 82, 204)" },
-        xAxisIndex: areaIdx, yAxisIndex: areaIdx,
-      }), row, domValue);
-    }
-  }
-
-  lastKey = "";
-  for (const row of transRows) {
-    const areaId = row.area_id as number;
-    const areaCode = areaIdToCode.get(areaId) || String(areaId);
-    const areaIdx = areaCodes.indexOf(areaCode);
-    if (areaIdx === -1) continue;
-
-    const intValue = row.transmission_international as number;
-    if (intValue != null) {
-      pushCurrent(`int_${areaId}`, () => ({
-        name: "international", type: "line", unit: "power", symbol: "none",
-        lineStyle: { width: 0 }, areaStyle: { opacity: 0.75 },
-        itemStyle: { color: "rgb(124, 46, 163)" },
-        xAxisIndex: areaIdx, yAxisIndex: areaIdx,
-      }), row, intValue);
+      }), row, (row.value as number) * 1000, stackedSeries);
     }
   }
 
   // Price — ordered by area code
   lastKey = "";
+  lastTarget = null;
   for (const row of priceRows) {
     const areaCode = String(row.metric);
     const areaIdx = areaCodes.indexOf(areaCode);
     if (areaIdx === -1) continue;
 
     pushCurrent(`price_${areaCode}`, () => ({
-      name: "Price", type: "line", unit: "price", symbol: "none",
+      name: "Price", type: "line", unit: "price", symbol: "none", step: "start",
       lineStyle: { color: "green", width: 2 }, itemStyle: { color: "green" },
       xAxisIndex: areaIdx, yAxisIndex: numAreas + areaIdx,
-    }), row, row.value as number);
+    }), row, row.value as number, priceSeries);
   }
 
-  // divergentSeries handles stack assignment (pos/neg) for all series
-  const series = divergentSeries(allSeries);
+  // divergentSeries handles stack assignment (pos/neg) for stacked series only
+  const series = [...divergentSeries(stackedSeries), ...loadSeries, ...priceSeries];
   // Make stacks unique per panel so they don't interfere across grids
   for (const s of series) {
     if (s.stack) s.stack = `${s.stack}_${s.xAxisIndex}`;
@@ -680,10 +663,12 @@ function buildSwedenOptions(genRows: AnyRow[], transRows: AnyRow[], priceRows: A
   const xAxes: AnyRow[] = [];
   const yAxes: AnyRow[] = [];
 
+  const hasPriceRows = priceRows.length > 0;
+
   for (let i = 0; i < numAreas; i++) {
     grids.push({
-      left: "8%",
-      right: "8%",
+      left: 0,
+      right: hasPriceRows ? 60 : 0,
       top: `${10 + i * 22}%`,
       height: "18%",
       containLabel: true,
@@ -701,22 +686,22 @@ function buildSwedenOptions(genRows: AnyRow[], transRows: AnyRow[], priceRows: A
   }
 
   // Price secondary y-axes (right side) for each panel (only if price is shown)
-  const showPrice = priceRows.length > 0;
-  if (showPrice) {
+  if (hasPriceRows) {
     for (let i = 0; i < numAreas; i++) {
       yAxes.push({
         type: "value",
         gridIndex: i,
         name: "\u20AC/MWh",
-        nameLocation: "center",
-        nameGap: 40,
+        nameLocation: "end",
+        nameGap: 10,
+        nameTextStyle: { align: "left" },
         position: "right",
         axisLabel: { formatter: { type: "price" } },
       });
     }
   }
 
-  return {
+  const options = {
     height: 900,
     title: {
       text: "Sweden - SE1/SE2/SE3/SE4",
@@ -739,4 +724,13 @@ function buildSwedenOptions(genRows: AnyRow[], transRows: AnyRow[], priceRows: A
     yAxis: yAxes,
     series,
   };
+
+  return sendChartResponse(
+    req,
+    reply,
+    options,
+    ctx.timezoneAbbreviation,
+    {},
+    900,
+  );
 }

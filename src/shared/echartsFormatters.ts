@@ -115,5 +115,5 @@ export function formatMagnitude(value: unknown, suffixes: string[]) {
 export function formatPrice(value: unknown) {
   const numericValue = Number(value);
   if (value === null || value === undefined || Number.isNaN(numericValue)) return "-";
-  return `${numericValue.toFixed(0)}€/MWh`;
+  return numericValue.toFixed(0);
 }

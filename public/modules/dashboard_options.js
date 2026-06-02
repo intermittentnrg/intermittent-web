@@ -1,7 +1,7 @@
 import { router } from "../router.js"
 import { closeAllDropdowns, toggleMenu } from "../dropdown_utils.js"
 
-const targetNames = ["menu", "selectedText", "productionTypeSection", "simulationSection", "electricityMixSection", "tempsSection", "loadSection", "productionTypeOptions", "perUnitSection", "unitOptions", "unitSelectedText", "unitMenu", "transmissionSection", "transmissionOptions", "transmissionSelectedText", "transmissionMenu", "multiplierMenu", "multiplierSelectedText", "nuclearInput", "windInput", "solarInput", "demandInput"]
+const targetNames = ["menu", "selectedText", "productionTypeSection", "simulationSection", "electricityMixSection", "tempsSection", "loadSection", "transmissionCheckboxSection", "productionTypeOptions", "perUnitSection", "unitOptions", "unitSelectedText", "unitMenu", "transmissionSection", "transmissionOptions", "transmissionSelectedText", "transmissionMenu", "multiplierMenu", "multiplierSelectedText", "nuclearInput", "windInput", "solarInput", "demandInput"]
 
 function targetSelector(target) {
   return `#dashboard-options-${kebab(target)}`
@@ -133,6 +133,7 @@ class DashboardOptions {
     if (event.target.id === 'topnav-prices-checkbox') return this.togglePrices(event)
     if (event.target.id === 'topnav-temps-checkbox') return this.toggleTemps(event)
     if (event.target.id === 'topnav-load-checkbox') return this.toggleLoad(event)
+    if (event.target.id === 'topnav-transmission-checkbox') return this.toggleTransmission(event)
   }
 
   populateMultipliersFromUrl() {
@@ -177,6 +178,13 @@ class DashboardOptions {
       }
     }
 
+    if (this.hasTransmissionCheckboxSectionTarget) {
+      const checkbox = this.transmissionCheckboxSectionTarget.querySelector('input[type="checkbox"]')
+      if (checkbox) {
+        checkbox.checked = query.transmission === '1'
+      }
+    }
+
     this.simulationSectionTargets.forEach(el => {
       el.style.display = dashboard === 'simulation' ? 'flex' : 'none'
     })
@@ -209,7 +217,7 @@ class DashboardOptions {
     }
     
     if (this.hasElectricityMixSectionTarget) {
-      this.electricityMixSectionTarget.style.display = ['electricity_mix', 'generation'].includes(dashboard) ? 'flex' : 'none'
+      this.electricityMixSectionTarget.style.display = ['electricity_mix', 'generation', 'sweden'].includes(dashboard) ? 'flex' : 'none'
     }
     
     if (this.hasTempsSectionTarget) {
@@ -217,9 +225,13 @@ class DashboardOptions {
     }
     
     if (this.hasLoadSectionTarget) {
-      this.loadSectionTarget.style.display = ['electricity_mix', 'generation'].includes(dashboard) ? 'flex' : 'none'
+      this.loadSectionTarget.style.display = ['electricity_mix', 'generation', 'sweden'].includes(dashboard) ? 'flex' : 'none'
     }
-    
+
+    if (this.hasTransmissionCheckboxSectionTarget) {
+      this.transmissionCheckboxSectionTarget.style.display = ['electricity_mix', 'generation', 'sweden'].includes(dashboard) ? 'flex' : 'none'
+    }
+
     if (this.hasPerUnitSectionTarget) {
       this.perUnitSectionTargets.forEach(el => {
         el.style.display = ['per_unit', 'per_unit_peak', 'per_unit_total', 'per_unit_moving_capacity', 'per_unit_battery'].includes(dashboard) ? 'flex' : 'none'
@@ -290,7 +302,7 @@ class DashboardOptions {
     if (!this.hasTransmissionOptionsTarget) return
 
     const query = router.getQuery()
-    const selected = (query.transmission || '').split(',').filter(Boolean)
+    const selected = (query.transmission_lines || '').split(',').filter(Boolean)
 
     renderMultiSelectOptions(this.transmissionOptionsTarget, transmissionLines, {
       idPrefix: 'transmission',
@@ -314,10 +326,6 @@ class DashboardOptions {
     if (container === this.transmissionOptionsTarget) this.updateTransmissionUI()
   }
 
-  toggleTransmission() {
-    this.updateTransmissionUI()
-  }
-
   updateTransmissionUI() {
     if (!this.hasTransmissionSelectedTextTarget) return
     const selected = this.getSelectedTransmissions()
@@ -336,7 +344,7 @@ class DashboardOptions {
 
   applyTransmission() {
     closeAllDropdowns()
-    updateMultiSelectQuery(this.transmissionOptionsTarget, 'transmission')
+    updateMultiSelectQuery(this.transmissionOptionsTarget, 'transmission_lines')
   }
 
   getSelectedTransmissions() {
@@ -415,5 +423,9 @@ class DashboardOptions {
 
   toggleLoad(event) {
     router.updateQuery({ load: event.target.checked ? '1' : null })
+  }
+
+  toggleTransmission(event) {
+    router.updateQuery({ transmission: event.target.checked ? '1' : null })
   }
 }

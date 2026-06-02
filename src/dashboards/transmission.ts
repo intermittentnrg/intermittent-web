@@ -55,7 +55,7 @@ export async function transmission(
   reply: FastifyReply,
 ) {
   const ctx = await getContext(req);
-  const selectedLines = req.query.transmission?.split(",").filter(Boolean) || [];
+  const selectedLines = req.query.transmission_lines?.split(",").filter(Boolean) || [];
   const filtered = selectedLines.length > 0;
   const args: any[] = filtered
     ? [selectedLines, ctx.from, ctx.to, ctx.timezone]

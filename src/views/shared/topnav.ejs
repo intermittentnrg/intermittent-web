@@ -38,17 +38,17 @@
       </button>
       <div class="dropdown__panel" id="dashboard-options-multiplier-menu">
         <div class="multiplier-options">
+          <div class="multiplier-row"><label>Demand</label><input type="number" class="multiplier-input" value="1.0" step="0.1" min="0" max="10" id="dashboard-options-demand-input"></div>
           <div class="multiplier-row"><label>Nuclear</label><input type="number" class="multiplier-input" value="1.0" step="0.1" min="0" max="10" id="dashboard-options-nuclear-input"></div>
           <div class="multiplier-row"><label>Wind</label><input type="number" class="multiplier-input" value="1.0" step="0.1" min="0" max="10" id="dashboard-options-wind-input"></div>
           <div class="multiplier-row"><label>Solar</label><input type="number" class="multiplier-input" value="1.0" step="0.1" min="0" max="10" id="dashboard-options-solar-input"></div>
-          <div class="multiplier-row"><label>Demand</label><input type="number" class="multiplier-input" value="1.0" step="0.1" min="0" max="10" id="dashboard-options-demand-input"></div>
         </div>
         <div class="dropdown__actions"><button type="button" class="dropdown__apply">Apply</button></div>
       </div>
     </div>
 
     <div id="dashboard-options-electricity-mix-section" class="topnav-item"
-         style="display: <%= ['electricity_mix', 'generation'].includes(dashboardType) ? 'flex' : 'none' %>;">
+         style="display: <%= ['electricity_mix', 'generation', 'sweden'].includes(dashboardType) ? 'flex' : 'none' %>;">
       <label for="topnav-prices-checkbox">Prices</label>
       <div class="checkbox-wrapper"><input id="topnav-prices-checkbox" type="checkbox" <%= prices ? 'checked' : '' %>></div>
     </div>
@@ -63,6 +63,12 @@
          style="display: <%= dashboardType === 'generation' ? 'flex' : 'none' %>;">
       <label for="topnav-load-checkbox">Load</label>
       <div class="checkbox-wrapper"><input id="topnav-load-checkbox" type="checkbox" <%= load ? 'checked' : '' %>></div>
+    </div>
+
+    <div id="dashboard-options-transmission-checkbox-section" class="topnav-item"
+         style="display: <%= ['electricity_mix', 'generation', 'sweden'].includes(dashboardType) ? 'flex' : 'none' %>;">
+      <label for="topnav-transmission-checkbox">Transmission</label>
+      <div class="checkbox-wrapper"><input id="topnav-transmission-checkbox" type="checkbox" <%= transmission ? 'checked' : '' %>></div>
     </div>
 
     <div id="dashboard-options-transmission-section" class="topnav-item transmission-selector"

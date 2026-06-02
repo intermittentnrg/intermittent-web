@@ -12,6 +12,7 @@ export function buildChartOptions(
     tooltip: {
       trigger: "axis",
       axisPointer: { type: "cross" },
+      confine: true,
       formatter: { type: formatterType },
     },
     legend: showLegend
@@ -22,12 +23,10 @@ export function buildChartOptions(
         }
       : undefined,
     grid: {
-      left: "3%",
-      right: "4%",
+      left: 0,
+      right: 0,
       bottom: 100,
       top: 55,
-      outerBoundsMode: "same",
-      outerBoundsContain: "axisLabel",
     },
     xAxis: { type: "time", boundaryGap: false },
     yAxis: { type: "value", axisLabel: { formatter: { type: formatterType } } },
@@ -55,9 +54,7 @@ export function buildDualAxisOptions(
           {
             type: "value",
             position: "right",
-            axisLabel: secondaryFormatter
-              ? { formatter: secondaryFormatter }
-              : {},
+            axisLabel: secondaryFormatter ? { formatter: secondaryFormatter, lineHeight: 16 } : {},
           },
         ]
       : []),
@@ -69,6 +66,7 @@ export function buildDualAxisOptions(
     tooltip: {
       trigger: "axis",
       axisPointer: { type: "cross" },
+      confine: true,
       formatter: { type: "multi" },
     },
     legend: {
@@ -77,15 +75,18 @@ export function buildDualAxisOptions(
       data: [...new Set(series.map((s) => s.name))],
     },
     grid: {
-      left: "3%",
-      right: hasSecondary ? "6%" : "4%",
+      left: 0,
+      right: hasSecondary ? 60 : 0,
       bottom: 100,
       top: 55,
-      outerBoundsMode: "same",
-      outerBoundsContain: "axisLabel",
     },
     xAxis: { type: "time", boundaryGap: false },
-    yAxis,
+    yAxis: yAxis.map((axis, i) => {
+      if (i === 1 && hasSecondary) {
+        return { ...axis, name: "€/MWh", nameLocation: "end", nameGap: 10, nameTextStyle: { align: "left" } };
+      }
+      return axis;
+    }),
     series,
   };
 }
