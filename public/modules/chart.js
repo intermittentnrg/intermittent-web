@@ -154,7 +154,7 @@ class ChartModule {
       
       options.tooltip.formatter = (params) => {
         const timestamp = params[0]?.value[0]
-        const date = timestamp ? new Date(timestamp).toLocaleString() : ''
+        const date = timestamp ? new Date(timestamp).toLocaleString('en-GB', { timeZone: 'UTC', hour12: false }) : ''
         
         let total = 0
         const parts = params.map(p => {
