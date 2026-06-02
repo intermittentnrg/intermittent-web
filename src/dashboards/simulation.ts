@@ -343,7 +343,7 @@ async function addGenerationPanel(
     right: "15%",
     data: [...new Set(series.map((s) => s.name))],
   });
-  options.grid.push({ left: "3%", right: "15%", top: "10%", height: "25%" });
+  options.grid.push({ left: "3%", right: "15%", top: "7%", height: "25%" });
   options.xAxis.push({ type: "time", gridIndex, axisLabel: { show: false } });
   options.yAxis.push(powerAxis(gridIndex));
   options.series.push(...series);
@@ -353,7 +353,7 @@ function addSummaryPanel(options: any, data: AnyRow) {
   const gridIndex = options.grid.length;
 
   options.title.push({ text: "Summary", left: "93.5%", top: 10, textAlign: "center" });
-  options.grid.push({ left: "89%", right: "2%", top: "10%", height: "55%" });
+  options.grid.push({ left: "89%", right: "2%", top: "7%", height: "55%" });
   options.xAxis.push({ type: "category", gridIndex, data: [""] });
   options.yAxis.push(energyAxis(gridIndex));
   options.series.push(
@@ -366,9 +366,9 @@ function addSummaryPanel(options: any, data: AnyRow) {
 function addCumulativeDeficitPanel(options: any, rows: AnyRow[]) {
   const gridIndex = options.grid.length;
 
-  options.title.push({ text: "Cumulative Deficit", left: "center", right: "15%", top: "36%" });
-  options.legend.push({ top: "38%", left: "center", right: "15%", data: ["sum deficit"] });
-  options.grid.push({ left: "3%", right: "15%", top: "40%", height: "25%" });
+  options.title.push({ text: "Cumulative Deficit", left: "center", right: "15%", top: "33%" });
+  options.legend.push({ top: "35%", left: "center", right: "15%", data: ["sum deficit"] });
+  options.grid.push({ left: "3%", right: "15%", top: "37%", height: "25%" });
   options.xAxis.push({ type: "time", gridIndex, axisLabel: { show: false } });
   options.yAxis.push(energyAxis(gridIndex));
   options.series.push(lineSeries("sum deficit", "energy", gridIndex, fieldData(rows, "sum_deficit")));
