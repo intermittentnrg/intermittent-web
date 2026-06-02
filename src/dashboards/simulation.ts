@@ -10,7 +10,7 @@ import {
   getProductionTypeIds,
   getProductionTypeOptions,
 } from "./shared/productionTypes.ts";
-import { metricColor } from "./shared/colors.ts";
+import { colorsFromQuery } from "./shared/colors.ts";
 import { formatEnergy } from "../shared/echartsFormatters.ts";
 import type { AnyRow, DashboardParams, DashboardQuery } from "./shared/types.ts";
 
@@ -311,9 +311,11 @@ async function addGenerationPanel(
   ]);
   const demandRows = await chartQuery<AnyRow>(req, demandSql, [...args, mult.demand]);
   const transRows = includeTransmission ? await chartQuery<AnyRow>(req, transSql, args) : [];
+  const colorFn = colorsFromQuery((req.query as Record<string, string | undefined>).colors);
+
   const genSeries = divergentSeries(buildStackedPowerLineSeries(genRows)).map((s) => ({
     ...s,
-    itemStyle: { color: metricColor(s.name) },
+    itemStyle: { color: colorFn(s.name) },
   }));
   const demandSeries = buildStackedPowerLineSeries(demandRows).map((s) => ({
     ...s,
@@ -326,7 +328,7 @@ async function addGenerationPanel(
   const transSeries = includeTransmission ? divergentSeries(buildStackedPowerLineSeries(transRows)).map((s) => ({
     ...s,
     name: "transmission",
-    itemStyle: { color: metricColor("transmission") },
+    itemStyle: { color: colorFn("transmission") },
   })) : [];
   const gridIndex = options.grid.length;
   const series = [

@@ -6,7 +6,7 @@ import {
   getProductionTypeIds,
   getProductionTypeOptions,
 } from "./shared/productionTypes.ts";
-import { metricColor } from "./shared/colors.ts";
+import { colorsFromQuery } from "./shared/colors.ts";
 import { getPriceSeries } from "./shared/prices.ts";
 import { sendChartResponse } from "./shared/chartResponse.ts";
 import type {
@@ -20,10 +20,11 @@ export async function prices(
   reply: FastifyReply,
 ) {
   const ctx = await getContext(request);
+  const colorFn = colorsFromQuery(request.query.colors);
   const series = await getPriceSeries(
     request,
     [`${ctx.interval} seconds`, ctx.from, ctx.to, ctx.areaIds, ctx.timezone],
-    { colorForMetric: metricColor },
+    { colorForMetric: colorFn },
   );
   const options = buildChartOptions(series, "Prices", "price");
   return sendChartResponse(request, reply, options, ctx.timezoneAbbreviation);

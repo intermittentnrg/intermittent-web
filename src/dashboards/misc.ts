@@ -12,7 +12,7 @@ import { resolutionToSeconds } from "../shared/dateParsing.ts";
 import { parseDateRangeInTimeZone } from "./shared/timezoneDateRange.ts";
 import { getProductionTypeIds } from "./shared/productionTypes.ts";
 import type { AnyRow, DashboardParams, DashboardQuery } from "./shared/types.ts";
-import { metricColor } from "./shared/colors.ts";
+import { colorsFromQuery } from "./shared/colors.ts";
 import { buildMapTimelineFrames, buildMapTimelineOptions } from "./shared/mapTimeline.ts";
 import { titleize } from "./shared/text.ts";
 
@@ -514,6 +514,8 @@ export async function sweden(
     area: "SE1,SE2,SE3,SE4",
   });
 
+  const colorFn = colorsFromQuery(req.query.colors);
+
   const genRows = await chartQuery<AnyRow>(req, swedenGenSql, [
     `${ctx.interval} seconds`,
     ctx.from,
@@ -626,7 +628,7 @@ export async function sweden(
         xAxisIndex: areaIdx, yAxisIndex: areaIdx,
       }), row, (row.value as number) * 1000, loadSeries);
     } else {
-      const color = metricColor(type);
+      const color = colorFn(type);
       pushCurrent(key, () => ({
         name: type, type: "line", unit: "power", symbol: "none",
         lineStyle: { width: 0 }, areaStyle: { opacity: 0.75 },

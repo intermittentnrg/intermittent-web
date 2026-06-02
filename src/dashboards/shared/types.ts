@@ -33,6 +33,7 @@ export type DashboardQuery = {
   wind_multiplier?: string;
   solar_multiplier?: string;
   demand_multiplier?: string;
+  colors?: string;
 };
 
 export type AnyRow = Record<string, any>;

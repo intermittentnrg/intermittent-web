@@ -13,7 +13,7 @@ import {
   getProductionTypeIds,
   getProductionTypeOptions,
 } from "./shared/productionTypes.ts";
-import { metricColor } from "./shared/colors.ts";
+import { colorsFromQuery } from "./shared/colors.ts";
 import {
   sendChartResponse,
   sendDualAxisChart,
@@ -71,7 +71,8 @@ export async function generation(
     ...priceArgs,
     ptIds,
   ]);
-  const series: Series[] = divergentSeries(buildPowerLineSeries(rows, metricColor));
+  const colorFn = colorsFromQuery(request.query.colors);
+  const series: Series[] = divergentSeries(buildPowerLineSeries(rows, colorFn));
   if (request.query.load) {
     series.push(...(await getLoadSeries(request, priceArgs)));
   }
@@ -126,8 +127,9 @@ export async function generationTotal(
     ctx.timezone,
     ptIds,
   ]);
+  const colorFn = colorsFromQuery(request.query.colors);
   const series = buildBasicSeries(rows, "bar", true, "energy", {
-    colorForMetric: metricColor,
+    colorForMetric: colorFn,
   });
   const productionTypes = await getProductionTypeOptions(ctx.areaIds);
   const options = buildChartOptions(

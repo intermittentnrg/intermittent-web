@@ -7,7 +7,7 @@ import { getPriceSeries } from "./shared/prices.ts";
 import { getLoadSeries } from "./shared/load.ts";
 import type { DashboardParams, DashboardQuery, TimeMetricValueRow } from "./shared/types.ts";
 import { divergentSeries } from "./shared/series.ts";
-import { metricColor } from "./shared/colors.ts";
+import { colorsFromQuery } from "./shared/colors.ts";
 
 const SQL_GEN = `
   WITH _g AS (
@@ -117,10 +117,12 @@ export async function electricityMix(
   const genSql = ctx.interval >= 3600 && evenHourOffset ? SQL_GEN_HOURLY : SQL_GEN;
   const genData = await chartQuery<TimeMetricValueRow>(request, genSql, args);
 
+  const colorFn = colorsFromQuery(request.query.colors);
+
   const series = divergentSeries(buildSeriesFromData([
     ...transData,
     ...genData,
-  ]));
+  ], colorFn));
 
   if (request.query.load) series.push(...(await getLoadSeries(request, args)));
 
@@ -137,14 +139,14 @@ export async function electricityMix(
   );
 }
 
-function buildSeriesFromData(rows: TimeMetricValueRow[]) {
+function buildSeriesFromData(rows: TimeMetricValueRow[], colorFn: (metric: string) => string | undefined) {
   const series: Array<ReturnType<typeof newSeries>> = [];
   let currentSeries: ReturnType<typeof newSeries> | undefined;
 
   for (const row of rows) {
     const key = cleanMetricName(row.metric);
     if (currentSeries?.name !== key) {
-      currentSeries = newSeries(key);
+      currentSeries = newSeries(key, colorFn);
       series.push(currentSeries);
     }
     currentSeries.data.push([row.time, row.value * 1000]);
@@ -157,7 +159,7 @@ function cleanMetricName(metric: string) {
   return metric.replace(/^\d+_/, "");
 }
 
-function newSeries(key: string) {
+function newSeries(key: string, colorFn: (metric: string) => string | undefined) {
   return {
     name: key,
     type: "line",
@@ -165,7 +167,7 @@ function newSeries(key: string) {
     symbol: "none",
     areaStyle: { opacity: 0.75 },
     lineStyle: { width: 0 },
-    itemStyle: { color: metricColor(key) },
+    itemStyle: { color: colorFn(key) },
     data: [] as Array<[number, number]>,
   };
 }

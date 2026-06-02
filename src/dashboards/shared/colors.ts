@@ -1,30 +1,58 @@
-export function normalizedMetricKey(metric: string) {
-  return (metric.split("/").at(-1) || metric)
+const DEFAULT_COLORS: Record<string, string> = {
+  biomass_and_waste: "rgb(128, 224, 167)",
+  nuclear: "rgb(213, 0, 50)",
+  lignite: "rgb(92, 26, 35)",
+  hard_coal: "rgb(137, 137, 137)",
+  gas: "rgb(198, 163, 201)",
+  hydro: "rgb(2, 77, 188)",
+  hydro_water_reservoir: "rgb(2, 77, 188)",
+  other: "rgb(241, 194, 27)",
+  other_renewable: "rgb(199, 156, 148)",
+  wind: "rgb(152, 205, 251)",
+  wind_onshore: "rgb(152, 205, 251)",
+  solar: "rgb(236, 232, 26)",
+  import: "rgb(124, 46, 163)",
+  export: "rgb(124, 46, 163)",
+  transmission: "rgb(124, 46, 163)",
+};
+
+function colorForMetric(metric: string, overrides?: Record<string, string>) {
+  const key = (metric.split("/").at(-1) || metric)
     .replace(/_negative$/, "")
     .replace(/^\d+_/, "");
+  return (overrides ?? DEFAULT_COLORS)[key] ?? DEFAULT_COLORS[key];
 }
 
-export function metricColor(metric: string) {
-  const key = normalizedMetricKey(metric);
-  return (
-    {
-      biomass_and_waste: "rgb(128, 224, 167)",
-      nuclear: "rgb(213, 0, 50)",
-      lignite: "rgb(92, 26, 35)",
-      hard_coal: "rgb(137, 137, 137)",
-      gas: "rgb(198, 163, 201)",
-      hydro: "rgb(2, 77, 188)",
-      hydro_water_reservoir: "rgb(2, 77, 188)",
-      other: "rgb(241, 194, 27)",
-      other_renewable: "rgb(199, 156, 148)",
-      wind: "rgb(152, 205, 251)",
-      wind_onshore: "rgb(152, 205, 251)",
-      solar: "rgb(236, 232, 26)",
-      import: "rgb(124, 46, 163)",
-      export: "rgb(124, 46, 163)",
-      transmission: "rgb(124, 46, 163)",
-    } as Record<string, string>
-  )[key];
+/**
+ * Returns a colour resolver bound to an optional `colors` query parameter.
+ *
+ * Format: `metric:color;metric:color`
+ * Example: `wind:rgb(255,153,0);solar:rgb(153,0,255)`
+ *
+ * Use CSS `rgb(r,g,b)` — `#hex` won't work in query params.
+ * When no query value is given, returns the default resolver.
+ */
+export function colorsFromQuery(
+  value: string | undefined,
+): (metric: string) => string | undefined {
+  if (!value) return colorForMetric;
+
+  const overrides: Record<string, string> = {};
+  for (const part of value.split(";")) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+    const colonIdx = trimmed.indexOf(":");
+    if (colonIdx === -1) continue;
+    const metric = trimmed.slice(0, colonIdx).trim();
+    const color = trimmed.slice(colonIdx + 1).trim();
+    if (metric && color) {
+      overrides[metric] = color;
+    }
+  }
+
+  return Object.keys(overrides).length > 0
+    ? (metric: string) => colorForMetric(metric, overrides)
+    : colorForMetric;
 }
 
 /**
