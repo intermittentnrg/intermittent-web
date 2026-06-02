@@ -29,12 +29,13 @@ function notifyListeners() {
 window.addEventListener('popstate', () => notifyListeners())
 
 export function formatDatePath(dateStr) {
-  if (!dateStr) return 'now'
   return dateStr.replace(/\s+/g, '_')
 }
 
 export function buildPath(region, areaType, area, from, to, dashboard) {
-  const dateRange = `${formatDatePath(from)}_to_${formatDatePath(to)}`
+  const safeFrom = from || '7 days ago'
+  const safeTo = to || 'now'
+  const dateRange = `${formatDatePath(safeFrom)}_to_${formatDatePath(safeTo)}`
   return `/${region}/${areaType}/${area}/${dateRange}/${dashboard}`
 }
 
