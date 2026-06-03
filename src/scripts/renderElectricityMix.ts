@@ -13,6 +13,7 @@ type ElectricityMixProfile = {
   fps: string;
   windowHours: number;
   stepHours: number;
+  title: string;
 };
 
 const profiles: Record<string, ElectricityMixProfile> = {
@@ -23,6 +24,9 @@ const profiles: Record<string, ElectricityMixProfile> = {
     fps: "30",
     windowHours: 3*7*24,
     stepHours: 3,
+    // Note: emoji/flags need a font like Noto Color Emoji to render in video.
+    // DejaVu Sans (default in textStyle) doesn't include emoji glyphs.
+    title: "🇩🇪 Germany Wind🌪️ and ☀️Solar - https://intermittent.energy powered by TimescaleDB",
   },
   gb: {
     url: "/europe/country/GB/7_days_ago_to_now/electricity_mix/echarts.json",
@@ -31,6 +35,7 @@ const profiles: Record<string, ElectricityMixProfile> = {
     fps: "30",
     windowHours: 24,
     stepHours: 1,
+    title: "Great Britain - Electricity Mix - https://intermittent.energy powered by TimescaleDB",
   },
 };
 
@@ -56,45 +61,19 @@ const profile: ElectricityMixProfile & VideoProfile = {
 
 async function main() {
   const payload = await fetchEchartsPayload(profile.url);
-  const frameOptions = buildSlidingWindowFrames(payload, profile.windowHours, profile.stepHours);
   const baseOption = buildBaseTimelineOption(payload);
+  // Compute step/window as data-point counts, pass them to the renderer
+  // so it can slice the series array directly — no frame array needed.
+  const data0 = payload.options.series[0].data;
+  const res = data0[1][0] - data0[0][0]; // ms per data point
+  const stepPts = Math.round(profile.stepHours * 3600 * 1000 / res);
+  const winPts = Math.round(profile.windowHours * 3600 * 1000 / res);
+  const frameCount = Math.floor((data0.length - winPts) / stepPts) + 1;
   await renderEchartsVideo(
     profile,
-    { payload, frameOptions, baseOption },
+    { payload, stepPoints: stepPts, windowPoints: winPts, frameCount, baseOption },
     { description: "electricity mix frames" },
   );
-}
-
-function buildSlidingWindowFrames(payload: EchartsJsonPayload, windowHours: number, stepHours: number) {
-  const bounds = dataBounds(payload.options.series || []);
-  const windowMs = windowHours * 60 * 60 * 1000;
-  const stepMs = stepHours * 60 * 60 * 1000;
-  const frames: Record<string, any>[] = [];
-
-  for (let min = bounds.min; min + windowMs <= bounds.max; min += stepMs) {
-    const max = min + windowMs;
-    frames.push({
-      title: {
-        subtext: `${formatUtc(min)} – ${formatUtc(max)}`,
-        subtextStyle: { fontSize: 18, fontWeight: "bold", color: "#555" },
-      },
-      xAxis: { min, max },
-    });
-  }
-
-  // Ensure the final frame reaches "now" even when the source range is not an exact step multiple.
-  const finalMin = bounds.max - windowMs;
-  if (frames.length === 0 || frames.at(-1)?.xAxis?.min !== finalMin) {
-    frames.push({
-      title: {
-        subtext: `${formatUtc(finalMin)} – ${formatUtc(bounds.max)}`,
-        subtextStyle: { fontSize: 18, fontWeight: "bold", color: "#555" },
-      },
-      xAxis: { min: finalMin, max: bounds.max },
-    });
-  }
-
-  return frames;
 }
 
 function buildBaseTimelineOption(payload: EchartsJsonPayload) {
@@ -102,11 +81,13 @@ function buildBaseTimelineOption(payload: EchartsJsonPayload) {
   options.animation = false;
   options.title = {
     ...(options.title || {}),
-    text: options.title?.text || "Electricity Mix",
-    top: 14,
+    text: profile.title,
+    left: "center",
+    top: 10,
+    textStyle: { fontSize: 16 },
   };
-  options.legend = { ...(options.legend || {}), top: 58 };
-  options.grid = { ...(options.grid || {}), top: 105, bottom: 55 };
+  options.legend = { ...(options.legend || {}), bottom: 5, left: "center" };
+  options.grid = { ...(options.grid || {}), top: 50, bottom: 80 };
   options.xAxis = mapAxis(options.xAxis, (axis) => ({
     ...axis,
     axisLabel: { ...(axis.axisLabel || {}), fontSize: 16 },
@@ -119,35 +100,9 @@ function buildBaseTimelineOption(payload: EchartsJsonPayload) {
   return options;
 }
 
-function dataBounds(series: any[]) {
-  let min = Number.POSITIVE_INFINITY;
-  let max = Number.NEGATIVE_INFINITY;
-  for (const item of series) {
-    for (const point of item.data || []) {
-      const time = Array.isArray(point) ? Number(point[0]) : Number.NaN;
-      if (!Number.isNaN(time)) {
-        min = Math.min(min, time);
-        max = Math.max(max, time);
-      }
-    }
-  }
-  if (!Number.isFinite(min) || !Number.isFinite(max)) throw new Error("No electricity mix data points returned");
-  return { min, max };
-}
-
 function mapAxis(axis: any, mapper: (axis: Record<string, any>) => Record<string, any>) {
   const mapOne = (item: any) => typeof item === "object" && item !== null ? mapper(item) : item;
   return Array.isArray(axis) ? axis.map(mapOne) : mapOne(axis);
-}
-
-function formatUtc(value: number) {
-  return new Intl.DateTimeFormat("en-GB", {
-    timeZone: "UTC",
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
 }
 
 main().then(() => process.exit(0)).catch((error) => {

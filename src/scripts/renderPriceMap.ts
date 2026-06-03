@@ -85,16 +85,26 @@ const profile: PriceMapProfile & VideoProfile = {
 const url = profile.url;
 async function main() {
   const payload = await fetchEchartsPayload<PriceMapPayload>(url);
-  const frameOptions = payload.options.options;
-  const baseOption = buildBaseTimelineOption(payload);
-  const frameCount = frameOptions.length;
-  if (frameCount === 0) {
+  const frames = payload.options.options;
+  if (!frames?.length) {
     throw new Error(
       `No map frames returned for ${url}. ` +
         "Check that data has been imported for the requested date range, or pass an explicit URL: " +
         "npm run render:price-map -- render/output.mp4 /europe/all/all/2026-05-25_to_2026-05-25/price_map/echarts.json?resolution=15m",
     );
   }
+
+  // Build chart config from baseOption (no timeline — each frame is applied
+  // directly via setOption with its own { title, series } data).
+  const baseOpt = structuredClone(payload.options.baseOption);
+  baseOpt.animation = false;
+  baseOpt.series = priceLabelMapSeries(baseOpt.series || []).map((item) => item.type === "map" ? {
+    ...item,
+    aspectScale: profile.aspectScale,
+    center: profile.mapCenter,
+    zoom: profile.mapZoom,
+  } : item);
+  delete (baseOpt as any).timeline;
 
   await renderEchartsVideo(
     profile,
@@ -104,27 +114,10 @@ async function main() {
         mapName: payload.mapName || "world",
         geoJsonUrl: profile.geoJsonUrl || payload.geoJsonUrl || "/world-rewound.geojson",
       },
-      frameOptions,
-      baseOption,
+      frameCount: frames.length,
+      baseOption: baseOpt,
     },
   );
-}
-
-function buildBaseTimelineOption(payload: PriceMapPayload) {
-  const option = structuredClone(payload.options);
-  option.baseOption.animation = false;
-  option.baseOption.series = priceLabelMapSeries(option.baseOption.series || []).map((item) => item.type === "map" ? {
-    ...item,
-    aspectScale: profile.aspectScale,
-    center: profile.mapCenter,
-    zoom: profile.mapZoom,
-  } : item);
-  option.baseOption.timeline = {
-    ...option.baseOption.timeline,
-    currentIndex: 0,
-    show: false,
-  };
-  return option.baseOption;
 }
 
 function priceLabelMapSeries<T extends MapSeriesOption>(series: T[]) {

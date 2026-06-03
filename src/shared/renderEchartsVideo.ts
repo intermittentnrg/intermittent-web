@@ -1,4 +1,4 @@
-import { readFileSync, openSync, closeSync, write as fsWrite, constants as fs } from "node:fs";
+import { readFileSync, openSync, closeSync, constants as fs } from "node:fs";
 import { availableParallelism } from "node:os";
 import { isMainThread, Worker, workerData as nodeWorkerData } from "node:worker_threads";
 import { join } from "node:path";
@@ -18,10 +18,12 @@ export type EchartsJsonPayload = {
 
 export type TimelineRendererOptions = {
   payload: EchartsJsonPayload;
-  frameOptions: Record<string, any>[];
+  frameCount: number;
   width: number;
   height: number;
   baseOption?: Record<string, any>;
+  stepPoints?: number;   // for offset-based frame stepping
+  windowPoints?: number; // data points per frame
 };
 
 // ---------------------------------------------------------------------------
@@ -44,22 +46,38 @@ export async function renderEchartsVideo(
   rendererOptions: Omit<TimelineRendererOptions, "width" | "height">,
   options: { description?: string } = {},
 ) {
-  const frameCount = rendererOptions.frameOptions.length;
+  const frameCount = rendererOptions.frameCount;
   if (!frameCount) throw new Error(`No frames to render for ${profile.url}`);
 
   const raw = process.env.RENDER_MODE || "fast";
-  const renderWorkers = Math.max(1, Math.min(raw === "fast" ? 4 : 2, availableParallelism()));
-  if (raw !== "fast" && raw !== "slow") throw new Error(`Unknown RENDER_MODE=${raw}. Expected fast or slow.`);
-  const ffmpegPreset = raw === "fast" ? "fast" : "veryslow";
+  const ffmpegPreset = raw === "fast" || raw === "single" ? "fast" : "veryslow";
+  const renderWorkers = raw === "single" ? 0 : Math.max(1, Math.min(raw === "fast" ? 4 : 2, availableParallelism()));
+  if (!["fast", "slow", "single"].includes(raw)) throw new Error(`Unknown RENDER_MODE=${raw}. Expected fast, slow, or single.`);
 
   const rendererData = { ...rendererOptions, width: profile.width, height: profile.height };
-  const wDesc = `${renderWorkers} worker${renderWorkers > 1 ? "s" : ""}`;
-  console.log(`Rendering ${frameCount} ${options.description || "frames"} via ${wDesc}`);
+  console.log(`Rendering ${frameCount} ${options.description || "frames"} via ${renderWorkers || "single"} worker${renderWorkers === 1 ? "" : "s"}`);
+
+  const fifoVideo = spawnFifoVideo(profile, { renderMode: { ffmpegPreset } });
+  // Keeper fd — stays open so children can toFile() without tripping EOF.
+  const keeperFd = openSync(fifoVideo.fifoPath, fs.O_WRONLY);
+
+  // Single-threaded mode: render in the main thread for profiling.
+  if (!renderWorkers) {
+    const renderer = await createTimelineRenderer(rendererData);
+    try {
+      for (let i = 0; i < frameCount; i++) {
+        renderer.renderFrame(i);
+        await renderer.flushFrame(fifoVideo.fifoPath);
+      }
+    } finally { closeSync(keeperFd); await renderer.dispose(); }
+    const status = await fifoVideo.waitExit();
+    if (status) throw new Error(`ffmpeg exited with code ${status}`);
+    return;
+  }
 
   const sab = new SharedArrayBuffer(8);
   new Int32Array(sab)[0] = 0;
 
-  const fifoVideo = spawnFifoVideo(profile, { renderMode: { ffmpegPreset } });
   const workerCount = Math.min(renderWorkers, frameCount);
   const exitErrors: Error[] = [];
 
@@ -80,6 +98,7 @@ export async function renderEchartsVideo(
     w.on("exit", (c) => { if (c) { exitErrors.push(new Error(`Worker exited with code ${c}`)); kill(); } r(); });
   })));
 
+  closeSync(keeperFd);
   if (exitErrors.length) { fifoVideo.close(); await fifoVideo.waitExit().catch(() => {}); throw exitErrors[0]; }
   const status = await fifoVideo.waitExit();
   if (status) throw new Error(`ffmpeg exited with code ${status}`);
@@ -89,39 +108,28 @@ export async function renderEchartsVideo(
 // Worker
 
 async function runFifoFrameWorker(
-  createRenderer: () => Promise<{ renderFrame(i: number): Buffer; dispose(): any }>,
+  createRenderer: () => Promise<{ renderFrame(i: number): void; flushFrame(p: string): Promise<void>; dispose(): any }>,
   fifoPath: string, sab: ArrayBuffer, frameCount: number, workerIndex: number, workerCount: number,
 ) {
   const renderer = await createRenderer();
-  const fd = openSync(fifoPath, fs.O_WRONLY);
   const counter = new Int32Array(sab);
 
   try {
     for (let i = workerIndex; i < frameCount; i += workerCount) {
-      const frame = renderer.renderFrame(i);
+      renderer.renderFrame(i);
 
-      // Wait for our turn: non-blocking wait until counter changes.
-      // (Atomics.waitAsync lets V8 GC on this thread while waiting.)
       while (Atomics.load(counter, 0) !== i) {
         const cur = Atomics.load(counter, 0);
         const r = Atomics.waitAsync(counter, 0, cur);
         if (r.async) await r.value;
       }
 
-      let written = 0;
-      await new Promise<void>((resolve, reject) => {
-        const write = () => fsWrite(fd, frame, written, (e, b) => {
-          if (e) { reject(e); return; }
-          written += b;
-          written < frame.length ? write() : resolve();
-        });
-        write();
-      });
+      await renderer.flushFrame(fifoPath);
 
       Atomics.add(counter, 0, 1);
       Atomics.notify(counter, 0, Infinity);
     }
-  } finally { closeSync(fd); await renderer.dispose(); }
+  } finally { await renderer.dispose(); }
 }
 
 // ---------------------------------------------------------------------------
@@ -149,28 +157,46 @@ async function createTimelineRenderer(options: TimelineRendererOptions) {
     }
   }
 
+  // Set up the chart with full data (no timeline — each frame updates xAxis only).
   chart.setOption({
-    baseOption: {
-      backgroundColor: "#ffffff",
-      textStyle: { fontFamily: "DejaVu Sans, sans-serif" },
-      ...baseOption,
-      timeline: { type: "slider", data: options.frameOptions.map((_, i) => i), ...(baseOption.timeline || {}), show: false, currentIndex: 0 },
-    },
-    options: options.frameOptions,
+    backgroundColor: "#ffffff",
+    textStyle: { fontFamily: "DejaVu Sans, sans-serif" },
+    ...baseOption,
   } as never, true);
+
+  const allSeries = options.payload.options!.series;
+  // Two render modes:
+  // 1. Offset-based (electricity mix): stepPoints tells us the data-array
+  //    stride.  We slice series at `index * stepPts`.
+  // 2. Payload-based (price map): each frame is a complete {title, series}
+  //    object from the API; no series slicing needed.
+  const isOffset = !!options.stepPoints;
+  const framePayloads = options.payload.options?.options as Record<string,any>[] | undefined;
+  const winPts = options.windowPoints ?? 2016;
+  const stepPts = options.stepPoints ?? 1;
 
   return {
     renderFrame(index: number) {
-      chart.dispatchAction({ type: "timelineChange", currentIndex: index });
-      return rgbaFrameBuffer(chart.renderToCanvas(), options.width, options.height);
+      if (isOffset) {
+        const start = index * stepPts;
+        const end = Math.min(start + winPts, allSeries![0].data.length);
+        const clipped = allSeries!.map((s: any) => ({
+          ...s,
+          data: s.data.slice(start, end),
+        }));
+        const d0 = allSeries![0].data;
+        const update: any = { series: clipped, xAxis: { min: d0[start][0], max: d0[end - 1]?.[0] ?? d0[start][0] } };
+        chart.setOption(update);
+      } else if (framePayloads) {
+        chart.setOption(framePayloads[index]);
+      }
+      chart.renderToCanvas();
     },
-    dispose() { chart.dispose(); },
+    async flushFrame(path: string) {
+      await canvas.toFile(path, { format: "raw" });
+    },
+    dispose() { chart.dispose() },
   };
-}
-
-function rgbaFrameBuffer(canvas: Canvas, width: number, height: number) {
-  const d = canvas.getContext("2d").getImageData(0, 0, width, height).data;
-  return Buffer.from(d.buffer, d.byteOffset, d.byteLength);
 }
 
 function registerMap(echarts: any, mapName: string, geoJsonUrl: string) {
