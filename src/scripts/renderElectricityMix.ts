@@ -18,14 +18,14 @@ type ElectricityMixProfile = {
 
 const profiles: Record<string, ElectricityMixProfile> = {
   de: {
-    url: "/europe/country/DE/6_months_ago_to_now/electricity_mix/echarts.json?production_type_groups=08_wind_offshore,09_wind_onshore,11_solar&transmission=0&load=1",
+    url: "/europe/country/DE/2025-09-01_to_yesterday/electricity_mix/echarts.json?production_type_groups=08_wind_offshore,09_wind_onshore,11_solar&transmission=0&load=1",
     output: "render/electricity-mix-de.mp4",
     framerate: "30",
     fps: "30",
     windowHours: 3*7*24,
     stepHours: 3,
-    // Note: emoji/flags need a font like Noto Color Emoji to render in video.
-    // DejaVu Sans (default in textStyle) doesn't include emoji glyphs.
+    // Noto Color Emoji (available via fonts-noto-color-emoji in the Docker image) renders
+    // the flag and emoji glyphs that DejaVu Sans doesn't cover.
     title: "🇩🇪 Germany Wind🌪️ and ☀️Solar - https://intermittent.energy powered by TimescaleDB",
   },
   gb: {
@@ -79,30 +79,76 @@ async function main() {
 function buildBaseTimelineOption(payload: EchartsJsonPayload) {
   const options = structuredClone(payload.options);
   options.animation = false;
+  // Global fallback text size — explicit per-component overrides below still take precedence.
+  options.textStyle = { ...(options.textStyle || {}), fontSize: 26 };
+  // Wrap ☀️ in a rich-text span so only it uses Noto Color Emoji;
+  // the rest stays in DejaVu Sans for proper Latin spacing.
+  const richTitle = profile.title.replace(
+    /☀️?/g,
+    '{sun|☀}',
+  );
+
   options.title = {
     ...(options.title || {}),
-    text: profile.title,
+    text: richTitle,
     left: "center",
     top: 10,
-    textStyle: { fontSize: 16 },
+    textStyle: {
+      fontSize: 24,
+      // DejaVu Sans first for normal Latin spacing.
+      fontFamily: "'DejaVu Sans', 'Noto Color Emoji', sans-serif",
+      rich: {
+        sun: {
+          // Noto first just for the sun glyph.
+          fontFamily: "'Noto Color Emoji', 'DejaVu Sans', sans-serif",
+        },
+      },
+    },
   };
-  options.legend = { ...(options.legend || {}), bottom: 5, left: "center" };
-  options.grid = { ...(options.grid || {}), top: 50, bottom: 80 };
+  // Clear the original top:86% so bottom:5 actually takes effect.
+  options.legend = { ...(options.legend || {}), top: undefined, bottom: 5, left: "center", textStyle: { fontSize: 26 } };
+  // Disable auto-margin expansion so the chart area never shifts frame-to-frame.
+  options.grid = { ...(options.grid || {}), top: 55, bottom: 75, left: 80, right: 0, outerBoundsMode: "none" };
   options.xAxis = mapAxis(options.xAxis, (axis) => ({
     ...axis,
-    axisLabel: { ...(axis.axisLabel || {}), fontSize: 16 },
+    axisLabel: {
+      ...(axis.axisLabel || {}),
+      fontSize: 26,
+      formatter: { type: "date" },
+      hideOverlap: true,
+    },
+    splitLine: { show: true },
   }));
-  options.yAxis = mapAxis(options.yAxis, (axis) => ({
+
+  // Compute global y-axis max across all series and pin the primary axis so
+  // the range doesn't jitter frame-to-frame when data is clipped.
+  const globalMax = computeMaxAcrossSeries(payload.options.series);
+  options.yAxis = mapAxis(options.yAxis, (axis, index) => ({
     ...axis,
-    axisLabel: { ...(axis.axisLabel || {}), fontSize: 16 },
+    max: index === 0 ? globalMax : axis.max,
+    axisLabel: { ...(axis.axisLabel || {}), fontSize: 20 },
   }));
+
   delete options.dataZoom;
   return options;
 }
 
-function mapAxis(axis: any, mapper: (axis: Record<string, any>) => Record<string, any>) {
-  const mapOne = (item: any) => typeof item === "object" && item !== null ? mapper(item) : item;
-  return Array.isArray(axis) ? axis.map(mapOne) : mapOne(axis);
+/** Return the maximum numeric y-value across all series. */
+function computeMaxAcrossSeries(series: any[]) {
+  let globalMax = -Infinity;
+  for (const s of series) {
+    if (!s?.data) continue;
+    for (const d of s.data) {
+      const v = Array.isArray(d) ? d[1] : d;
+      if (typeof v === "number" && v > globalMax) globalMax = v;
+    }
+  }
+  return globalMax > 0 ? globalMax : 0;
+}
+
+function mapAxis(axis: any, mapper: (axis: Record<string, any>, index: number) => Record<string, any>) {
+  const mapOne = (item: any, i: number) => typeof item === "object" && item !== null ? mapper(item, i) : item;
+  return Array.isArray(axis) ? axis.map(mapOne) : mapOne(axis, 0);
 }
 
 main().then(() => process.exit(0)).catch((error) => {

@@ -77,7 +77,7 @@ export function buildMapTimelineOptions(frames: MapTimelineFrame[], options: Map
         text: frames[0]?.layout?.title || options.title,
         left: "center",
         top: 24,
-        textStyle: { fontFamily: "DejaVu Sans, sans-serif", fontSize: 54, fontWeight: 700 },
+        textStyle: { fontFamily: "DejaVu Sans, 'Noto Color Emoji', sans-serif", fontSize: 54, fontWeight: 700 },
       },
       tooltip: { trigger: "item", formatter: options.tooltip },
       visualMap: options.visualMap,

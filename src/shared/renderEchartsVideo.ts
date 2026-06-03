@@ -160,7 +160,7 @@ async function createTimelineRenderer(options: TimelineRendererOptions) {
   // Set up the chart with full data (no timeline — each frame updates xAxis only).
   chart.setOption({
     backgroundColor: "#ffffff",
-    textStyle: { fontFamily: "DejaVu Sans, sans-serif" },
+    textStyle: { fontFamily: "DejaVu Sans, 'Noto Color Emoji', sans-serif" },
     ...baseOption,
   } as never, true);
 
@@ -174,6 +174,11 @@ async function createTimelineRenderer(options: TimelineRendererOptions) {
   const framePayloads = options.payload.options?.options as Record<string,any>[] | undefined;
   const winPts = options.windowPoints ?? 2016;
   const stepPts = options.stepPoints ?? 1;
+  const d0 = allSeries[0]?.data;
+  // Pre-compute the fixed window duration so every frame has the exact same
+  // x-axis span — avoids subtle jitter from timestamp rounding / gapfill.
+  const windowMs = d0 ? (d0[winPts - 1]?.[0] ?? 0) - (d0[0]?.[0] ?? 0) : 0;
+  const stepMs = d0 && d0.length > 1 ? d0[1][0] - d0[0][0] : 0;
 
   return {
     renderFrame(index: number) {
@@ -184,8 +189,9 @@ async function createTimelineRenderer(options: TimelineRendererOptions) {
           ...s,
           data: s.data.slice(start, end),
         }));
-        const d0 = allSeries![0].data;
-        const update: any = { series: clipped, xAxis: { min: d0[start][0], max: d0[end - 1]?.[0] ?? d0[start][0] } };
+        const xMin = d0![start][0];
+        const xMax = xMin + windowMs; // fixed span instead of d0[end-1][0]
+        const update: any = { series: clipped, xAxis: { min: xMin, max: xMax } };
         chart.setOption(update);
       } else if (framePayloads) {
         chart.setOption(framePayloads[index]);

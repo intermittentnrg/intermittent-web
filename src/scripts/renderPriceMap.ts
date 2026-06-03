@@ -127,7 +127,7 @@ function priceLabelMapSeries<T extends MapSeriesOption>(series: T[]) {
       ...item.label,
       show: true,
       color: "#111111",
-      fontFamily: "DejaVu Sans, sans-serif",
+      fontFamily: "DejaVu Sans, 'Noto Color Emoji', sans-serif",
       fontSize: 18,
       fontWeight: "bold",
       textBorderColor: "#ffffff",

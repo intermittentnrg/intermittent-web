@@ -112,7 +112,7 @@ async function renderEchartsPng(options: unknown, width: number, height: number)
       // Social preview cards are rendered onto arbitrary page backgrounds by crawlers.
       // Force an opaque background so the PNG never exposes the transparent canvas.
       backgroundColor: "#ffffff",
-      textStyle: { ...textStyle, fontFamily: "DejaVu Sans, sans-serif", fontSize: 18 },
+      textStyle: { ...textStyle, fontFamily: "DejaVu Sans, 'Noto Color Emoji', sans-serif", fontSize: 18 },
       title: scaleText(chartOptions.title, 28),
       legend: scaleText(chartOptions.legend, 18),
       xAxis: scaleAxisText(chartOptions.xAxis, 18),

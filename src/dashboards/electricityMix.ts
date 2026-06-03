@@ -126,12 +126,12 @@ export async function electricityMix(
 
   const colorFn = colorsFromQuery(request.query.colors);
 
-  const series = divergentSeries(buildSeriesFromData([
+  const series: Series[] = [];
+  if (request.query.load) series.push(...(await getLoadSeries(request, baseArgs)));
+  series.push(...divergentSeries(buildSeriesFromData([
     ...transData,
     ...genData,
-  ], colorFn));
-
-  if (request.query.load) series.push(...(await getLoadSeries(request, baseArgs)));
+  ], colorFn)));
 
   if (request.query.prices)
     (series as Array<ReturnType<typeof newSeries> | Awaited<ReturnType<typeof getPriceSeries>>[number]>).push(
