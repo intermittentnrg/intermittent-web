@@ -1,9 +1,11 @@
 import "dotenv/config";
+import { isMainThread } from "node:worker_threads";
 import {
   fetchEchartsPayload,
   renderEchartsVideo,
   type EchartsJsonPayload,
   type VideoProfile,
+  type CreateFrameGenerator,
 } from "./shared/renderEchartsVideo.ts";
 
 type ElectricityMixProfile = {
@@ -62,16 +64,20 @@ const profile: ElectricityMixProfile & VideoProfile = {
 async function main() {
   const payload = await fetchEchartsPayload(profile.url);
   const baseOption = buildBaseTimelineOption(payload);
-  // Compute step/window as data-point counts, pass them to the renderer
-  // so it can slice the series array directly — no frame array needed.
+
   const data0 = payload.options.series[0].data;
   const res = data0[1][0] - data0[0][0]; // ms per data point
   const stepPts = Math.round(profile.stepHours * 3600 * 1000 / res);
   const winPts = Math.round(profile.windowHours * 3600 * 1000 / res);
   const frameCount = Math.floor((data0.length - winPts) / stepPts) + 1;
+
   await renderEchartsVideo(
     profile,
-    { payload, stepPoints: stepPts, windowPoints: winPts, frameCount, baseOption },
+    {
+      payload, frameCount, baseOption,
+      frameGeneratorModule: new URL("./renderElectricityMix.ts", import.meta.url).href,
+      frameGeneratorParams: { stepHours: profile.stepHours, windowHours: profile.windowHours },
+    },
     { description: "electricity mix frames" },
   );
 }
@@ -151,7 +157,31 @@ function mapAxis(axis: any, mapper: (axis: Record<string, any>, index: number) =
   return Array.isArray(axis) ? axis.map(mapOne) : mapOne(axis, 0);
 }
 
-main().then(() => process.exit(0)).catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+// === Frame generator (used by workers via dynamic import) ===
+
+export const createFrameGenerator: CreateFrameGenerator = (payload, params) => {
+  const data0 = payload.options.series[0].data;
+  const res = data0[1][0] - data0[0][0]; // ms per data point
+  const stepPts = Math.round((params?.stepHours ?? 1) * 3600 * 1000 / res);
+  const winPts = Math.round((params?.windowHours ?? 24) * 3600 * 1000 / res);
+  const windowMs = data0[winPts - 1][0] - data0[0][0];
+  const allSeries = payload.options.series;
+
+  return (i: number) => {
+    const start = i * stepPts;
+    const end = Math.min(start + winPts, data0.length);
+    return {
+      series: allSeries.map((s: any) => ({ ...s, data: s.data.slice(start, end) })),
+      xAxis: { min: data0[start][0], max: data0[start][0] + windowMs },
+    };
+  };
+};
+
+// === Entry point (main thread only) ===
+
+if (isMainThread) {
+  main().then(() => process.exit(0)).catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}

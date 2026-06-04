@@ -16,14 +16,33 @@ export type EchartsJsonPayload = {
   mapName?: string;
 } & Record<string, any>;
 
+/** Function returned by createFrameGenerator — produces one ECharts option object per frame index. */
+export type FrameGenerator = (index: number) => Record<string, any>;
+
+/** Factory signature expected of modules loaded via frameGeneratorModule. */
+export type CreateFrameGenerator = (
+  payload: EchartsJsonPayload,
+  params?: Record<string, any>,
+) => FrameGenerator;
+
 export type TimelineRendererOptions = {
   payload: EchartsJsonPayload;
   frameCount: number;
   width: number;
   height: number;
   baseOption?: Record<string, any>;
-  stepPoints?: number;   // for offset-based frame stepping
-  windowPoints?: number; // data points per frame
+  /**
+   * Absolute URL (file://) of a module that exports
+   * `createFrameGenerator(payload, params?) => (index) => optionObject`.
+   * The worker dynamically imports this module to obtain the frame generator,
+   * so all source-specific frame-building logic stays in the source module
+   * and never crosses the structured-clone boundary.
+   */
+  frameGeneratorModule: string;
+  /**
+   * Optional extra parameters forwarded to createFrameGenerator.
+   */
+  frameGeneratorParams?: Record<string, any>;
 };
 
 // ---------------------------------------------------------------------------
@@ -167,20 +186,14 @@ async function createTimelineRenderer(options: TimelineRendererOptions) {
     ...baseOption,
   } as never, true);
 
-  const allSeries = options.payload.options!.series;
-  // Two render modes:
-  // 1. Offset-based (electricity mix): stepPoints tells us the data-array
-  //    stride.  We slice series at `index * stepPts`.
-  // 2. Payload-based (price map): each frame is a complete {title, series}
-  //    object from the API; no series slicing needed.
-  const isOffset = !!options.stepPoints;
-  const framePayloads = options.payload.options?.options as Record<string,any>[] | undefined;
-  const winPts = options.windowPoints ?? 2016;
-  const stepPts = options.stepPoints ?? 1;
-  const d0 = allSeries[0]?.data;
-  // Pre-compute the fixed window duration so every frame has the exact same
-  // x-axis span — avoids subtle jitter from timestamp rounding / gapfill.
-  const windowMs = d0 ? (d0[winPts - 1]?.[0] ?? 0) - (d0[0]?.[0] ?? 0) : 0;
+  // Dynamically import the source's frame-generator module and obtain a
+  // lazy per-frame payload function.  The module is a regular source file
+  // (e.g. renderElectricityMix.ts) that exports createFrameGenerator.
+  // Because the module path is a plain string it survives structured-clone
+  // into workers, and the actual generator closure is created *inside* the
+  // worker where it can close over the payload data already present.
+  const frameMod = await import(options.frameGeneratorModule) as { createFrameGenerator: CreateFrameGenerator };
+  const getFramePayload = frameMod.createFrameGenerator(options.payload, options.frameGeneratorParams);
 
   // replaceMerge tells ECharts to swap series models instead of deep-merging
   // their options.  For data-only updates this saves ~18 % of setOption time.
@@ -188,20 +201,7 @@ async function createTimelineRenderer(options: TimelineRendererOptions) {
 
   return {
     renderFrame(index: number) {
-      if (isOffset) {
-        const start = index * stepPts;
-        const end = Math.min(start + winPts, allSeries![0].data.length);
-        const clipped = allSeries!.map((s: any) => ({
-          ...s,
-          data: s.data.slice(start, end),
-        }));
-        const xMin = d0![start][0];
-        const xMax = xMin + windowMs; // fixed span instead of d0[end-1][0]
-        const update: any = { series: clipped, xAxis: { min: xMin, max: xMax } };
-        chart.setOption(update, replaceMergeOpt);
-      } else if (framePayloads) {
-        chart.setOption(framePayloads[index], replaceMergeOpt);
-      }
+      chart.setOption(getFramePayload(index), replaceMergeOpt);
       chart.renderToCanvas();
     },
     async flushFrame(path: string) {

@@ -1,9 +1,12 @@
 import "dotenv/config";
+import { isMainThread } from "node:worker_threads";
 import type { MapSeriesOption } from "echarts/types/dist/echarts";
 import {
   fetchEchartsPayload,
   renderEchartsVideo,
   type VideoProfile,
+  type EchartsJsonPayload,
+  type CreateFrameGenerator,
 } from "./shared/renderEchartsVideo.ts";
 
 type PriceMapProfile = {
@@ -116,6 +119,7 @@ async function main() {
       },
       frameCount: frames.length,
       baseOption: baseOpt,
+      frameGeneratorModule: new URL("./renderPriceMap.ts", import.meta.url).href,
     },
   );
 }
@@ -137,7 +141,18 @@ function priceLabelMapSeries<T extends MapSeriesOption>(series: T[]) {
   } : item);
 }
 
-main().then(() => process.exit(0)).catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+// === Frame generator (used by workers via dynamic import) ===
+
+export const createFrameGenerator: CreateFrameGenerator = (payload) => {
+  const frames = (payload.options as any).options as Record<string, any>[];
+  return (i: number) => frames[i];
+};
+
+// === Entry point (main thread only) ===
+
+if (isMainThread) {
+  main().then(() => process.exit(0)).catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}
