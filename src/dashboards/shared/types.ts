@@ -54,7 +54,7 @@ type BuiltInSeriesOption =
 
 export type Series = BuiltInSeriesOption & {
   name: string;
-  data: Array<[number, number]>;
-  // Application metadata consumed by frontend formatters.
+  data: number[];
+  /** Application metadata consumed by frontend formatters. */
   unit?: string;
 };

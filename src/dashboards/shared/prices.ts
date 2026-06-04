@@ -43,7 +43,7 @@ export async function getPriceSeries(
       currentSeries = newPriceSeries(key, options);
       series.push(currentSeries);
     }
-    currentSeries.data!.push([row.time, row.value]);
+    currentSeries.data!.push(row.value);
   }
 
   return series;
@@ -60,7 +60,7 @@ function newPriceSeries(key: string, options: PriceSeriesOptions = {}): Series {
     lineStyle: { width: 2, color },
     itemStyle: { color },
     yAxisIndex: options.yAxisIndex,
-    data: [] as Array<[number, number]>,
+    data: [] as number[],
   };
 }
 

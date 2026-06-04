@@ -153,33 +153,42 @@ class ChartModule {
       const seriesMap = this.buildSeriesUnitMap(options.series)
       
       options.tooltip.formatter = (params) => {
-        const timestamp = params[0]?.value[0]
-        const date = timestamp ? new Date(timestamp).toLocaleString('en-GB', { timeZone: 'UTC', hour12: false }) : ''
-        
+        // With dataset+encode, p.value is the row [t, v1, v2, ...].
+        // Extract the y-value via encode mapping; fall back to p.value for legacy flat data.
+        const val = p => p.encode?.y?.length != null ? Number(p.value[p.encode.y[0]]) : Number(p.value)
+
+        // Timestamp from row column 0 (dataset) or p.name (legacy category axis)
+        const ts = params[0]?.value?.[0] ?? params[0]?.name
+        const date = ts ? new Date(Number(ts)).toLocaleString('en-GB', { timeZone: 'UTC', hour12: false }) : ''
+
+        const nonZero = params.filter(p => val(p) !== 0)
+        if (nonZero.length === 0) return date || '-'
+
         let total = 0
-        const parts = params.map(p => {
-          let value = p.value[1]
+        const parts = nonZero.map(p => {
+          const num = val(p)
           const unit = seriesMap[p.seriesIndex] || formatter.type
-          
+
+          let display
           if (unit === 'power') {
-            value = formatPower(value)
-            total += p.value[1] || 0
+            display = formatPower(num)
+            total += num
           } else if (unit === 'energy') {
-            value = formatEnergy(value)
+            display = formatEnergy(num)
           } else if (unit === 'price') {
-            value = formatPrice(value)
+            display = formatPrice(num)
           } else if (unit === 'temperature') {
-            value = value?.toFixed(0) + '°C'
+            display = (num.toFixed(0) || '-') + '°C'
           } else if (unit === 'percent') {
-            value = (value * 100)?.toFixed(1) + '%'
+            display = ((num * 100).toFixed(1) || '-') + '%'
           } else {
-            value = value?.toFixed(0) || '-'
+            display = num.toFixed(0) || '-'
           }
-          return `${p.marker} ${p.seriesName}: ${value}`
+          return `${p.marker} ${p.seriesName}: ${display}`
         })
-        
-        const totalStr = (formatter.type === 'power' || formatter.type === 'dual') 
-          ? `<b>Total: ${formatPower(total)}</b>` 
+
+        const totalStr = (formatter.type === 'power' || formatter.type === 'dual')
+          ? `<b>Total: ${formatPower(total)}</b>`
           : ''
         return date + '<br/>' + (totalStr ? totalStr + '<br/>' : '') + parts.join('<br/>')
       }
@@ -271,6 +280,14 @@ class ChartModule {
   pixelToTime(point) {
     const value = this.chart.convertFromPixel({ gridIndex: 0 }, point)
     const raw = Array.isArray(value) ? value[0] : value
+    // For category axis, raw is the category index; look up the timestamp from xAxis.data.
+    if (typeof raw === 'number' && !(raw instanceof Date)) {
+      const xAxis = this.chart.getOption().xAxis
+      const xData = Array.isArray(xAxis) ? xAxis[0]?.data : xAxis?.data
+      if (xData && Number.isInteger(raw) && raw >= 0 && raw < xData.length) {
+        return Number(xData[raw])
+      }
+    }
     return raw instanceof Date ? raw.getTime() : Number(raw)
   }
 

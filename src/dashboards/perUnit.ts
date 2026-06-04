@@ -76,6 +76,9 @@ export async function perUnit(
     unitIds,
     ctx.timezone,
   ]);
+  const startTime = rows[0]?.time as number | undefined;
+  const interval = ctx.interval * 1000;
+
   return sendChartResponse(
     req,
     reply,
@@ -86,6 +89,9 @@ export async function perUnit(
       })),
       "Per Unit",
       "power",
+      true,
+      startTime,
+      interval,
     ),
     ctx.timezoneAbbreviation,
     await unitMeta(ctx.areaIds),
@@ -106,6 +112,11 @@ export async function perUnitTotal(
     unitIds,
     ctx.timezone,
   ]);
+  const t0 = rows[0]?.time as number | undefined;
+  const t1 = rows[1]?.time as number | undefined;
+  const startTime = t0;
+  const interval = t0 != null && t1 != null ? t1 - t0 : ctx.interval * 1000;
+
   return sendChartResponse(
     req,
     reply,
@@ -113,6 +124,9 @@ export async function perUnitTotal(
       buildBasicSeries(rows, "bar", true, "energy"),
       "Per Unit Total (Daily)",
       "energy",
+      true,
+      startTime,
+      interval,
     ),
     ctx.timezoneAbbreviation,
     await unitMeta(ctx.areaIds),
@@ -229,12 +243,18 @@ export async function perUnitMovingCapacity(
       lineStyle: { width: 2, type: "dashed" },
     }),
   ];
+  const t0 = [...cap, ...out].find((r: AnyRow) => r.time != null)?.time as number | undefined;
+  const startTime = t0;
+  const interval = ctx.interval * 1000;
+
   return sendChartResponse(
     req,
     reply,
     buildDualAxisOptions(
       series,
       "Per Unit Moving Capacity Factor & Output",
+      startTime,
+      interval,
     ),
     ctx.timezoneAbbreviation,
     await unitMeta(ctx.areaIds),
@@ -317,6 +337,10 @@ export async function perUnitBattery(
     ctx.timezone,
   ]);
 
+  const t0 = rows[0]?.time as number | undefined;
+  const startTime = t0;
+  const interval = ctx.interval * 1000;
+
   return sendChartResponse(
     req,
     reply,
@@ -329,6 +353,9 @@ export async function perUnitBattery(
       }),
       "Battery Events",
       "energy",
+      true,
+      startTime,
+      interval,
     ),
     ctx.timezoneAbbreviation,
     await unitMeta(ctx.areaIds),

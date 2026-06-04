@@ -47,9 +47,14 @@ function processSeriesLabelFormatter(label: Record<string, any> | undefined) {
   const formatter = label?.formatter as CustomSeriesLabelFormatter | undefined;
   const type = formatter?.type;
   if (!label || !type) return;
-  label.formatter = (params: { value: unknown }) => {
-    if (type === "blank-invalid-template") return formatBlankInvalidTemplate(params.value, formatter.template);
-    return formatByType(params.value, type);
+  label.formatter = (params: any) => {
+    // With dataset+encode, params.value is the full row [t, v1, v2, ...].
+    // Extract the y-value via the encode mapping when present.
+    const value = params.encode?.y?.length != null
+      ? params.value[params.encode.y[0]]
+      : params.value;
+    if (type === "blank-invalid-template") return formatBlankInvalidTemplate(value, formatter.template);
+    return formatByType(value, type);
   };
 }
 
@@ -63,7 +68,7 @@ export function formatterForType(type: unknown) {
   if (type === "energy") return (value: unknown) => formatEnergy(value);
   if (type === "price") return (value: unknown) => formatPrice(value);
   if (type === "date") return (value: unknown) => {
-    const date = new Date(value as string | number | Date);
+    const date = new Date(Number(value));
     return `${date.getMonth() + 1}/${date.getDate()}`;
   };
   return (value: unknown) => value?.toString() || "-";

@@ -561,12 +561,12 @@ export async function sweden(
   function pushCurrent(key: string, make: () => AnyRow, row: AnyRow, pushValue: number, target: AnyRow[]) {
     let cur = lastTarget === target ? target[target.length - 1] : null;
     if (key !== lastKey || !cur) {
-      cur = { ...make(), data: [] as [number, number][] };
+      cur = { ...make(), data: [] as number[] };
       target.push(cur);
       lastKey = key;
       lastTarget = target;
     }
-    cur.data.push([row.time as number, pushValue]);
+    cur.data.push(pushValue);
   }
 
   // Transmission — ordered by area_id, each row has domestic + international columns
@@ -676,9 +676,9 @@ export async function sweden(
       containLabel: true,
     });
     xAxes.push({
-      type: "time",
+      type: "category",
       gridIndex: i,
-      axisLabel: { show: i === numAreas - 1 },
+      axisLabel: { show: i === numAreas - 1, formatter: { type: "date" } },
     });
     yAxes.push({
       type: "value",
@@ -703,6 +703,10 @@ export async function sweden(
     }
   }
 
+  // Compute time metadata from genRows (the primary data source).
+  const startTime = genRows[0]?.time as number | undefined;
+  const interval = ctx.interval * 1000;
+
   const options = {
     height: 900,
     title: {
@@ -725,6 +729,8 @@ export async function sweden(
     xAxis: xAxes,
     yAxis: yAxes,
     series,
+    startTime,
+    interval,
   };
 
   return sendChartResponse(

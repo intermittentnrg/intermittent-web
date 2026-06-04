@@ -7,7 +7,6 @@ import {
   type VideoProfile,
   type CreateFrameGenerator,
 } from "./shared/renderEchartsVideo.ts";
-
 type ElectricityMixProfile = {
   url: string;
   output: string;
@@ -63,26 +62,40 @@ const profile: ElectricityMixProfile & VideoProfile = {
 
 async function main() {
   const payload = await fetchEchartsPayload(profile.url);
-  const baseOption = buildBaseTimelineOption(payload);
+  const { startTime, interval } = payload.options;
+  const series = payload.options.series;
 
-  const data0 = payload.options.series[0].data;
-  const res = data0[1][0] - data0[0][0]; // ms per data point
-  const stepPts = Math.round(profile.stepHours * 3600 * 1000 / res);
-  const winPts = Math.round(profile.windowHours * 3600 * 1000 / res);
-  const frameCount = Math.floor((data0.length - winPts) / stepPts) + 1;
+  if (startTime == null || interval == null) {
+    throw new Error("Payload options missing startTime/interval");
+  }
+
+  // API response now carries a 2D dataset (from applyTimeAxis), so dataLen
+  // comes from the dataset source, not from per-series data arrays.
+  const dataLen = payload.options.dataset?.source?.length ?? 0;
+
+  const stepPts = Math.round(profile.stepHours * 3600 * 1000 / interval);
+  const winPts = Math.round(profile.windowHours * 3600 * 1000 / interval);
+  const frameCount = Math.max(1, Math.floor((dataLen - winPts) / stepPts) + 1);
+
+  const baseOption = buildBaseTimelineOption(payload, startTime, interval, dataLen);
 
   await renderEchartsVideo(
     profile,
     {
       payload, frameCount, baseOption,
       frameGeneratorModule: new URL("./renderElectricityMix.ts", import.meta.url).href,
-      frameGeneratorParams: { stepHours: profile.stepHours, windowHours: profile.windowHours },
+      frameGeneratorParams: { stepPts, winPts, startTime, interval },
     },
     { description: "electricity mix frames" },
   );
 }
 
-function buildBaseTimelineOption(payload: EchartsJsonPayload) {
+function buildBaseTimelineOption(
+  payload: EchartsJsonPayload,
+  startTime: number,
+  interval: number,
+  dataLen: number,
+) {
   const options = structuredClone(payload.options);
   options.animation = false;
   // Global fallback text size — explicit per-component overrides below still take precedence.
@@ -115,20 +128,31 @@ function buildBaseTimelineOption(payload: EchartsJsonPayload) {
   options.legend = { ...(options.legend || {}), top: undefined, bottom: 5, left: "center", itemWidth: 32, itemHeight: 18, textStyle: { fontSize: 32 } };
   // Disable auto-margin expansion so the chart area never shifts frame-to-frame.
   options.grid = { ...(options.grid || {}), top: 55, bottom: 75, left: 80, right: 0, outerBoundsMode: "none" };
+
+  // The API response already carries the 2D dataset (built by applyTimeAxis on
+  // the server), so the base option inherits it as-is.  The frame generator will
+  // slice this same table for each frame.
+
+  // Use a time axis so ECharts picks nice intervals (midnight, etc.) and scrolls
+  // the labels / split-lines naturally when the dataset source changes.
   options.xAxis = mapAxis(options.xAxis, (axis) => ({
     ...axis,
+    type: "time",
+    data: undefined,
     axisLabel: {
       ...(axis.axisLabel || {}),
       fontSize: 26,
-      formatter: { type: "date" },
       hideOverlap: true,
     },
     splitLine: { show: true },
   }));
 
-  // Compute global y-axis max across all series and pin the primary axis so
+  // Series already carry encode (not raw data) from the API response.
+  // Nothing to do here — the dataset is the single source of truth.
+
+  // Compute global y-axis max from the dataset and pin the primary axis so
   // the range doesn't jitter frame-to-frame when data is clipped.
-  const globalMax = computeMaxAcrossSeries(payload.options.series);
+  const globalMax = computeMaxAcrossDataset(payload.options.dataset?.source);
   options.yAxis = mapAxis(options.yAxis, (axis, index) => ({
     ...axis,
     max: index === 0 ? globalMax : axis.max,
@@ -139,17 +163,25 @@ function buildBaseTimelineOption(payload: EchartsJsonPayload) {
   return options;
 }
 
-/** Return the maximum numeric y-value across all series. */
-function computeMaxAcrossSeries(series: any[]) {
+/** Return the maximum numeric y-value across the dataset (column 1..N), rounded
+ *  up to a nice round number so ECharts picks clean tick intervals. */
+function computeMaxAcrossDataset(source: unknown[][] | undefined) {
+  if (!source?.length) return 0;
   let globalMax = -Infinity;
-  for (const s of series) {
-    if (!s?.data) continue;
-    for (const d of s.data) {
-      const v = Array.isArray(d) ? d[1] : d;
-      if (typeof v === "number" && v > globalMax) globalMax = v;
+  for (const row of source) {
+    for (let col = 1; col < row.length; col++) {
+      const v = Number(row[col]);
+      if (!isNaN(v) && v > globalMax) globalMax = v;
     }
   }
-  return globalMax > 0 ? globalMax : 0;
+  if (globalMax <= 0) return 0;
+  // Round up to the nearest nice number (1, 2, or 5 × power of 10)
+  const mag = Math.pow(10, Math.floor(Math.log10(globalMax)));
+  const norm = globalMax / mag;
+  if (norm <= 1) return mag;
+  if (norm <= 2) return 2 * mag;
+  if (norm <= 5) return 5 * mag;
+  return 10 * mag;
 }
 
 function mapAxis(axis: any, mapper: (axis: Record<string, any>, index: number) => Record<string, any>) {
@@ -160,19 +192,27 @@ function mapAxis(axis: any, mapper: (axis: Record<string, any>, index: number) =
 // === Frame generator (used by workers via dynamic import) ===
 
 export const createFrameGenerator: CreateFrameGenerator = (payload, params) => {
-  const data0 = payload.options.series[0].data;
-  const res = data0[1][0] - data0[0][0]; // ms per data point
-  const stepPts = Math.round((params?.stepHours ?? 1) * 3600 * 1000 / res);
-  const winPts = Math.round((params?.windowHours ?? 24) * 3600 * 1000 / res);
-  const windowMs = data0[winPts - 1][0] - data0[0][0];
+  const { stepPts, winPts } = params as Record<string, number>;
+  const source = payload.options.dataset?.source as unknown[][] | undefined;
+  const dataLen = source?.length ?? 0;
+
+  // Pre-build series configs (encode points to the dataset).
+  // The render loop uses replaceMerge: ["series"], so we must include series
+  // in every frame payload — otherwise replaceMerge would delete them.
   const allSeries = payload.options.series;
+  const seriesConfigs = Array.isArray(allSeries)
+    ? allSeries.map((s: any) => {
+        const { data: _drop, ...rest } = s;
+        return rest;
+      })
+    : [];
 
   return (i: number) => {
     const start = i * stepPts;
-    const end = Math.min(start + winPts, data0.length);
+    const end = Math.min(start + winPts, dataLen);
     return {
-      series: allSeries.map((s: any) => ({ ...s, data: s.data.slice(start, end) })),
-      xAxis: { min: data0[start][0], max: data0[start][0] + windowMs },
+      dataset: { source: source!.slice(start, end) },
+      series: seriesConfigs,
     };
   };
 };

@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PNG } from "pngjs";
 import { processEchartsFormatters } from "../../shared/echartsFormatters.ts";
-import { buildDualAxisOptions } from "./chartOptions.ts";
+import { buildDualAxisOptions, applyTimeAxis } from "./chartOptions.ts";
 import { getEchartsForSsr } from "./echartsSsr.ts";
 
 type ChartPayload = {
@@ -52,11 +52,13 @@ export async function sendDualAxisChart(
   title: string,
   timezone: string,
   extra: Record<string, unknown> = {},
+  startTime?: number,
+  interval?: number,
 ) {
   return sendChartResponse(
     request,
     reply,
-    buildDualAxisOptions(series, title),
+    buildDualAxisOptions(series, title, startTime, interval),
     timezone,
     extra,
   );
@@ -86,7 +88,7 @@ async function renderEchartsPng(options: unknown, width: number, height: number)
   const chart = echarts.init(canvas, undefined, { renderer: "canvas", ssr: true, width, height });
 
   try {
-    const chartOptions = processEchartsFormatters(options as Record<string, unknown>);
+    const chartOptions = applyTimeAxis(processEchartsFormatters(options as Record<string, unknown>) as Record<string, any>);
     const textStyle = typeof chartOptions.textStyle === "object" && chartOptions.textStyle !== null
       ? chartOptions.textStyle as Record<string, unknown>
       : {};

@@ -26,7 +26,9 @@ export async function prices(
     [`${ctx.interval} seconds`, ctx.from, ctx.to, ctx.areaIds, ctx.timezone],
     { colorForMetric: colorFn },
   );
-  const options = buildChartOptions(series, "Prices", "price");
+  const startTime = ctx.from.getTime();
+  const interval = ctx.interval * 1000;
+  const options = buildChartOptions(series, "Prices", "price", true, startTime, interval);
   return sendChartResponse(request, reply, options, ctx.timezoneAbbreviation);
 }
 
@@ -152,6 +154,7 @@ function buildCapturePriceOptions(
   timeSeriesRows: AnyRow[],
   rollingRows: AnyRow[],
   summaryRows: AnyRow[],
+  intervalMs = 3600000,
 ) {
   const series: any[] = [];
 
@@ -163,18 +166,16 @@ function buildCapturePriceOptions(
       isPrice ? 0 : 1,
       isPrice ? 0 : 1,
       isPrice ? "price" : "percent",
-    ).data.push([Number(row.time), row.value == null ? null : Number(row.value)]);
+    ).data.push(row.value == null ? null : Number(row.value));
   }
 
   for (const row of rollingRows) {
-    getOrCreateSeries(series, String(row.name), 2, 2, "price").data.push([
-      Number(row.time),
+    getOrCreateSeries(series, String(row.name), 2, 2, "price").data.push(
       row.capture_price == null ? null : Number(row.capture_price),
-    ]);
-    getOrCreateSeries(series, `${row.name} (rate)`, 3, 3, "percent").data.push([
-      Number(row.time),
+    );
+    getOrCreateSeries(series, `${row.name} (rate)`, 3, 3, "percent").data.push(
       row.capture_rate == null ? null : Number(row.capture_rate),
-    ]);
+    );
   }
 
   const names = summaryRows.map((row) => String(row.name));
@@ -203,6 +204,10 @@ function buildCapturePriceOptions(
     },
   );
 
+  const allTimeRows = [...timeSeriesRows, ...rollingRows];
+  const startTime = allTimeRows[0]?.time != null ? Number(allTimeRows[0].time) : undefined;
+  const interval = intervalMs;
+
   return {
     useUTC: true,
     title: { text: "Capture Prices", left: "center", top: 10 },
@@ -221,13 +226,15 @@ function buildCapturePriceOptions(
       { left: "52%", right: "5%", top: "64%", height: "22%", outerBoundsMode: "same", outerBoundsContain: "axisLabel" },
     ],
     xAxis: [
-      { type: "time", gridIndex: 0 },
-      { type: "time", gridIndex: 1 },
-      { type: "time", gridIndex: 2 },
-      { type: "time", gridIndex: 3 },
+      { type: "category", gridIndex: 0, axisLabel: { formatter: { type: "date" } } },
+      { type: "category", gridIndex: 1, axisLabel: { formatter: { type: "date" } } },
+      { type: "category", gridIndex: 2, axisLabel: { formatter: { type: "date" } } },
+      { type: "category", gridIndex: 3, axisLabel: { formatter: { type: "date" } } },
       { type: "value", gridIndex: 4 },
       { type: "value", gridIndex: 5 },
     ],
+    startTime,
+    interval,
     yAxis: [
       { type: "value", gridIndex: 0, axisLabel: { formatter: { type: "price" } } },
       { type: "value", gridIndex: 1, axisLabel: { formatter: { type: "percent" } } },
@@ -263,7 +270,7 @@ export async function capturePrice(
   return sendChartResponse(
     req,
     reply,
-    buildCapturePriceOptions(timeSeriesRows, rollingRows, summaryRows),
+    buildCapturePriceOptions(timeSeriesRows, rollingRows, summaryRows, ctx.interval * 1000),
     ctx.timezoneAbbreviation,
     { production_types: await getProductionTypeOptions(ctx.areaIds) },
     900,

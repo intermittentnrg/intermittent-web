@@ -75,12 +75,17 @@ export async function transmission(
     `,
     [ctx.areaIds],
   );
+  const startTime = rows[0]?.time as number | undefined;
+  const interval = ctx.interval * 1000;
+
   return sendChartResponse(
     req,
     reply,
     buildDualAxisOptions(
       divergentSeries(buildTransmissionSeries(rows)),
       "Transmission",
+      startTime,
+      interval,
     ),
     ctx.timezoneAbbreviation,
     {
@@ -108,10 +113,7 @@ function buildTransmissionSeries(rows: AnyRow[]) {
         data: [],
       });
     }
-    m.get(k).data.push([
-      Number(r.time),
-      r.value == null ? null : Number(r.value),
-    ]);
+    m.get(k).data.push(r.value == null ? null : Number(r.value));
   }
   return [...m.values()];
 }

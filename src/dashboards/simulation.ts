@@ -156,7 +156,7 @@ ORDER BY time`;
     pt,
     mult.demand,
   ]);
-  const options = await simulationOptions(req, args, mult, pt, summary, includeTransmission);
+  const options = await simulationOptions(req, args, mult, pt, summary, includeTransmission, ctx.interval * 1000);
   return sendChartResponse(
     req,
     reply,
@@ -174,8 +174,13 @@ async function simulationOptions(
   productionTypeIds: number[],
   summaryRows: AnyRow[],
   includeTransmission: boolean,
+  intervalMs = 3600000,
 ) {
   const summary = summaryRows.at(-1) ?? {};
+
+  const startTime = summaryRows.find((r: AnyRow) => r.time != null)?.time as number | undefined;
+  const interval = intervalMs;
+
   const options: any = {
     height: 900,
     tooltip: { trigger: "axis", formatter: { type: "multi" } },
@@ -185,6 +190,8 @@ async function simulationOptions(
     xAxis: [],
     yAxis: [],
     series: [],
+    startTime,
+    interval,
   };
 
   await addGenerationPanel(options, req, args, mult, productionTypeIds, includeTransmission);
@@ -344,7 +351,7 @@ async function addGenerationPanel(
     data: [...new Set(series.map((s) => s.name))],
   });
   options.grid.push({ left: "3%", right: "15%", top: "7%", height: "25%" });
-  options.xAxis.push({ type: "time", gridIndex, axisLabel: { show: false } });
+  options.xAxis.push({ type: "category", gridIndex, axisLabel: { show: false } });
   options.yAxis.push(powerAxis(gridIndex));
   options.series.push(...series);
 }
@@ -369,7 +376,7 @@ function addCumulativeDeficitPanel(options: any, rows: AnyRow[]) {
   options.title.push({ text: "Cumulative Deficit", left: "center", right: "15%", top: "33%" });
   options.legend.push({ top: "35%", left: "center", right: "15%", data: ["sum deficit"] });
   options.grid.push({ left: "3%", right: "15%", top: "37%", height: "25%" });
-  options.xAxis.push({ type: "time", gridIndex, axisLabel: { show: false } });
+  options.xAxis.push({ type: "category", gridIndex, axisLabel: { show: false } });
   options.yAxis.push(energyAxis(gridIndex));
   options.series.push(lineSeries("sum deficit", "energy", gridIndex, fieldData(rows, "sum_deficit")));
 }
@@ -414,7 +421,7 @@ function addDifferencePanel(options: any, rows: AnyRow[]) {
     ],
   });
   options.grid.push({ left: "3%", right: "2%", top: "69%", height: "26%" });
-  options.xAxis.push({ type: "time", gridIndex });
+  options.xAxis.push({ type: "category", gridIndex, axisLabel: { formatter: { type: "date" } } });
   options.yAxis.push(powerAxis(gridIndex));
   options.series.push(
     lineSeries("transmission", "power", gridIndex, fieldData(rows, "transmission")),
@@ -444,7 +451,7 @@ function energyAxis(gridIndex: number) {
 }
 
 function fieldData(rows: AnyRow[], field: string) {
-  return rows.map((row) => [row.time, Number(row[field] || 0)]);
+  return rows.map((row) => Number(row[field] || 0));
 }
 
 function lineSeries(name: string, unit: string, axisIndex: number, data: any[]) {

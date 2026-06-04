@@ -78,6 +78,8 @@ export async function generation(
   }
   if (request.query.prices) series.push(...(await getPriceSeries(request, priceArgs, { yAxisIndex: 1 })));
   const productionTypes = await getProductionTypeOptions(ctx.areaIds);
+  const startTime = rows[0]?.time as number | undefined;
+  const interval = ctx.interval * 1000;
   return sendDualAxisChart(
     request,
     reply,
@@ -85,6 +87,8 @@ export async function generation(
     "Generation",
     ctx.timezoneAbbreviation,
     { production_types: productionTypes },
+    startTime,
+    interval,
   );
 }
 
@@ -131,11 +135,17 @@ export async function generationTotal(
   const series = buildBasicSeries(rows, "bar", true, "energy", {
     colorForMetric: colorFn,
   });
+  const startTime = rows[0]?.time as number | undefined;
+  const interval = ctx.interval * 1000;
+
   const productionTypes = await getProductionTypeOptions(ctx.areaIds);
   const options = buildChartOptions(
     series,
     "Generation Total (Daily)",
     "energy",
+    true,
+    startTime,
+    interval,
   );
   return sendChartResponse(request, reply, options, ctx.timezoneAbbreviation, {
     production_types: productionTypes,
@@ -173,11 +183,16 @@ export async function generationMinMax(
     ctx.timezone,
     ptIds,
   ]);
+  const startTime = rows[0]?.time as number | undefined;
+  const interval = ctx.interval * 1000;
+
   const options = buildChartOptions(
     buildMinMaxSeries(rows),
     "Generation Min/Max",
     "power",
     false,
+    startTime,
+    interval,
   );
   return sendChartResponse(req, reply, options, ctx.timezoneAbbreviation, {
     production_types: await getProductionTypeOptions(ctx.areaIds),
@@ -214,6 +229,9 @@ export async function generationYoy(
     finish.getFullYear(),
     ptIds,
   ]);
+  const startTime = rows[0]?.time as number | undefined;
+  const interval = ctx.interval * 1000;
+
   return sendChartResponse(
     req,
     reply,
@@ -221,6 +239,9 @@ export async function generationYoy(
       buildYoySeries(rows),
       "Generation Year over Year",
       "power",
+      true,
+      startTime,
+      interval,
     ),
     ctx.timezoneAbbreviation,
     { production_types: await getProductionTypeOptions(ctx.areaIds) },

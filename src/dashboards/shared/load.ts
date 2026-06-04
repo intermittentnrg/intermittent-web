@@ -36,7 +36,7 @@ export async function getLoadSeries(
       };
       series.push(currentSeries);
     }
-    currentSeries.data.push([row.time, row.value]);
+    currentSeries.data.push(row.value);
   }
 
   return series;

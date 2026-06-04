@@ -5,7 +5,7 @@ import { buildDualAxisOptions } from "./shared/chartOptions.ts";
 import { sendChartResponse } from "./shared/chartResponse.ts";
 import { getPriceSeries } from "./shared/prices.ts";
 import { getLoadSeries } from "./shared/load.ts";
-import type { DashboardParams, DashboardQuery, TimeMetricValueRow } from "./shared/types.ts";
+import type { DashboardParams, DashboardQuery, Series, TimeMetricValueRow } from "./shared/types.ts";
 import { divergentSeries } from "./shared/series.ts";
 import { colorsFromQuery } from "./shared/colors.ts";
 
@@ -128,10 +128,12 @@ export async function electricityMix(
 
   const series: Series[] = [];
   if (request.query.load) series.push(...(await getLoadSeries(request, baseArgs)));
-  series.push(...divergentSeries(buildSeriesFromData([
-    ...transData,
-    ...genData,
-  ], colorFn)));
+
+  const allData = [...transData, ...genData];
+  const startTime = allData.length > 0 ? allData[0].time : undefined;
+  const interval = ctx.interval * 1000;
+
+  series.push(...divergentSeries(buildSeriesFromData(allData, colorFn)));
 
   if (request.query.prices)
     (series as Array<ReturnType<typeof newSeries> | Awaited<ReturnType<typeof getPriceSeries>>[number]>).push(
@@ -141,7 +143,7 @@ export async function electricityMix(
   return sendChartResponse(
     request,
     reply,
-    buildDualAxisOptions(series, "Electricity Mix"),
+    buildDualAxisOptions(series, "Electricity Mix", startTime, interval),
     ctx.timezoneAbbreviation,
   );
 }
@@ -156,7 +158,7 @@ function buildSeriesFromData(rows: TimeMetricValueRow[], colorFn: (metric: strin
       currentSeries = newSeries(key, colorFn);
       series.push(currentSeries);
     }
-    currentSeries.data.push([row.time, row.value]);
+    currentSeries.data.push(row.value);
   }
 
   return series;
@@ -175,6 +177,6 @@ function newSeries(key: string, colorFn: (metric: string) => string | undefined)
     areaStyle: { opacity: 0.75 },
     lineStyle: { width: 0 },
     itemStyle: { color: colorFn(key) },
-    data: [] as Array<[number, number]>,
+    data: [] as number[],
   };
 }

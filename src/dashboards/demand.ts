@@ -40,12 +40,18 @@ export async function demand(
     ctx.areaIds,
     ctx.timezone,
   ]);
+  const startTime = rows[0]?.time as number | undefined;
+  const interval = ctx.interval * 1000;
+
   return sendDualAxisChart(
     request,
     reply,
     buildPowerLineSeries(rows, areaColor),
     "Demand",
     ctx.timezoneAbbreviation,
+    undefined,
+    startTime,
+    interval,
   );
 }
 
@@ -82,6 +88,9 @@ export async function demandMinMax(
     ctx.areaIds,
     ctx.timezone,
   ]);
+  const startTime = rows[0]?.time as number | undefined;
+  const interval = ctx.interval * 1000;
+
   return sendChartResponse(
     req,
     reply,
@@ -90,6 +99,8 @@ export async function demandMinMax(
       "Demand Min/Max",
       "power",
       false,
+      startTime,
+      interval,
     ),
     ctx.timezoneAbbreviation,
   );
@@ -108,6 +119,9 @@ export async function demandYoy(
     ctx.timezone,
     finish.getFullYear(),
   ]);
+  const startTime = rows[0]?.time as number | undefined;
+  const interval = ctx.interval * 1000;
+
   return sendChartResponse(
     req,
     reply,
@@ -115,6 +129,9 @@ export async function demandYoy(
       buildYoySeries(rows),
       "Demand Year over Year",
       "power",
+      true,
+      startTime,
+      interval,
     ),
     ctx.timezoneAbbreviation,
   );

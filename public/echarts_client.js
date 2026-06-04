@@ -7,6 +7,7 @@ import {
   ScatterChart,
 } from "echarts/charts"
 import {
+  DatasetComponent,
   GeoComponent,
   GraphicComponent,
   GridComponent,
@@ -25,6 +26,7 @@ echarts.use([
   MapChart,
   HeatmapChart,
   ScatterChart,
+  DatasetComponent,
   GridComponent,
   GeoComponent,
   TooltipComponent,
