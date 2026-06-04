@@ -225,7 +225,6 @@ export async function perUnitMovingCapacity(
     }),
     ...buildFieldSeries(out, "value", "power", {
       nameField: "metric",
-      multiplier: 1000,
       yAxisIndex: 1,
       lineStyle: { width: 2, type: "dashed" },
     }),
@@ -298,7 +297,7 @@ SELECT
   event_type,
   min(time) AS event_start,
   max(time) AS event_end,
-  sum(value * 5.0 / 60.0)*1000 AS energy_mwh,
+  sum(value * 5.0 / 60.0) AS energy_mwh,
   count(*) AS intervals
 FROM events
 GROUP BY unit_id, event_id, event_type

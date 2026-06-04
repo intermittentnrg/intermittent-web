@@ -132,7 +132,7 @@ export function buildYoySeries(rows: AnyRow[]): Series[] {
       .get(metric)!
       .data.push([
         row.time,
-        row.value * 1000,
+        row.value,
       ]);
   }
 
@@ -206,7 +206,7 @@ export function buildBasicSeries(
       .get(key)!
       .data.push([
         row.time,
-        row.value * (unit === "power" ? 1000 : 1),
+        row.value,
       ]);
   }
 
@@ -233,14 +233,12 @@ export function buildFieldSeries(
   unit: string,
   options: {
     nameField?: string;
-    multiplier?: number;
     suffix?: string;
     yAxisIndex?: number;
     lineStyle?: Record<string, unknown>;
   } = {},
 ): Series[] {
   const nameField = options.nameField || "name";
-  const multiplier = options.multiplier ?? 1;
   const suffix = options.suffix || "";
   const yAxisIndex = options.yAxisIndex || 0;
   const seriesByName = new Map<string, Series>();
@@ -263,7 +261,7 @@ export function buildFieldSeries(
       .get(name)!
       .data.push([
         row.time,
-        row[field] * multiplier,
+        row[field],
       ]);
   }
 

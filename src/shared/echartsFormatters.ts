@@ -91,11 +91,11 @@ export function formatBlankInvalidTemplate(value: unknown, template: unknown) {
 }
 
 export function formatPower(value: unknown) {
-  return formatMagnitude(value, ["W", "kW", "MW", "GW", "TW"]);
+  return formatMagnitude(value, ["kW", "MW", "GW", "TW"]);
 }
 
 export function formatEnergy(value: unknown) {
-  return formatMagnitude(value, ["Wh", "kWh", "MWh", "GWh", "TWh"]);
+  return formatMagnitude(value, ["kWh", "MWh", "GWh", "TWh"]);
 }
 
 export function formatMagnitude(value: unknown, suffixes: string[]) {

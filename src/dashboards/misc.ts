@@ -476,8 +476,8 @@ const swedenTransSql = `
   SELECT
     EXTRACT(EPOCH FROM time AT TIME ZONE $5) * 1000 AS time,
     code AS area_code,
-    SUM(CASE WHEN to_area_id = ANY($2::int[]) THEN value ELSE 0 END) * 1000 AS transmission_domestic,
-    SUM(CASE WHEN NOT (to_area_id = ANY($2::int[])) THEN value ELSE 0 END) * 1000 AS transmission_international
+    SUM(CASE WHEN to_area_id = ANY($2::int[]) THEN value ELSE 0 END) AS transmission_domestic,
+    SUM(CASE WHEN NOT (to_area_id = ANY($2::int[])) THEN value ELSE 0 END) AS transmission_international
   FROM _transmission_avg
   INNER JOIN areas a ON (from_area_id = a.id)
   GROUP BY 1, 2
@@ -626,7 +626,7 @@ export async function sweden(
         name: type, type: "line", unit: "power", symbol: "none",
         lineStyle: { width: 2, color: "#000" }, itemStyle: { color: "#000" },
         xAxisIndex: areaIdx, yAxisIndex: areaIdx,
-      }), row, (row.value as number) * 1000, loadSeries);
+      }), row, (row.value as number), loadSeries);
     } else {
       const color = colorFn(type);
       pushCurrent(key, () => ({
@@ -634,7 +634,7 @@ export async function sweden(
         lineStyle: { width: 0 }, areaStyle: { opacity: 0.75 },
         ...(color ? { itemStyle: { color } } : {}),
         xAxisIndex: areaIdx, yAxisIndex: areaIdx,
-      }), row, (row.value as number) * 1000, stackedSeries);
+      }), row, (row.value as number), stackedSeries);
     }
   }
 

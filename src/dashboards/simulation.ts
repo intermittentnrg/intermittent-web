@@ -375,7 +375,7 @@ function addCumulativeDeficitPanel(options: any, rows: AnyRow[]) {
 }
 
 function summaryBarSeries(name: string, color: string, axisIndex: number, value: number) {
-  const formattedValue = formatEnergy(value * 1000);
+  const formattedValue = formatEnergy(value);
   return {
     name,
     type: "bar",
@@ -392,7 +392,7 @@ function summaryBarSeries(name: string, color: string, axisIndex: number, value:
       fontSize: 18,
       lineHeight: 26,
     },
-    data: [value * 1000],
+    data: [value],
   };
 }
 
@@ -444,7 +444,7 @@ function energyAxis(gridIndex: number) {
 }
 
 function fieldData(rows: AnyRow[], field: string) {
-  return rows.map((row) => [row.time, Number(row[field] || 0) * 1000]);
+  return rows.map((row) => [row.time, Number(row[field] || 0)]);
 }
 
 function lineSeries(name: string, unit: string, axisIndex: number, data: any[]) {

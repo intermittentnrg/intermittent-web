@@ -156,7 +156,7 @@ function buildSeriesFromData(rows: TimeMetricValueRow[], colorFn: (metric: strin
       currentSeries = newSeries(key, colorFn);
       series.push(currentSeries);
     }
-    currentSeries.data.push([row.time, row.value * 1000]);
+    currentSeries.data.push([row.time, row.value]);
   }
 
   return series;

@@ -110,7 +110,7 @@ function buildTransmissionSeries(rows: AnyRow[]) {
     }
     m.get(k).data.push([
       Number(r.time),
-      r.value == null ? null : Number(r.value) * 1000,
+      r.value == null ? null : Number(r.value),
     ]);
   }
   return [...m.values()];

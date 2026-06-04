@@ -89,7 +89,7 @@ export async function generation(
 }
 
 const generationTotalSql = `
-  SELECT EXTRACT(EPOCH FROM time_bucket('1d', time) AT TIME ZONE $4) * 1000 AS time, CONCAT_WS('/', area, production_type) AS metric, SUM(value)*1000 AS value
+  SELECT EXTRACT(EPOCH FROM time_bucket('1d', time) AT TIME ZONE $4) * 1000 AS time, CONCAT_WS('/', area, production_type) AS metric, SUM(value) AS value
   FROM (
     SELECT time_bucket_gapfill('1h', time) AS time, a.code AS area, pt.name AS production_type, AVG(GREATEST(0, value)) AS value
     FROM generation
@@ -151,7 +151,7 @@ WITH _full_res AS (
 )
 SELECT EXTRACT(EPOCH FROM time AT TIME ZONE $5) * 1000 AS time, avg_value, min_value, max_value
 FROM (
-  SELECT time_bucket($1::interval, time) AS time, AVG(value) * 1000 AS avg_value, MIN(value) * 1000 AS min_value, MAX(value) * 1000 AS max_value
+  SELECT time_bucket($1::interval, time) AS time, AVG(value) AS avg_value, MIN(value) AS min_value, MAX(value) AS max_value
   FROM (SELECT time, SUM(value) AS value FROM _full_res GROUP BY time) s
   WHERE value IS NOT NULL GROUP BY 1 ORDER BY 1
 ) s2`;
