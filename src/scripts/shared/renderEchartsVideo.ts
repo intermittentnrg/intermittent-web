@@ -96,8 +96,8 @@ export async function renderEchartsVideo(
     return;
   }
 
-  const sab = new SharedArrayBuffer(8);
-  new Int32Array(sab)[0] = 0;
+  const writeToken = new SharedArrayBuffer(8);
+  new Int32Array(writeToken)[0] = 0;
 
   const workerCount = Math.min(renderWorkers, frameCount);
   const exitErrors: Error[] = [];
@@ -106,7 +106,7 @@ export async function renderEchartsVideo(
     new Worker(new URL("./renderEchartsVideo.ts", import.meta.url), {
       workerData: {
         __renderEchartsVideoWorker: true, ...rendererData,
-        fifoPath: fifoVideo.fifoPath, sab, frameCount, workerIndex: i, workerCount,
+        fifoPath: fifoVideo.fifoPath, writeToken, frameCount, workerIndex: i, workerCount,
       },
       execArgv: process.execArgv,
     }),
@@ -130,10 +130,10 @@ export async function renderEchartsVideo(
 
 async function runFifoFrameWorker(
   createRenderer: () => Promise<{ renderFrame(i: number): void; flushFrame(p: string): Promise<void>; dispose(): any }>,
-  fifoPath: string, sab: ArrayBuffer, frameCount: number, workerIndex: number, workerCount: number,
+  fifoPath: string, writeToken: ArrayBuffer, frameCount: number, workerIndex: number, workerCount: number,
 ) {
   const renderer = await createRenderer();
-  const counter = new Int32Array(sab);
+  const counter = new Int32Array(writeToken);
 
   try {
     for (let i = workerIndex; i < frameCount; i += workerCount) {
@@ -222,11 +222,11 @@ function registerMap(echarts: any, mapName: string, geoJsonUrl: string) {
 
 async function timelineWorkerMain() {
   const d = nodeWorkerData as Record<string, unknown>;
-  const { fifoPath, sab, frameCount, workerIndex, workerCount, __renderEchartsVideoWorker: _, ...opts } = d;
-  if (fifoPath && sab && typeof frameCount === "number" && typeof workerIndex === "number" && typeof workerCount === "number") {
+  const { fifoPath, writeToken, frameCount, workerIndex, workerCount, __renderEchartsVideoWorker: _, ...opts } = d;
+  if (fifoPath && writeToken && typeof frameCount === "number" && typeof workerIndex === "number" && typeof workerCount === "number") {
     await runFifoFrameWorker(
       () => createTimelineRenderer(opts as TimelineRendererOptions),
-      fifoPath as string, sab as ArrayBuffer, frameCount, workerIndex, workerCount,
+      fifoPath as string, writeToken as ArrayBuffer, frameCount, workerIndex, workerCount,
     );
   } else { console.error("Worker missing fifoPath/sab"); process.exit(1); }
 }
