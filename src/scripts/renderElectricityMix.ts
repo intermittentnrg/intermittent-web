@@ -4,7 +4,7 @@ import {
   renderEchartsVideo,
   type EchartsJsonPayload,
   type VideoProfile,
-} from "../shared/renderEchartsVideo.ts";
+} from "./shared/renderEchartsVideo.ts";
 
 type ElectricityMixProfile = {
   url: string;
@@ -18,7 +18,7 @@ type ElectricityMixProfile = {
 
 const profiles: Record<string, ElectricityMixProfile> = {
   de: {
-    url: "/europe/country/DE/2025-09-01_to_yesterday/electricity_mix/echarts.json?production_type_groups=08_wind_offshore,09_wind_onshore,11_solar&transmission=0&load=1",
+    url: "/europe/country/DE/2025-10-01_to_2026-06-01/electricity_mix/echarts.json?production_type_groups=08_wind_offshore,09_wind_onshore,11_solar&transmission=0&load=1",
     output: "render/electricity-mix-de.mp4",
     framerate: "30",
     fps: "30",
@@ -106,7 +106,7 @@ function buildBaseTimelineOption(payload: EchartsJsonPayload) {
     },
   };
   // Clear the original top:86% so bottom:5 actually takes effect.
-  options.legend = { ...(options.legend || {}), top: undefined, bottom: 5, left: "center", textStyle: { fontSize: 26 } };
+  options.legend = { ...(options.legend || {}), top: undefined, bottom: 5, left: "center", itemWidth: 32, itemHeight: 18, textStyle: { fontSize: 32 } };
   // Disable auto-margin expansion so the chart area never shifts frame-to-frame.
   options.grid = { ...(options.grid || {}), top: 55, bottom: 75, left: 80, right: 0, outerBoundsMode: "none" };
   options.xAxis = mapAxis(options.xAxis, (axis) => ({

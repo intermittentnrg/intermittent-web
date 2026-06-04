@@ -18,6 +18,8 @@ services:
       - no-new-privileges:true
     stdin_open: true
     tty: true
+    devices:
+      - /dev/dri:/dev/dri
 volumes:
   node-modules:
   home-node:

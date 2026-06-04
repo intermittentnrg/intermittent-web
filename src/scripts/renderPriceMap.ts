@@ -4,7 +4,7 @@ import {
   fetchEchartsPayload,
   renderEchartsVideo,
   type VideoProfile,
-} from "../shared/renderEchartsVideo.ts";
+} from "./shared/renderEchartsVideo.ts";
 
 type PriceMapProfile = {
   url: string;

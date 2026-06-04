@@ -21,8 +21,11 @@ WORKDIR /app
 # fontconfig + a basic TrueType font let server-side ECharts/canvas rendering
 # produce readable chart text, and ffmpeg stitches price-map frames into video.
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ffmpeg fontconfig fonts-dejavu-core \
+  && apt-get install -y --no-install-recommends ffmpeg fontconfig fonts-dejavu-core fonts-noto-color-emoji \
   && rm -rf /var/lib/apt/lists/*
+
+# GPU acceleration for skia-canvas
+RUN groupadd -g 109 render && usermod -aG video,render node
 
 COPY package*.json ./
 RUN npm ci --include=dev \

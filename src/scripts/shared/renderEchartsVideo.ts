@@ -3,9 +3,9 @@ import { availableParallelism } from "node:os";
 import { isMainThread, Worker, workerData as nodeWorkerData } from "node:worker_threads";
 import { join } from "node:path";
 import { Canvas } from "skia-canvas";
-import { processEchartsFormatters } from "./echartsFormatters.ts";
-import { getEchartsForSsr } from "../dashboards/shared/echartsSsr.ts";
-import { buildApp } from "../server.ts";
+import { processEchartsFormatters } from "../../shared/echartsFormatters.ts";
+import { getEchartsForSsr } from "../../dashboards/shared/echartsSsr.ts";
+import { buildApp } from "../../server.ts";
 import { spawnFifoVideo, type VideoProfile } from "./ffmpegVideoWriter.ts";
 
 export type { VideoProfile } from "./ffmpegVideoWriter.ts";
@@ -50,14 +50,16 @@ export async function renderEchartsVideo(
   if (!frameCount) throw new Error(`No frames to render for ${profile.url}`);
 
   const raw = process.env.RENDER_MODE || "fast";
-  const ffmpegPreset = raw === "fast" || raw === "single" ? "fast" : "veryslow";
-  const renderWorkers = raw === "single" ? 0 : Math.max(1, Math.min(raw === "fast" ? 4 : 2, availableParallelism()));
+  // Use full parallelism for fast drafts; slow mode uses fewer workers
+  // to leave headroom for the heavier veryslow ffmpeg pass.
+  const maxWorkers = raw === "fast" ? 4 : 2;
+  const renderWorkers = raw === "single" ? 0 : Math.max(1, Math.min(maxWorkers, availableParallelism()));
   if (!["fast", "slow", "single"].includes(raw)) throw new Error(`Unknown RENDER_MODE=${raw}. Expected fast, slow, or single.`);
 
   const rendererData = { ...rendererOptions, width: profile.width, height: profile.height };
   console.log(`Rendering ${frameCount} ${options.description || "frames"} via ${renderWorkers || "single"} worker${renderWorkers === 1 ? "" : "s"}`);
 
-  const fifoVideo = spawnFifoVideo(profile, { renderMode: { ffmpegPreset } });
+  const fifoVideo = spawnFifoVideo(profile, { renderMode: raw });
   // Keeper fd — stays open so children can toFile() without tripping EOF.
   const keeperFd = openSync(fifoVideo.fifoPath, fs.O_WRONLY);
 
@@ -141,6 +143,7 @@ async function createTimelineRenderer(options: TimelineRendererOptions) {
   if (options.payload.mapName && options.payload.geoJsonUrl) registerMap(echarts, options.payload.mapName, options.payload.geoJsonUrl);
 
   const canvas = new Canvas(options.width, options.height);
+  canvas.gpu = process.env.GPU_RENDERING === "true"; // GPU off by default (CPU faster for chart workloads)
   const chart = echarts.init(canvas, undefined, { renderer: "canvas", ssr: true, width: options.width, height: options.height });
   const chartOption = processEchartsFormatters(options.payload.options);
   const baseOption = options.baseOption ? processEchartsFormatters(options.baseOption) : chartOption;
