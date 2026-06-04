@@ -98,6 +98,9 @@ function buildBaseTimelineOption(
 ) {
   const options = structuredClone(payload.options);
   options.animation = false;
+  // No data-point symbols needed for video rendering — and more importantly
+  // SymbolDraw.updateData unconditionally runs data.diff() which is ~8% CPU.
+  options.showSymbol = false;
   // Global fallback text size — explicit per-component overrides below still take precedence.
   options.textStyle = { ...(options.textStyle || {}), fontSize: 26 };
   // Wrap ☀️ in a rich-text span so only it uses Noto Color Emoji;
@@ -191,10 +194,52 @@ function mapAxis(axis: any, mapper: (axis: Record<string, any>, index: number) =
 
 // === Frame generator (used by workers via dynamic import) ===
 
+/** Mark an object as "primitive" to prevent zrender's clone from deep-copying it.
+ *  ECharts/zrender checks for the `__ec_primitive__` property and skips cloning
+ *  when it is truthy. */
+function markPrimitive<T extends object>(obj: T): T {
+  (obj as Record<string, any>)["__ec_primitive__"] = true;
+  return obj;
+}
+
+/** Pre-allocate a flat Float64Array containing ALL data columns
+ *  (row-major: [t, v1, v2, …, t, v1, v2, …]).  ECharts accepts flat typed arrays
+ *  as dataset source when dimensions are provided, and uses the fast
+ *  `fillStorageForTypedArray` path which avoids per-row getter calls.
+ *
+ *  Returns the flat array and dimension definitions. */
+function buildFlatTypedStore(source: unknown[][]) {
+  const dataLen = source.length;
+  const colCount = source[0]?.length ?? 0;
+  if (colCount < 2) throw new Error("Expected at least 2 columns");
+
+  // Use Float64Array for all columns (timestamps need Float64; value columns
+  // are Int32-range but Float64 is fine and keeps a single unified buffer).
+  const flat = new Float64Array(dataLen * colCount);
+  for (let r = 0; r < dataLen; r++) {
+    const row = source[r];
+    const base = r * colCount;
+    for (let c = 0; c < colCount; c++) {
+      flat[base + c] = row[c];
+    }
+  }
+  return flat;
+}
+
+/** Build dimension definitions from the series names. */
+function buildDimDefs(series: unknown[]) {
+  const names = series.map((s: any) => s.name ?? "");
+  return [
+    { name: "time", type: "time" as const },
+    ...names.map((n: string) => ({ name: n, type: "int" as const })),
+  ];
+}
+
 export const createFrameGenerator: CreateFrameGenerator = (payload, params) => {
   const { stepPts, winPts } = params as Record<string, number>;
   const source = payload.options.dataset?.source as unknown[][] | undefined;
   const dataLen = source?.length ?? 0;
+  const colCount = source?.[0]?.length ?? 0;
 
   // Pre-build series configs (encode points to the dataset).
   // The render loop uses replaceMerge: ["series"], so we must include series
@@ -203,15 +248,38 @@ export const createFrameGenerator: CreateFrameGenerator = (payload, params) => {
   const seriesConfigs = Array.isArray(allSeries)
     ? allSeries.map((s: any) => {
         const { data: _drop, ...rest } = s;
+        // showSymbol must be explicitly false per series — the global option
+        // does not cascade to series models for this property.
+        rest.showSymbol = false;
         return rest;
       })
     : [];
 
+  // Convert the 2-D array source to a flat Float64Array.
+  // Mark it primitive so zrender's clone returns it as-is (zero copy).
+  const flatFull = markPrimitive(buildFlatTypedStore(source!));
+  const dimDefs = buildDimDefs(allSeries);
+
   return (i: number) => {
     const start = i * stepPts;
     const end = Math.min(start + winPts, dataLen);
+    const winLen = end - start;
+
+    // Zero-copy subarray view into the shared ArrayBuffer.
+    // Float64: 8 bytes per element.
+    const byteOffset = flatFull.byteOffset + start * colCount * 8;
+    const sliced = new Float64Array(
+      flatFull.buffer,
+      byteOffset,
+      winLen * colCount,
+    );
+    markPrimitive(sliced);
+
     return {
-      dataset: { source: source!.slice(start, end) },
+      dataset: {
+        source: sliced,
+        dimensions: dimDefs,
+      },
       series: seriesConfigs,
     };
   };
