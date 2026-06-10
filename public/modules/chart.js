@@ -366,33 +366,44 @@ class ChartModule {
 
             let html = `<div style="font-weight:600;margin-bottom:4px;border-bottom:1px solid #e5e7eb;padding-bottom:4px;">${date}</div>`
 
+            // Group visible series by label (de-duplicate, e.g. "Transmission" split into pos/neg)
+            const groups = new Map()
             for (let si = 1; si < series.length; si++) {
               const s = series[si]
               if (!s.show) continue
               const raw = rawData[si]?.[idx]
               if (raw == null) continue
-
-              // stroke is always a function in uPlot (not a raw string)
-              const color = s.stroke(u, si)
               const label = s.label || ''
-              // Format: power for primary axis, price for secondary
-              const isSecondary = s.scale === '%'
-              const val = isSecondary ? formatPrice(raw) : formatPower(raw)
+              if (!groups.has(label)) {
+                groups.set(label, {
+                  color: s.stroke(u, si),
+                  scale: s.scale,
+                  rawTotal: 0,
+                })
+              }
+              groups.get(label).rawTotal += raw
+            }
+
+            // Build tooltip rows from groups, reverse order so tooltip lists
+            // from top downwards (matching stack bottom-up).
+            const groupEntries = Array.from(groups.entries()).reverse()
+            for (const [label, g] of groupEntries) {
+              const isSecondary = g.scale === '%'
+              const val = isSecondary ? formatPrice(g.rawTotal) : formatPower(g.rawTotal)
               html += `<div style="display:flex;align-items:center;gap:6px;">`
-              html += `<span style="width:10px;height:10px;border-radius:2px;background:${color};flex-shrink:0;"></span>`
+              html += `<span style="width:10px;height:10px;border-radius:2px;background:${g.color};flex-shrink:0;"></span>`
               html += `<span>${label}</span>`
               html += `<span style="margin-left:auto;font-weight:500;">${val}</span>`
               html += `</div>`
             }
 
-            // Add total for primary-axis series
+            // Add total for primary-axis groups (de-duplicated)
             let total = 0
             let hasTotal = false
-            for (let si = 1; si < series.length; si++) {
-              const s = series[si]
-              if (!s.show || s.scale === '%') continue
-              const raw = rawData[si]?.[idx]
-              if (raw != null) { total += raw; hasTotal = true }
+            for (const [, g] of groups) {
+              if (g.scale === '%') continue
+              total += g.rawTotal
+              hasTotal = true
             }
             if (hasTotal) {
               html += `<div style="display:flex;align-items:center;gap:6px;margin-top:4px;padding-top:4px;border-top:1px solid #e5e7eb;">`
