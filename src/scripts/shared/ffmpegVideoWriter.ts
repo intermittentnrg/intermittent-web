@@ -82,17 +82,15 @@ function ffmpegArgsForVideo(profile: VideoProfile, fifoPath: string, renderMode:
     case "fast":
     case "single": {
       const drmNode = drmRenderNode();
-      const whiteBg = [
-        `color=c=white:s=${profile.width}x${profile.height}:r=${profile.fps}[bg]`,
-        "[bg][0:v]overlay=shortest=1",
-        "pad=ceil(iw/2)*2:ceil(ih/2)*2",
-      ];
+      // Frames are already fully opaque (white fill via drawClear hook),
+      // so no need for color=white...overlay compositing.
+      const filter = "pad=ceil(iw/2)*2:ceil(ih/2)*2";
       if (drmNode) {
         console.log(`RENDER_MODE=${renderMode} → HW encoder: VAAPI via ${drmNode}`);
         return [
           "-hide_banner", "-loglevel", "error", "-stats",
           ...base,
-          "-filter_complex", [...whiteBg, "format=nv12,hwupload[out]"].join(","),
+          "-filter_complex", `${filter},format=nv12,hwupload[out]`,
           "-map", "[out]",
           "-c:v", "h264_vaapi",
           "-vaapi_device", drmNode,
@@ -106,7 +104,7 @@ function ffmpegArgsForVideo(profile: VideoProfile, fifoPath: string, renderMode:
       return [
         "-hide_banner", "-loglevel", "warning", "-stats",
         ...base,
-        "-filter_complex", [...whiteBg, "format=yuv420p[out]"].join(","),
+        "-filter_complex", `${filter},format=yuv420p[out]`,
         "-map", "[out]",
         "-c:v", "libx264",
         "-preset", "ultrafast",
@@ -127,13 +125,7 @@ function ffmpegArgsForVideo(profile: VideoProfile, fifoPath: string, renderMode:
         "-crf", "18",
         "-profile:v", "high",
         "-movflags", "+faststart",
-        "-filter_complex", [
-          `color=c=white:s=${profile.width}x${profile.height}:r=${profile.fps}[bg]`,
-          "[bg][0:v]overlay=shortest=1",
-          "pad=ceil(iw/2)*2:ceil(ih/2)*2",
-          `fps=${profile.fps}`,
-          "format=yuv420p[out]",
-        ].join(","),
+        "-filter_complex", `pad=ceil(iw/2)*2:ceil(ih/2)*2,fps=${profile.fps},format=yuv420p[out]`,
         "-map", "[out]",
         profile.output, "-y",
       ];

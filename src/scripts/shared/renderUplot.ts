@@ -221,6 +221,16 @@ export async function createUplotRenderer(
     legend: { show: false },
     // No plugins for SSR
     plugins: [],
+    // Fill canvas with white after clearRect so pixels are fully opaque.
+    // This lets us skip the ffmpeg color=white...overlay compositing since
+    // there's no transparency to composite over.
+    hooks: {
+      drawClear: [() => {
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }],
+    },
   };
 
   // Create the uPlot instance — the DOM shim provides document.
