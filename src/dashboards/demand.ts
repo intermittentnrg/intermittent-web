@@ -50,6 +50,8 @@ export async function demand(
       opts: { title: "Demand", series: [], axes: [] },
       data: [],
       rawData: [],
+      startTime: 0,
+      interval: 0,
     });
   }
   const maxLen = series.reduce((max, s) => Math.max(max, s.data?.length ?? 0), 0);
@@ -100,11 +102,15 @@ export async function demandMinMax(
       opts: { title: "Demand Min/Max", series: [], axes: [] },
       data: [],
       rawData: [],
+      startTime: 0,
+      interval: 0,
     });
   }
   const maxLen = series.reduce((max, s) => Math.max(max, s.data?.length ?? 0), 0);
   const timestamps = buildXAxisTimestamps(startTime, interval, maxLen);
   const payload = buildUplotPayload("Demand Min/Max", timestamps, series, ctx.timezone);
+  // Force the y-axis to start at 0 so the confidence band sits on a meaningful baseline
+  payload.opts.scales = { y: { range: [0, null] } };
   return sendUplotResponse(req, reply, payload);
 }
 
@@ -130,6 +136,8 @@ export async function demandYoy(
       opts: { title: "Demand Year over Year", series: [], axes: [] },
       data: [],
       rawData: [],
+      startTime: 0,
+      interval: 0,
     });
   }
   const maxLen = series.reduce((max, s) => Math.max(max, s.data?.length ?? 0), 0);

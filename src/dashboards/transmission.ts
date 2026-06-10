@@ -85,6 +85,8 @@ export async function transmission(
       opts: { title: "Transmission", series: [], axes: [] },
       data: [],
       rawData: [],
+      startTime: 0,
+      interval: 0,
     });
   }
   const maxLen = series.reduce((max, s) => Math.max(max, s.data?.length ?? 0), 0);

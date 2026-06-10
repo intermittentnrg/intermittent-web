@@ -36,6 +36,8 @@ export async function prices(
       opts: { title: "Prices", series: [], axes: [] },
       data: [],
       rawData: [],
+      startTime: 0,
+      interval: 0,
     });
   }
   const maxLen = series.reduce((max, s) => Math.max(max, s.data?.length ?? 0), 0);

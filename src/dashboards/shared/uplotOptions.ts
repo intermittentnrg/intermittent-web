@@ -15,13 +15,17 @@ export type UplotPayload = {
   chartLibrary: "uplot";
   /** uPlot options — width/height are set by frontend, tzDate is constructed from payload.timezone. */
   opts: Partial<uPlot.Options>;
-  /** Cumulative data for rendering (first col = timestamps, rest = cumulative series values) */
+  /** Cumulative data columns (value series only — timestamps derived from startTime + interval * index). */
   data: (number | null)[][];
   /** Raw (non-cumulative) values for tooltips, same shape as data. */
   rawData: (number | null)[][];
   /** IANA timezone name (e.g. "Europe/Stockholm") for uPlot tzDate configuration. */
   timezone?: string;
-  /** Per-series rendering hints (one entry per data column after [0], parallel to opts.series[1..]). */
+  /** Start time (epoch seconds) of the first data point. */
+  startTime: number;
+  /** Interval between data points in seconds. */
+  interval: number;
+  /** Per-series rendering hints (one entry per data column, parallel to opts.series). */
   seriesMeta?: Array<{ type?: "line" | "bar" | "scatter" }>;
 };
 
@@ -66,10 +70,14 @@ export function buildUplotPayload(
   ianaTimezone: string,
 ): UplotPayload {
   const length = timestamps.length;
+  const startTime = length > 0 ? timestamps[0] : 0;
+  const interval = length > 1 ? timestamps[1] - timestamps[0] : 0;
 
-  // ── Data columns: first col = timestamps ──
-  const data: (number | null)[][] = [timestamps.slice()];
-  const rawData: (number | null)[][] = [timestamps.slice()];
+  // ── Data columns: value series only (timestamps derived from startTime + interval * index) ──
+  const data: (number | null)[][] = [];
+  const rawData: (number | null)[][] = [];
+  // uPlot expects opts.series[0] to be the x-axis entry (maps to data[0] = timestamps,
+  // which the frontend rebuilds from startTime + interval * index).
   const uplotSeries: uPlot.Series[] = [{ label: "Time" }];
   const bands: uPlot.Band[] = [];
   const seriesMeta: UplotPayload["seriesMeta"] = [];
@@ -134,8 +142,10 @@ export function buildUplotPayload(
       // Bands for stacked series: areas fill between cumulative paths;
       // the bars path builder also reads bands to determine per-bar baseline.
       if (!isFirstInGroup && usePrimaryScale && s.fill) {
+        // data has no timestamp column, but opts.series includes it at index 0.
+        // uPlot's final series array = [Time, value1, value2, ...], so shift band indices by 1.
         bands.push({
-          series: [colIdx, colIdx - 1],
+          series: [colIdx + 1, colIdx],
           fill: s.fill,
         });
       }
@@ -193,7 +203,6 @@ export function buildUplotPayload(
     title,
     scales: {
       x: { time: true },
-      y: { range: [0, null] },
     },
     cursor: {
       show: true,
@@ -220,6 +229,8 @@ export function buildUplotPayload(
     opts,
     data,
     rawData,
+    startTime,
+    interval,
     timezone: ianaTimezone,
   };
   if (seriesMeta.length > 0) result.seriesMeta = seriesMeta;

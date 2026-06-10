@@ -244,11 +244,20 @@ class ChartModule {
     this.chartTarget.style.minWidth = '0'
     this.chartTarget.style.position = 'relative'
 
-    const { opts, data: plotData, rawData, seriesMeta } = data
-    this._lastRawData = rawData || plotData
+    const { opts, data: plotData, rawData, seriesMeta, startTime, interval } = data
+
+    // Rebuild timestamps from startTime + interval * index (avoids sending full array over wire).
+    const count = (plotData[0]?.length ?? 0)
+    const timestamps = new Array(count)
+    for (let i = 0; i < count; i++) {
+      timestamps[i] = startTime + i * interval
+    }
+    const plotDataWithX = [timestamps, ...plotData]
+    const rawDataWithX = [timestamps, ...(rawData || plotData)]
+    this._lastRawData = rawDataWithX
 
     // Apply per-series rendering hints (e.g. bars, scatter) before creating the chart.
-    // seriesMeta runs parallel to opts.series[1..] (one entry per data column after time).
+    // seriesMeta runs parallel to opts.series[1..] (skipping the time entry at [0]).
     if (seriesMeta && opts.series) {
       for (let i = 0; i < seriesMeta.length; i++) {
         const meta = seriesMeta[i]
@@ -298,16 +307,7 @@ class ChartModule {
       height: heightPx,
       legend: {
         ...opts.legend,
-        show: true,
-        live: false,
-        // Fix marker fill: default legendFill uses s.fill which is only set
-        // for the first series in a stack group. Fall back to stroke color.
-        markers: {
-          ...(opts.legend?.markers || {}),
-          // Just a solid color block, no border
-          width: 0,
-          fill: (u, i) => u.series[i].fill(u, i) || u.series[i].stroke(u, i),
-        },
+        show: false,
       },
       axes: (opts.axes || []).map((axis) => {
         if (axis.scale === 'y') {
@@ -404,8 +404,11 @@ class ChartModule {
     }
 
     try {
-      const plot = new uplot(uplotOpts, plotData, this.chartTarget)
+      const plot = new uplot(uplotOpts, plotDataWithX, this.chartTarget)
       this.chartTarget._uplot = plot
+
+      // Build custom legend that merges entries with the same label
+      this.buildUplotLegend(plot, opts.series)
 
       // Watch for resize
       if (!this._uplotResizeHandler) {
@@ -644,6 +647,71 @@ class ChartModule {
     } catch (error) {
       console.warn('Failed to load map GeoJSON, map may not render:', error)
     }
+  }
+
+  /**
+   * Build a custom legend that merges entries with the same label (e.g.,
+   * "Transmission" split by divergentSeries into pos/neg).
+   */
+  buildUplotLegend(plot, seriesOpts) {
+    // Remove any previous custom legend
+    const oldLegend = this.chartTarget.querySelector('.uplot-custom-legend')
+    if (oldLegend) oldLegend.remove()
+
+    // Group series by label
+    const groups = new Map()
+    for (let si = 1; si < seriesOpts.length; si++) {
+      const s = seriesOpts[si]
+      if (!s) continue
+      const label = s.label || `Series ${si}`
+      if (!groups.has(label)) groups.set(label, [])
+      groups.get(label).push(si)
+    }
+
+    const legend = document.createElement('div')
+    legend.className = 'uplot-custom-legend'
+    legend.style.cssText = `
+      display: flex; flex-wrap: wrap; gap: 8px 16px;
+      padding: 8px 12px; font: 13px system-ui, sans-serif;
+      justify-content: center;
+    `
+
+    for (const [label, indices] of groups) {
+      const entry = document.createElement('span')
+      entry.style.cssText = `
+        display: inline-flex; align-items: center; gap: 4px;
+        cursor: pointer; user-select: none;
+      `
+
+      // Use the stroke of the first series in the group for the marker
+      const firstSeries = seriesOpts[indices[0]]
+      const color = typeof firstSeries.stroke === 'function'
+        ? firstSeries.stroke(plot, indices[0])
+        : firstSeries.stroke || '#888'
+
+      const marker = document.createElement('span')
+      marker.style.cssText = `
+        display: inline-block; width: 10px; height: 10px;
+        border-radius: 2px; background: ${color}; flex-shrink: 0;
+      `
+
+      const text = document.createTextNode(label)
+      entry.appendChild(marker)
+      entry.appendChild(text)
+
+      // Toggle all series in the group on click
+      entry.addEventListener('click', () => {
+        const visible = plot.series[indices[0]].show
+        for (const idx of indices) {
+          plot.setSeries(idx, { show: !visible })
+        }
+        entry.style.opacity = visible ? '0.4' : '1'
+      })
+
+      legend.appendChild(entry)
+    }
+
+    this.chartTarget.appendChild(legend)
   }
   
 }

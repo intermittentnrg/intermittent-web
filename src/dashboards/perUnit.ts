@@ -86,6 +86,8 @@ export async function perUnit(
       opts: { title: "Per Unit", series: [], axes: [] },
       data: [],
       rawData: [],
+      startTime: 0,
+      interval: 0,
     });
   }
   const maxLen = series.reduce((max, s) => Math.max(max, s.data?.length ?? 0), 0);
@@ -119,6 +121,8 @@ export async function perUnitTotal(
       opts: { title: "Per Unit Total (Daily)", series: [], axes: [] },
       data: [],
       rawData: [],
+      startTime: 0,
+      interval: 0,
     });
   }
   const maxLen = series.reduce((max, s) => Math.max(max, s.data?.length ?? 0), 0);
@@ -245,6 +249,8 @@ export async function perUnitMovingCapacity(
       opts: { title: "Per Unit Moving Capacity Factor & Output", series: [], axes: [] },
       data: [],
       rawData: [],
+      startTime: 0,
+      interval: 0,
     });
   }
   const maxLen = series.reduce((max, s) => Math.max(max, s.data?.length ?? 0), 0);
@@ -342,6 +348,8 @@ export async function perUnitBattery(
       opts: { title: "Battery Events", series: [], axes: [] },
       data: [],
       rawData: [],
+      startTime: 0,
+      interval: 0,
     });
   }
   const maxLen = series.reduce((max, s) => Math.max(max, s.data?.length ?? 0), 0);

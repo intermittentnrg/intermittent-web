@@ -134,7 +134,8 @@ export async function electricityMix(
   const startTime = allData.length > 0 ? allData[0].time : undefined;
   const interval = ctx.interval;
 
-  series.push(...divergentSeries(buildSeriesFromData(allData, colorFn)));
+  const baseSeries = buildSeriesFromData(allData, colorFn);
+  series.push(...divergentSeries(baseSeries));
 
   if (request.query.prices)
     series.push(...(await getPriceSeries(request, baseArgs, { scale: "%" })));
@@ -146,6 +147,8 @@ export async function electricityMix(
       opts: { title: "Electricity Mix", series: [], axes: [] },
       data: [],
       rawData: [],
+      startTime: 0,
+      interval: 0,
     });
   }
   const timestamps = buildXAxisTimestamps(startTime, interval, series[0]?.data.length ?? 0);

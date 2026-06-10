@@ -57,15 +57,11 @@ const profile: ElectricityMixProfile & VideoProfile = {
 async function main() {
   // Fetch the uPlot-native payload from the server
   const payload = await fetchPayload(profile.url);
-  const { opts, data } = payload;
+  const { opts, data, startTime, interval } = payload;
 
-  // data is column-major: [timestamps[], val1[], val2[], ...]
-  const timestamps: number[] = data?.[0] ?? [];
-  const dataLen = timestamps.length;
-
-  // Derive interval from the first two timestamps
-  const interval = dataLen > 1 ? timestamps[1] - timestamps[0] : 0;
-  if (interval === 0) throw new Error("Cannot determine interval from data");
+  // data is column-major: [val1[], val2[], ...] (no timestamp column)
+  const dataLen = data?.[0]?.length ?? 0;
+  if (interval === 0 || dataLen === 0) throw new Error("Cannot determine data dimensions");
 
   const stepPts = Math.round(profile.stepHours * 3600 / interval);
   const winPts = Math.round(profile.windowHours * 3600 / interval);
@@ -105,8 +101,8 @@ function buildBaseUplotOption(
 
 function computeGlobalMax(data: (number | null)[][]): number {
   let max = -Infinity;
-  if (!data || data.length < 2) return 0;
-  for (let col = 1; col < data.length; col++) {
+  if (!data || data.length === 0) return 0;
+  for (let col = 0; col < data.length; col++) {
     const vals = data[col];
     for (let r = 0; r < vals.length; r++) {
       const v = vals[r];
@@ -126,8 +122,8 @@ function computeGlobalMax(data: (number | null)[][]): number {
 // ── Frame generator (used by workers via dynamic import) ──
 
 /**
- * Given the full columnar data [timestamps[], val1[], val2[], ..., valN[]],
- * return a per-frame data slice.
+ * Return a per-frame data slice with timestamps generated from
+ * startTime + interval * index (no longer stored as a column in the payload).
  */
 export const createFrameGenerator: CreateFrameGenerator = (payload, params) => {
   const { stepPts, winPts } = params as Record<string, number>;
@@ -135,15 +131,23 @@ export const createFrameGenerator: CreateFrameGenerator = (payload, params) => {
   const dataLen = data?.[0]?.length ?? 0;
   if (dataLen === 0) throw new Error("No data in payload");
 
-  const rowCount = data.length; // number of columns including timestamps
+  const startTime = (payload as any).startTime as number;
+  const interval = (payload as any).interval as number;
+  const rowCount = data.length; // value columns only
 
   return (i: number) => {
     const start = i * stepPts;
     const end = Math.min(start + winPts, dataLen);
     const winLen = end - start;
 
-    // Slice each column to the window range
-    const sliced: (number | null)[][] = [];
+    // Generate timestamps for this window
+    const timestamps: number[] = [];
+    for (let j = 0; j < winLen; j++) {
+      timestamps.push(startTime + (start + j) * interval);
+    }
+
+    // Slice value columns
+    const sliced: (number | null)[][] = [timestamps];
     for (let col = 0; col < rowCount; col++) {
       sliced.push(data[col].slice(start, end));
     }

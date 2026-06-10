@@ -82,6 +82,8 @@ export async function generation(
       opts: { title: "Generation", series: [], axes: [] },
       data: [],
       rawData: [],
+      startTime: 0,
+      interval: 0,
     });
   }
   const maxLen = series.reduce((max, s) => Math.max(max, s.data?.length ?? 0), 0);
@@ -144,6 +146,8 @@ export async function generationTotal(
       opts: { title: "Generation Total (Daily)", series: [], axes: [] },
       data: [],
       rawData: [],
+      startTime: 0,
+      interval: 0,
     });
   }
   const maxLen = series.reduce((max, s) => Math.max(max, s.data?.length ?? 0), 0);
@@ -193,11 +197,15 @@ export async function generationMinMax(
       opts: { title: "Generation Min/Max", series: [], axes: [] },
       data: [],
       rawData: [],
+      startTime: 0,
+      interval: 0,
     });
   }
   const maxLen = series.reduce((max, s) => Math.max(max, s.data?.length ?? 0), 0);
   const timestamps = buildXAxisTimestamps(startTime, interval, maxLen);
   const payload = buildUplotPayload("Generation Min/Max", timestamps, series, ctx.timezone);
+  // Force the y-axis to start at 0 so the confidence band sits on a meaningful baseline
+  payload.opts.scales = { y: { range: [0, null] } };
   const productionTypes = await getProductionTypeOptions(ctx.areaIds);
   return sendUplotResponse(req, reply, payload, { production_types: productionTypes });
 }
@@ -241,6 +249,8 @@ export async function generationYoy(
       opts: { title: "Generation Year over Year", series: [], axes: [] },
       data: [],
       rawData: [],
+      startTime: 0,
+      interval: 0,
     });
   }
   const maxLen = series.reduce((max, s) => Math.max(max, s.data?.length ?? 0), 0);

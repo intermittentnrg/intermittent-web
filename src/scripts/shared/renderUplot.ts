@@ -210,7 +210,15 @@ export async function createUplotRenderer(
   const { default: uPlot } = await import("uplot");
 
   const uplotPayload = options.payload;
-  const { opts, data, rawData } = uplotPayload;
+  const { opts, data, rawData, startTime, interval } = uplotPayload;
+
+  // Rebuild timestamps from startTime + interval * index (avoids sending full array over wire).
+  const count = (data[0]?.length ?? 0);
+  const timestamps = new Array(count);
+  for (let i = 0; i < count; i++) {
+    timestamps[i] = startTime + i * interval;
+  }
+  const dataWithX = [timestamps, ...data] as any;
 
   // Build initial uPlot configuration.
   // Start from server-provided opts, apply baseOption overrides (if any),
@@ -263,7 +271,7 @@ export async function createUplotRenderer(
   // Create the uPlot instance — the DOM shim provides document.
   // Instead of passing a DOM element (which requires HTMLElement to be defined),
   // pass a function that just calls _init() to kickstart the chart.
-  const chart = new uPlot(uplotOpts, data, (_self: uPlot, _init: Function) => { _init(); });
+  const chart = new uPlot(uplotOpts, dataWithX, (_self: uPlot, _init: Function) => { _init(); });
 
   // Load the frame generator
   const fg = getFramePayload ?? await loadFrameGenerator(options);
