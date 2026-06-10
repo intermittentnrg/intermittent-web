@@ -1,4 +1,5 @@
 import echarts from "../vendor/echarts_client.bundle.js"
+import uplot from "../vendor/uplot_client.bundle.js"
 import {
   formatEnergy,
   formatPower,
@@ -7,6 +8,7 @@ import {
 } from "../vendor/echarts_formatters.js"
 import { router, parsePath } from "../router.js"
 import { calculateResolution, parseDateRange } from "../../src/shared/dateParsing.js"
+import { dashboardChartLibrary } from "../../src/shared/dashboardCatalog.js"
 
 const DRAG_ZOOM_GRAPHIC_ID = 'drag-zoom-rect'
 const DRAG_ZOOM_MIN_PIXELS = 8
@@ -24,21 +26,70 @@ class ChartModule {
     this.chartTarget = chartTarget
     this.errorTarget = errorTarget
     this.hasErrorTarget = !!errorTarget
+    this.uplotLib = null
+  }
+
+  /**
+   * Determine which chart library to use based on the current dashboard type.
+   */
+  getChartLibrary() {
+    const pathParams = parsePath()
+    if (!pathParams?.dashboard) return 'echarts'
+    return dashboardChartLibrary(pathParams.dashboard) || 'echarts'
   }
 
   connect() {
     this.abortController = null
-    this.chart = echarts.init(this.chartTarget)
-    this.connectDragZoom()
+    this.chart = null
+    this.chartLibrary = this.getChartLibrary()
+
+    // For uPlot, defer initialization; for ECharts, init immediately
+    if (this.chartLibrary === 'echarts') {
+      this.chart = echarts.init(this.chartTarget)
+      this.connectDragZoom()
+    }
+
     this.fetchData()
     router.onChange(() => this.fetchData())
     this.boundHandleResize = this.handleResize.bind(this)
     window.addEventListener('resize', this.boundHandleResize)
   }
 
+  destroyChart() {
+    if (this.chartLibrary === 'echarts' && this.chart) {
+      this.chart.dispose()
+      this.chart = null
+    } else if (this.chartLibrary === 'uplot' && this.chartTarget._uplot) {
+      this.chartTarget._uplot.destroy()
+      this.chartTarget._uplot = null
+    }
+  }
+
   handleResize() {
-    if (this.chart) {
+    if (this.chartLibrary === 'echarts' && this.chart) {
       this.chart.resize()
+    } else if (this.chartLibrary === 'uplot' && this.chartTarget._uplot) {
+      this.chartTarget._uplot.setSize({
+        width: this.chartTarget.clientWidth,
+        height: this.chartTarget.clientHeight,
+      })
+    }
+  }
+
+  showLoading() {
+    if (this.chartLibrary === 'echarts' && this.chart) {
+      this.chart.showLoading({ text: '', color: '#0077FF', textColor: '#0077FF', maskColor: 'rgba(255, 255, 255, 0.7)', zlevel: 100 })
+    } else {
+      // Simple CSS loading indicator for uPlot
+      this.chartTarget.style.opacity = '0.5'
+    }
+  }
+
+  hideLoading() {
+    if (this.chartLibrary === 'echarts' && this.chart) {
+      this.chart.hideLoading({ zlevel: 100 })
+    } else {
+      this.chartTarget.style.opacity = '1'
     }
   }
 
@@ -46,13 +97,14 @@ class ChartModule {
     if (this.abortController) {
       this.abortController.abort()
     }
+
+    // Re-evaluate chart library (dashboard may have changed via router)
+    this.chartLibrary = this.getChartLibrary()
+
     this.abortController = new AbortController()
     const currentAbortController = this.abortController
 
-    this.chart.showLoading({ text: '', color: '#0077FF', textColor: '#0077FF', maskColor: 'rgba(255, 255, 255, 0.7)', zlevel: 100 })
-    if (this.hasErrorTarget) {
-      this.errorTarget.hidden = true
-    }
+    // Both echarts and uplot are loaded statically at page load (earlier than AJAX).
 
     const resolution = this.chartResolution()
     const params = {}
@@ -66,6 +118,12 @@ class ChartModule {
     const url = window.location.pathname + '.json' + (query ? '?' + query : '')
     const responsePromise = fetch(url, { headers: { Accept: 'application/json' }, signal: currentAbortController.signal })
 
+    this.showLoading()
+    if (this.hasErrorTarget) {
+      this.errorTarget.hidden = true
+    }
+
+    // Libraries are already loaded — just fetch data
     responsePromise
     .then(response => {
       if (!response.ok) throw new Error('Network response was not ok')
@@ -98,7 +156,7 @@ class ChartModule {
     })
     .finally(() => {
       if (this.abortController === currentAbortController) {
-        this.chart.hideLoading({ zlevel: 100 })
+        this.hideLoading()
       }
     })
   }
@@ -118,12 +176,28 @@ class ChartModule {
   }
 
   async renderChart(data) {
+    // Handle data that comes with a chartLibrary indicator
+    if (data.chartLibrary === 'uplot') {
+      this.renderUplot(data)
+      return
+    }
+
     if (data.frames) {
       this.renderChoroplethAnimation(data)
       return
     }
 
     if (data.options) {
+      // Destroy any existing uPlot instance before rendering ECharts
+      if (this.chartTarget._uplot) {
+        this.chartTarget._uplot.destroy()
+        this.chartTarget._uplot = null
+      }
+      // Ensure ECharts instance exists (may have been destroyed by uPlot rendering)
+      if (!this.chart) {
+        this.chart = echarts.init(this.chartTarget)
+        this.connectDragZoom()
+      }
       const mapSeries = data.options.series?.find(s => s.type === 'map') || 
                        data.options.baseOption?.series?.find(s => s.type === 'map')
       if (mapSeries && data.geoJsonUrl) {
@@ -142,6 +216,205 @@ class ChartModule {
       
       this.chart.resize()
       this.chart.setOption(data.options, true)
+    }
+  }
+
+  renderUplot(data) {
+    if (this.chart) {
+      this.chart.dispose()
+      this.chart = null
+    }
+    if (this.chartTarget._uplot) {
+      this.chartTarget._uplot.destroy()
+      this.chartTarget._uplot = null
+    }
+
+    // Remove old custom elements
+    const oldTip = this.chartTarget.querySelector('.uplot-tooltip')
+    if (oldTip) oldTip.remove()
+    // (Built-in uPlot legend replaces the old custom one)
+
+    // Override uPlot's default width:min-content so chart fills the container
+    this.chartTarget.style.width = '100%'
+    this.chartTarget.style.minWidth = '0'
+    this.chartTarget.style.position = 'relative'
+
+    const { opts, data: plotData, rawData, seriesMeta } = data
+    this._lastRawData = rawData || plotData
+
+    // Apply per-series rendering hints (e.g. bars, scatter) before creating the chart.
+    // seriesMeta runs parallel to opts.series[1..] (one entry per data column after time).
+    if (seriesMeta && opts.series) {
+      for (let i = 0; i < seriesMeta.length; i++) {
+        const meta = seriesMeta[i]
+        const s = opts.series[i + 1]
+        if (!s || !meta) continue
+        if (meta.type === 'bar') {
+          // uPlot's built-in bars path builder reads bands to determine per-bar
+          // baseline (the previous series' cumulative value). Bands between
+          // consecutive cumulative series produce correct stacking.
+          s.paths = uplot.paths.bars({ gap: 4 })
+        }
+      }
+    }
+
+    // Fixed chart height from server payload
+    const fixedHeight = data.height || 567
+    this.chartTarget.style.height = fixedHeight + 'px'
+
+    // Build custom tooltip element
+    const tooltip = document.createElement('div')
+    tooltip.className = 'uplot-tooltip'
+    tooltip.style.cssText = `
+      position: absolute;
+      pointer-events: none;
+      z-index: 1000;
+      background: rgba(255,255,255,0.95);
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font: 13px system-ui, sans-serif;
+      line-height: 1.6;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      display: none;
+      max-width: 260px;
+    `
+    this.chartTarget.appendChild(tooltip)
+
+    const width = this.chartTarget.clientWidth || 800
+    const chartHeight = parseInt(this.chartTarget.style.height) || 400
+    const heightPx = this.chartTarget.clientHeight || chartHeight
+
+    // Add axis value formatting and make legend static (no live values)
+    // to prevent `--` placeholders and layout shifts on hover.
+    const uplotOpts = {
+      ...opts,
+      width,
+      height: heightPx,
+      legend: {
+        ...opts.legend,
+        show: true,
+        live: false,
+        // Fix marker fill: default legendFill uses s.fill which is only set
+        // for the first series in a stack group. Fall back to stroke color.
+        markers: {
+          ...(opts.legend?.markers || {}),
+          // Just a solid color block, no border
+          width: 0,
+          fill: (u, i) => u.series[i].fill(u, i) || u.series[i].stroke(u, i),
+        },
+      },
+      axes: (opts.axes || []).map((axis) => {
+        if (axis.label === 'MW') {
+          return { ...axis, values: (u, ticks) => ticks.map(v => formatPower(v)) }
+        }
+        if (axis.label === '€/MWh') {
+          return { ...axis, values: (u, ticks) => ticks.map(v => formatPrice(v)) }
+        }
+        return axis
+      }),
+      hooks: {
+        setCursor: [
+          (u) => {
+            const idx = u.cursor.idx
+            if (idx == null) {
+              tooltip.style.display = 'none'
+              return
+            }
+
+            // Build tooltip content: time + each visible series
+            // Use rawData (non-cumulative values) for tooltips so each
+            // series shows its own contribution, not the cumulative total.
+            const series = u.series
+            const rawData = this._lastRawData
+            if (!rawData) return
+
+            // Format the timestamp
+            const ts = rawData[0][idx]
+            const date = new Date(Number(ts)).toLocaleString('en-GB', {
+              timeZone: 'UTC',
+              hour12: false,
+              day: 'numeric',
+              month: 'short',
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+
+            let html = `<div style="font-weight:600;margin-bottom:4px;border-bottom:1px solid #e5e7eb;padding-bottom:4px;">${date}</div>`
+
+            for (let si = 1; si < series.length; si++) {
+              const s = series[si]
+              if (!s.show) continue
+              const raw = rawData[si]?.[idx]
+              if (raw == null) continue
+
+              // stroke is always a function in uPlot (not a raw string)
+              const color = s.stroke(u, si)
+              const label = s.label || ''
+              // Format: power for primary axis, price for secondary
+              const isSecondary = s.scale === '%'
+              const val = isSecondary ? formatPrice(raw) : formatPower(raw)
+              html += `<div style="display:flex;align-items:center;gap:6px;">`
+              html += `<span style="width:10px;height:10px;border-radius:2px;background:${color};flex-shrink:0;"></span>`
+              html += `<span>${label}</span>`
+              html += `<span style="margin-left:auto;font-weight:500;">${val}</span>`
+              html += `</div>`
+            }
+
+            // Add total for primary-axis series
+            let total = 0
+            let hasTotal = false
+            for (let si = 1; si < series.length; si++) {
+              const s = series[si]
+              if (!s.show || s.scale === '%') continue
+              const raw = rawData[si]?.[idx]
+              if (raw != null) { total += raw; hasTotal = true }
+            }
+            if (hasTotal) {
+              html += `<div style="display:flex;align-items:center;gap:6px;margin-top:4px;padding-top:4px;border-top:1px solid #e5e7eb;">`
+              html += `<span style="font-weight:600;">Total</span>`
+              html += `<span style="margin-left:auto;font-weight:600;">${formatPower(total)}</span>`
+              html += `</div>`
+            }
+
+            tooltip.innerHTML = html
+
+            const cx = u.cursor.left
+            const cy = u.cursor.top
+            const tw = 260
+
+            let left = cx + 8 + tw < width
+              ? cx + 8
+              : cx - tw - 8
+
+            left = Math.max(4, Math.min(left, width - tw - 4))
+
+            tooltip.style.left = left + 'px'
+            tooltip.style.top = (cy - 10) + 'px'
+            tooltip.style.display = 'block'
+          },
+        ],
+      },
+    }
+
+    try {
+      const plot = new uplot(uplotOpts, plotData, this.chartTarget)
+      this.chartTarget._uplot = plot
+
+      // Watch for resize
+      if (!this._uplotResizeHandler) {
+        this._uplotResizeHandler = () => {
+          if (this.chartTarget._uplot) {
+            this.chartTarget._uplot.setSize({
+              width: this.chartTarget.clientWidth,
+              height: this.chartTarget.clientHeight,
+            })
+          }
+        }
+        window.addEventListener('resize', this._uplotResizeHandler)
+      }
+    } catch (error) {
+      console.error('uPlot: Failed to render chart', error)
     }
   }
 

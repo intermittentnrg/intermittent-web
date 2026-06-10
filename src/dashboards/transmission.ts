@@ -2,9 +2,10 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { querySmall } from "../lib/db.ts";
 import { chartQuery } from "./shared/chartQuery.ts";
 import { getContext } from "./shared/context.ts";
+import { buildXAxisTimestamps } from "./shared/chartOptions.ts";
 import { divergentSeries } from "./shared/series.ts";
-import { buildDualAxisOptions } from "./shared/chartOptions.ts";
-import { sendChartResponse } from "./shared/chartResponse.ts";
+import { sendUplotResponse } from "./shared/chartResponse.ts";
+import { buildUplotPayload, type UplotSeriesDesc } from "./shared/uplotOptions.ts";
 import type { AnyRow, DashboardParams, DashboardQuery } from "./shared/types.ts";
 
 const transmissionSql = (filtered: boolean) => {
@@ -77,43 +78,40 @@ export async function transmission(
   );
   const startTime = rows[0]?.time as number | undefined;
   const interval = ctx.interval * 1000;
+  const series = divergentSeries(buildTransmissionSeries(rows));
 
-  return sendChartResponse(
-    req,
-    reply,
-    buildDualAxisOptions(
-      divergentSeries(buildTransmissionSeries(rows)),
-      "Transmission",
-      startTime,
-      interval,
-    ),
-    ctx.timezoneAbbreviation,
-    {
-      transmission_lines: lines.map((l) => ({
-        id: `${l.from_area_id}-${l.to_area_id}`,
-        label: `${l.from_code} → ${l.to_code}`,
-      })),
-    },
-  );
+  if (startTime == null || series.length === 0) {
+    return sendUplotResponse(req, reply, {
+      chartLibrary: "uplot",
+      opts: { title: "Transmission", series: [], axes: [] },
+      data: [],
+      rawData: [],
+    });
+  }
+  const maxLen = series.reduce((max, s) => Math.max(max, s.data?.length ?? 0), 0);
+  const timestamps = buildXAxisTimestamps(startTime, interval, maxLen);
+  const payload = buildUplotPayload("Transmission", timestamps, series, ctx.timezone);
+  return sendUplotResponse(req, reply, payload, {
+    transmission_lines: lines.map((l) => ({
+      id: `${l.from_area_id}-${l.to_area_id}`,
+      label: `${l.from_code} → ${l.to_code}`,
+    })),
+  });
 }
 
-function buildTransmissionSeries(rows: AnyRow[]) {
-  const m = new Map<string, any>();
+function buildTransmissionSeries(rows: AnyRow[]): UplotSeriesDesc[] {
+  const m = new Map<string, UplotSeriesDesc>();
   for (const r of rows) {
     const k = `${r.from_area}-${r.to_area}`;
     if (!m.has(k)) {
-      const imp = Number(r.value) >= 0;
       m.set(k, {
-        name: `${r.from_area} → ${r.to_area}`,
-        type: "line",
-        unit: "power",
-        symbol: "none",
-        areaStyle: { opacity: 0.75 },
-        lineStyle: { width: 0 },
+        label: `${r.from_area} → ${r.to_area}`,
+        width: 0,
+        fill: "rgba(124, 46, 163, 0.75)",
         data: [],
       });
     }
-    m.get(k).data.push(r.value == null ? null : Number(r.value));
+    m.get(k)!.data.push(r.value == null ? null! : Number(r.value));
   }
   return [...m.values()];
 }

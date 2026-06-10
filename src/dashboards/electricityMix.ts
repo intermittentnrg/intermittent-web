@@ -1,13 +1,15 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { chartQuery } from "./shared/chartQuery.ts";
 import { getContext } from "./shared/context.ts";
-import { buildDualAxisOptions } from "./shared/chartOptions.ts";
-import { sendChartResponse } from "./shared/chartResponse.ts";
+import { buildXAxisTimestamps } from "./shared/chartOptions.ts";
+import { sendUplotResponse } from "./shared/chartResponse.ts";
 import { getPriceSeries } from "./shared/prices.ts";
 import { getLoadSeries } from "./shared/load.ts";
-import type { DashboardParams, DashboardQuery, Series, TimeMetricValueRow } from "./shared/types.ts";
+import type { DashboardParams, DashboardQuery, TimeMetricValueRow } from "./shared/types.ts";
+import type { UplotSeriesDesc } from "./shared/uplotOptions.ts";
 import { divergentSeries } from "./shared/series.ts";
 import { colorsFromQuery } from "./shared/colors.ts";
+import { buildUplotPayload } from "./shared/uplotOptions.ts";
 
 const SQL_GEN = `
   WITH _g AS (
@@ -126,7 +128,7 @@ export async function electricityMix(
 
   const colorFn = colorsFromQuery(request.query.colors);
 
-  const series: Series[] = [];
+  const series: UplotSeriesDesc[] = [];
   if (request.query.load) series.push(...(await getLoadSeries(request, baseArgs)));
 
   const allData = [...transData, ...genData];
@@ -136,26 +138,43 @@ export async function electricityMix(
   series.push(...divergentSeries(buildSeriesFromData(allData, colorFn)));
 
   if (request.query.prices)
-    (series as Array<ReturnType<typeof newSeries> | Awaited<ReturnType<typeof getPriceSeries>>[number]>).push(
-      ...(await getPriceSeries(request, baseArgs, { yAxisIndex: 1 })),
-    );
+    series.push(...(await getPriceSeries(request, baseArgs, { scale: "%" })));
 
-  return sendChartResponse(
-    request,
-    reply,
-    buildDualAxisOptions(series, "Electricity Mix", startTime, interval),
-    ctx.timezoneAbbreviation,
+  // Build uPlot-compatible data and options
+  if (startTime == null || series.length === 0) {
+    return sendUplotResponse(request, reply, {
+      chartLibrary: "uplot",
+      opts: { title: "Electricity Mix", series: [], axes: [] },
+      data: [],
+      rawData: [],
+    });
+  }
+  const timestamps = buildXAxisTimestamps(startTime, interval, series[0]?.data.length ?? 0);
+  const payload = buildUplotPayload(
+    "Electricity Mix",
+    timestamps,
+    series,
+    ctx.timezone,
   );
+
+  return sendUplotResponse(request, reply, payload);
 }
 
-function buildSeriesFromData(rows: TimeMetricValueRow[], colorFn: (metric: string) => string | undefined) {
-  const series: Array<ReturnType<typeof newSeries>> = [];
-  let currentSeries: ReturnType<typeof newSeries> | undefined;
+function buildSeriesFromData(rows: TimeMetricValueRow[], colorFn: (metric: string) => string | undefined): UplotSeriesDesc[] {
+  const series: UplotSeriesDesc[] = [];
+  let currentSeries: UplotSeriesDesc | undefined;
 
   for (const row of rows) {
     const key = cleanMetricName(row.metric);
-    if (currentSeries?.name !== key) {
-      currentSeries = newSeries(key, colorFn);
+    if (currentSeries?.label !== key) {
+      const color = colorFn(key);
+      currentSeries = {
+        label: key,
+        stroke: color,
+        width: 0,
+        fill: color ? color.replace("rgb(", "rgba(").replace(")", ",0.75)") : undefined,
+        data: [],
+      };
       series.push(currentSeries);
     }
     currentSeries.data.push(row.value);
@@ -166,17 +185,4 @@ function buildSeriesFromData(rows: TimeMetricValueRow[], colorFn: (metric: strin
 
 function cleanMetricName(metric: string) {
   return metric.replace(/^\d+_/, "");
-}
-
-function newSeries(key: string, colorFn: (metric: string) => string | undefined) {
-  return {
-    name: key,
-    type: "line",
-    unit: "power",
-    symbol: "none",
-    areaStyle: { opacity: 0.75 },
-    lineStyle: { width: 0 },
-    itemStyle: { color: colorFn(key) },
-    data: [] as number[],
-  };
 }

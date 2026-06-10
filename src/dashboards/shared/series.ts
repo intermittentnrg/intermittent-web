@@ -1,35 +1,43 @@
 import { yoyColor } from "./colors.ts";
-import type { AnyRow, Series, TimeMetricValueRow } from "./types.ts";
+import type { AnyRow, TimeMetricValueRow } from "./types.ts";
+import type { UplotSeriesDesc } from "./uplotOptions.ts";
+
+/** Convert an rgb() string to rgba() with the given opacity. */
+function alphaColor(color: string | undefined, opacity: number): string | undefined {
+  if (!color) return undefined;
+  if (color.startsWith("rgb(")) return color.replace("rgb(", "rgba(").replace(")", `,${opacity})`);
+  return color;
+}
+
+// ── Generic helpers ──
 
 type RowsToSeriesOptions<Row extends AnyRow> = {
   name?: keyof Row | ((row: Row) => string);
   x?: keyof Row | ((row: Row) => number);
   y?: keyof Row | ((row: Row) => number);
-  type?: Series["type"];
-  unit?: string;
+  type?: "line" | "bar" | "scatter";
 };
 
 export function rowsToSeries<Row extends AnyRow>(
   rows: Row[],
   options: RowsToSeriesOptions<Row> = {},
-): Series[] {
+): UplotSeriesDesc[] {
   const name = options.name ?? "metric";
   const x = options.x ?? "time";
   const y = options.y ?? "value";
-  const type = options.type ?? "line";
-  const byName = new Map<string, Series>();
+  const byName = new Map<string, UplotSeriesDesc>();
 
   for (const row of rows) {
     const seriesName = String(valueFor(row, name));
     const yValue = Number(valueFor(row, y));
 
     if (!byName.has(seriesName)) {
-      byName.set(seriesName, {
-        name: seriesName,
-        type,
-        unit: options.unit,
+      const s: UplotSeriesDesc = {
+        label: seriesName,
         data: [],
-      });
+      };
+      if (options.type && options.type !== "line") s.type = options.type;
+      byName.set(seriesName, s);
     }
 
     byName.get(seriesName)!.data.push(yValue);
@@ -45,7 +53,11 @@ function valueFor<Row extends AnyRow, Value>(
   return typeof field === "function" ? field(row) : row[field];
 }
 
-export function divergentSeries<T extends Series>(input: T[]): T[] {
+/**
+ * Split series into positive and negative stacks for divergent (import/export) charts.
+ * Works with `UplotSeriesDesc`, ECharts `Series`, or any object with a `data` array.
+ */
+export function divergentSeries<T extends Record<string, any>>(input: T[]): T[] {
   const output: T[] = [];
   for (const series of input) {
     let hasPositive = false;
@@ -79,58 +91,54 @@ export function divergentSeries<T extends Series>(input: T[]): T[] {
   return output;
 }
 
-export function buildMinMaxSeries(rows: AnyRow[]): Series[] {
+// ── Min / Max / Average (confidence band) ──
+
+export function buildMinMaxSeries(rows: AnyRow[]): UplotSeriesDesc[] {
   return [
     {
-      name: "Min",
-      type: "line",
+      label: "Min",
+      width: 0,
+      stroke: "rgba(150, 150, 150, 0.01)",
       stack: "confidence-band",
-      symbol: "none",
-      lineStyle: { width: 0 },
       data: rows.map((row) => row.min_value as number),
     },
     {
-      name: "Max",
-      type: "line",
+      label: "Max",
+      width: 0,
+      stroke: "rgba(150, 150, 150, 0.3)",
+      fill: "rgba(150, 150, 150, 0.3)",
       stack: "confidence-band",
-      symbol: "none",
-      lineStyle: { width: 0 },
-      areaStyle: { color: "rgba(150, 150, 150, 0.3)" },
       data: rows.map((row) => (row.max_value as number) - (row.min_value as number)),
     },
     {
-      name: "Average",
-      type: "line",
-      symbol: "none",
-      lineStyle: { width: 2, color: "rgb(150, 150, 150)" },
+      label: "Average",
+      width: 2,
+      stroke: "rgb(150, 150, 150)",
       data: rows.map((row) => row.avg_value as number),
     },
   ];
 }
 
-export function buildYoySeries(rows: AnyRow[]): Series[] {
-  const seriesByMetric = new Map<string, Series>();
+// ── Year-over-Year ──
+
+export function buildYoySeries(rows: AnyRow[]): UplotSeriesDesc[] {
+  const byMetric = new Map<string, UplotSeriesDesc>();
 
   for (const row of rows) {
     const metric = String(row.metric);
-
-    if (!seriesByMetric.has(metric)) {
-      seriesByMetric.set(metric, {
-        name: metric,
-        type: "line",
-        symbol: "none",
-        lineStyle: { width: 2 },
+    if (!byMetric.has(metric)) {
+      byMetric.set(metric, {
+        label: metric,
+        width: 2,
         data: [],
       });
     }
-
-    seriesByMetric.get(metric)!.data.push(row.value as number);
+    byMetric.get(metric)!.data.push(row.value as number);
   }
 
-  // Assign gray ramp colors sorted by year, current year gets thicker line
-  const series = [...seriesByMetric.values()];
+  const series = [...byMetric.values()];
   const years = series
-    .map((s) => Number(s.name))
+    .map((s) => Number(s.label))
     .filter((y) => !isNaN(y))
     .sort((a, b) => a - b);
 
@@ -140,24 +148,24 @@ export function buildYoySeries(rows: AnyRow[]): Series[] {
     const yearRange = maxYear - minYear;
 
     for (const s of series) {
-      const year = Number(s.name);
+      const year = Number(s.label);
       if (isNaN(year)) continue;
       const t = yearRange > 0 ? (year - minYear) / yearRange : 1;
-      const color = yoyColor(t);
-      const width = year === maxYear ? 3 : 2;
-      s.lineStyle = { ...(s.lineStyle as object), color, width };
-      s.itemStyle = { color };
+      s.stroke = yoyColor(t);
+      s.width = year === maxYear ? 3 : 2;
     }
   }
 
   return series;
 }
 
+// ── Basic series (line / bar, stacked or not) ──
+
 export function buildBasicSeries(
   rows: AnyRow[],
   type: "line" | "bar",
   stacked: boolean,
-  unit: string,
+  _unit: string,
   options: {
     areaColors?: boolean;
     colorForMetric?: (metric: string) => string | undefined;
@@ -166,30 +174,26 @@ export function buildBasicSeries(
       type: "line" | "bar",
     ) => string | undefined;
   } = {},
-): Series[] {
-  const byKey = new Map<string, Series>();
+): UplotSeriesDesc[] {
+  const byKey = new Map<string, UplotSeriesDesc>();
 
   for (const row of rows) {
     if (row.time == null) continue;
 
     const key = row.metric || "";
     if (!byKey.has(key)) {
-      const isNegative = key.endsWith("_negative");
+      const color = options.colorForMetric?.(key);
       byKey.set(key, {
-        name: key,
-        type,
-        unit,
+        label: key,
+        data: [],
+        stroke: color,
+        width: type === "bar" ? 0 : (stacked ? 0 : 2),
+        fill: stacked ? alphaColor(color, 0.75) : undefined,
         stack: stacked
           ? (options.stackForMetric?.(key, type) ??
             (type === "bar" ? "all" : "total"))
           : undefined,
-        symbol: type === "line" ? "none" : undefined,
-        areaStyle: type === "line" && stacked ? { opacity: 0.75 } : undefined,
-        lineStyle: type === "line" ? { width: stacked ? 0 : 2 } : undefined,
-        itemStyle: options.colorForMetric
-          ? { color: options.colorForMetric(key) }
-          : undefined,
-        data: [],
+        ...(type !== "line" ? { type } : {}),
       });
     }
 
@@ -202,44 +206,45 @@ export function buildBasicSeries(
 export function buildPowerLineSeries(
   rows: TimeMetricValueRow[],
   colorForMetric?: (metric: string) => string | undefined,
-) {
+): UplotSeriesDesc[] {
   return buildBasicSeries(rows, "line", true, "power", { colorForMetric });
 }
 
-export function buildStackedPowerLineSeries(rows: AnyRow[]) {
+export function buildStackedPowerLineSeries(rows: AnyRow[]): UplotSeriesDesc[] {
   return buildBasicSeries(rows, "line", true, "power", {
     stackForMetric: (metric) =>
       metric.endsWith("_negative") ? "negative" : "total",
   });
 }
 
+// ── Field-based series (for perUnit moving capacity) ──
+
 export function buildFieldSeries(
   rows: AnyRow[],
   field: string,
-  unit: string,
+  _unit: string,
   options: {
     nameField?: string;
     suffix?: string;
-    yAxisIndex?: number;
-    lineStyle?: Record<string, unknown>;
+    scale?: string;
+    lineStyle?: { width?: number; type?: string };
   } = {},
-): Series[] {
+): UplotSeriesDesc[] {
   const nameField = options.nameField || "name";
   const suffix = options.suffix || "";
-  const yAxisIndex = options.yAxisIndex || 0;
-  const seriesByName = new Map<string, Series>();
+  const seriesByName = new Map<string, UplotSeriesDesc>();
 
   for (const row of rows) {
     const name = String(row[nameField]) + suffix;
     if (!seriesByName.has(name)) {
+      const ls = options.lineStyle ?? { width: 2 };
       seriesByName.set(name, {
-        name,
-        type: "line",
-        unit,
-        symbol: "none",
-        lineStyle: options.lineStyle ?? { width: 2 },
-        yAxisIndex,
+        label: name,
         data: [],
+        stroke: undefined,
+        width: ls.width ?? 2,
+        scale: options.scale,
+        dash: ls.type === "dashed" ? [6, 3] : undefined,
       });
     }
 

@@ -1,14 +1,15 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { chartQuery } from "./shared/chartQuery.ts";
 import { getContext } from "./shared/context.ts";
-import { buildChartOptions } from "./shared/chartOptions.ts";
+import { buildXAxisTimestamps } from "./shared/chartOptions.ts";
 import {
   getProductionTypeIds,
   getProductionTypeOptions,
 } from "./shared/productionTypes.ts";
 import { colorsFromQuery } from "./shared/colors.ts";
 import { getPriceSeries } from "./shared/prices.ts";
-import { sendChartResponse } from "./shared/chartResponse.ts";
+import { sendChartResponse, sendUplotResponse } from "./shared/chartResponse.ts";
+import { buildUplotPayload } from "./shared/uplotOptions.ts";
 import type {
   AnyRow,
   DashboardParams,
@@ -28,8 +29,19 @@ export async function prices(
   );
   const startTime = ctx.from.getTime();
   const interval = ctx.interval * 1000;
-  const options = buildChartOptions(series, "Prices", "price", true, startTime, interval);
-  return sendChartResponse(request, reply, options, ctx.timezoneAbbreviation);
+
+  if (startTime == null || series.length === 0) {
+    return sendUplotResponse(request, reply, {
+      chartLibrary: "uplot",
+      opts: { title: "Prices", series: [], axes: [] },
+      data: [],
+      rawData: [],
+    });
+  }
+  const maxLen = series.reduce((max, s) => Math.max(max, s.data?.length ?? 0), 0);
+  const timestamps = buildXAxisTimestamps(startTime, interval, maxLen);
+  const payload = buildUplotPayload("Prices", timestamps, series, ctx.timezone);
+  return sendUplotResponse(request, reply, payload);
 }
 
 const captureSql = `

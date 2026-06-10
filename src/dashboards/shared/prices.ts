@@ -1,9 +1,11 @@
 import type { FastifyRequest } from "fastify";
 import { chartQuery } from "./chartQuery.ts";
-import type { Series, TimeMetricValueRow } from "./types.ts";
+import type { TimeMetricValueRow } from "./types.ts";
+import type { UplotSeriesDesc } from "./uplotOptions.ts";
 
 type PriceSeriesOptions = {
-  yAxisIndex?: number;
+  /** Scale key: "%" for secondary axis (prices), defaults to primary "y". */
+  scale?: string;
   colorForMetric?: (metric: string) => string | undefined;
 };
 
@@ -34,33 +36,29 @@ export async function getPriceSeries(
   options: PriceSeriesOptions = {},
 ) {
   const rows = await chartQuery<TimeMetricValueRow>(request, priceSql, args);
-  const series: Series[] = [];
-  let currentSeries: Series | undefined;
+  const series: UplotSeriesDesc[] = [];
+  let currentSeries: UplotSeriesDesc | undefined;
 
   for (const row of rows) {
     const key = String(row.metric);
-    if (currentSeries?.name !== key) {
+    if (currentSeries?.label !== key) {
       currentSeries = newPriceSeries(key, options);
       series.push(currentSeries);
     }
-    currentSeries.data!.push(row.value);
+    currentSeries.data.push(row.value);
   }
 
   return series;
 }
 
-function newPriceSeries(key: string, options: PriceSeriesOptions = {}): Series {
+function newPriceSeries(key: string, options: PriceSeriesOptions = {}): UplotSeriesDesc {
   const color = options.colorForMetric?.(key) || getColorForPrice(key);
   return {
-    name: key,
-    type: "line",
-    unit: "price",
-    symbol: "none",
-    step: "start",
-    lineStyle: { width: 2, color },
-    itemStyle: { color },
-    yAxisIndex: options.yAxisIndex,
-    data: [] as number[],
+    label: key,
+    stroke: color,
+    width: 2,
+    scale: options.scale,
+    data: [],
   };
 }
 

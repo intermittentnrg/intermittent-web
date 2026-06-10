@@ -1,14 +1,15 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { chartQuery } from "./shared/chartQuery.ts";
 import { getContext } from "./shared/context.ts";
-import { buildChartOptions } from "./shared/chartOptions.ts";
+import { buildXAxisTimestamps } from "./shared/chartOptions.ts";
 import {
   buildMinMaxSeries,
   buildPowerLineSeries,
   buildYoySeries,
 } from "./shared/series.ts";
 import { areaColor } from "./shared/colors.ts";
-import { sendChartResponse, sendDualAxisChart } from "./shared/chartResponse.ts";
+import { sendUplotResponse } from "./shared/chartResponse.ts";
+import { buildUplotPayload } from "./shared/uplotOptions.ts";
 import type {
   AnyRow,
   DashboardParams,
@@ -42,17 +43,20 @@ export async function demand(
   ]);
   const startTime = rows[0]?.time as number | undefined;
   const interval = ctx.interval * 1000;
+  const series = buildPowerLineSeries(rows, areaColor);
 
-  return sendDualAxisChart(
-    request,
-    reply,
-    buildPowerLineSeries(rows, areaColor),
-    "Demand",
-    ctx.timezoneAbbreviation,
-    undefined,
-    startTime,
-    interval,
-  );
+  if (startTime == null || series.length === 0) {
+    return sendUplotResponse(request, reply, {
+      chartLibrary: "uplot",
+      opts: { title: "Demand", series: [], axes: [] },
+      data: [],
+      rawData: [],
+    });
+  }
+  const maxLen = series.reduce((max, s) => Math.max(max, s.data?.length ?? 0), 0);
+  const timestamps = buildXAxisTimestamps(startTime, interval, maxLen);
+  const payload = buildUplotPayload("Demand", timestamps, series, ctx.timezone);
+  return sendUplotResponse(request, reply, payload);
 }
 
 const demandMinMaxSql = `
@@ -90,20 +94,22 @@ export async function demandMinMax(
   ]);
   const startTime = rows[0]?.time as number | undefined;
   const interval = ctx.interval * 1000;
+  const series = buildMinMaxSeries(rows);
 
-  return sendChartResponse(
-    req,
-    reply,
-    buildChartOptions(
-      buildMinMaxSeries(rows),
-      "Demand Min/Max",
-      "power",
-      false,
-      startTime,
-      interval,
-    ),
-    ctx.timezoneAbbreviation,
-  );
+  if (startTime == null || series.length === 0) {
+    return sendUplotResponse(req, reply, {
+      chartLibrary: "uplot",
+      opts: { title: "Demand Min/Max", series: [], axes: [] },
+      data: [],
+      rawData: [],
+    });
+  }
+  const maxLen = series.reduce((max, s) => Math.max(max, s.data?.length ?? 0), 0);
+  const timestamps = buildXAxisTimestamps(startTime, interval, maxLen);
+  const payload = buildUplotPayload("Demand Min/Max", timestamps, series, ctx.timezone);
+  // Force the y-axis to start at 0 so the confidence band sits on a meaningful baseline
+  payload.opts.scales = { y: { range: [0, null] } };
+  return sendUplotResponse(req, reply, payload);
 }
 
 export async function demandYoy(
@@ -121,18 +127,18 @@ export async function demandYoy(
   ]);
   const startTime = rows[0]?.time as number | undefined;
   const interval = ctx.interval * 1000;
+  const series = buildYoySeries(rows);
 
-  return sendChartResponse(
-    req,
-    reply,
-    buildChartOptions(
-      buildYoySeries(rows),
-      "Demand Year over Year",
-      "power",
-      true,
-      startTime,
-      interval,
-    ),
-    ctx.timezoneAbbreviation,
-  );
+  if (startTime == null || series.length === 0) {
+    return sendUplotResponse(req, reply, {
+      chartLibrary: "uplot",
+      opts: { title: "Demand Year over Year", series: [], axes: [] },
+      data: [],
+      rawData: [],
+    });
+  }
+  const maxLen = series.reduce((max, s) => Math.max(max, s.data?.length ?? 0), 0);
+  const timestamps = buildXAxisTimestamps(startTime, interval, maxLen);
+  const payload = buildUplotPayload("Demand Year over Year", timestamps, series, ctx.timezone);
+  return sendUplotResponse(req, reply, payload);
 }

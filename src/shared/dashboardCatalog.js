@@ -8,7 +8,7 @@ export const dashboardTabGroups = [
   {
     label: "Electricity Mix",
     items: [
-      { key: "electricity_mix", label: "Electricity Mix", features: ["prices_checkbox", "load_checkbox", "transmission_checkbox"] },
+      { key: "electricity_mix", label: "Electricity Mix", chartLibrary: "uplot", features: ["prices_checkbox", "load_checkbox", "transmission_checkbox"] },
       { key: "simulation", label: "Simulation", features: ["production_type_selector", "transmission_checkbox", "simulation_multipliers"] },
     ],
   },
@@ -66,6 +66,20 @@ for (const group of dashboardTabGroups) {
 // Extra features for dashboards that exist as pages but aren't in the nav.
 featuresByKey.sweden = ["prices_checkbox", "load_checkbox", "transmission_checkbox"];
 featuresByKey.generation_of_peak_map = [];
+
+// Chart library lookup
+const chartLibraryByKey = {};
+for (const group of dashboardTabGroups) {
+  for (const item of group.items) {
+    chartLibraryByKey[item.key] = item.chartLibrary || "echarts";
+  }
+}
+chartLibraryByKey.sweden = "echarts";
+chartLibraryByKey.generation_of_peak_map = "echarts";
+
+export function dashboardChartLibrary(dashboardType) {
+  return chartLibraryByKey[dashboardType] || "echarts";
+}
 
 export function dashboardHasFeature(dashboardType, feature) {
   const feats = featuresByKey[dashboardType];

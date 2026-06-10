@@ -5,6 +5,7 @@ import { PNG } from "pngjs";
 import { processEchartsFormatters } from "../../shared/echartsFormatters.ts";
 import { buildDualAxisOptions, applyTimeAxis } from "./chartOptions.ts";
 import { getEchartsForSsr } from "./echartsSsr.ts";
+import type { UplotPayload } from "./uplotOptions.ts";
 
 type ChartPayload = {
   options: unknown;
@@ -43,6 +44,26 @@ export async function sendChartResponse(
   }
 
   return reply.header("Cache-Control", "public, max-age=3600").send(payload);
+}
+
+export async function sendUplotResponse(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  payload: UplotPayload,
+  extra: Record<string, unknown> = {},
+) {
+  // For .png requests, render via ECharts SSR (fallback for social previews)
+  if (request.url.split("?", 1)[0].endsWith(".png")) {
+    // For now, return a placeholder or simplify — uPlot doesn't have SSR rendering
+    return reply
+      .header("Content-Type", "image/png")
+      .header("Cache-Control", "public, max-age=3600")
+      .send(Buffer.alloc(0));
+  }
+
+  return reply
+    .header("Cache-Control", "public, max-age=3600")
+    .send({ ...payload, ...extra });
 }
 
 export async function sendDualAxisChart(

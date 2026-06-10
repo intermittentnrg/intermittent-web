@@ -321,19 +321,19 @@ async function addGenerationPanel(
 
   const genSeries = divergentSeries(buildStackedPowerLineSeries(genRows)).map((s) => ({
     ...s,
-    itemStyle: { color: colorFn(s.name) },
+    label: s.label,
+    itemStyle: { color: colorFn(s.label) },
   }));
   const demandSeries = buildStackedPowerLineSeries(demandRows).map((s) => ({
     ...s,
-    name: "demand",
+    label: "demand",
     stack: undefined,
-    areaStyle: undefined,
     lineStyle: { width: 2 },
     itemStyle: { color: "rgb(36, 41, 46)" },
   }));
   const transSeries = includeTransmission ? divergentSeries(buildStackedPowerLineSeries(transRows)).map((s) => ({
     ...s,
-    name: "transmission",
+    label: "transmission",
     itemStyle: { color: colorFn("transmission") },
   })) : [];
   const gridIndex = options.grid.length;
@@ -348,7 +348,7 @@ async function addGenerationPanel(
     top: 30,
     left: "center",
     right: "15%",
-    data: [...new Set(series.map((s) => s.name))],
+    data: [...new Set(series.map((s) => s.label))],
   });
   options.grid.push({ left: "3%", right: "15%", top: "7%", height: "25%" });
   options.xAxis.push({ type: "category", gridIndex, axisLabel: { show: false } });

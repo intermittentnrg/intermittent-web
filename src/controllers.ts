@@ -118,6 +118,3 @@ function absoluteUrl(request: FastifyRequest, path: string) {
   return `${proto}://${host}${path}`;
 }
 
-export async function nordpool(_request: FastifyRequest, reply: FastifyReply) {
-  return reply.view("stub.ejs", { pageTitle: "Nordpool", heading: "Nordpool", message: "Nordpool controller stub" });
-}

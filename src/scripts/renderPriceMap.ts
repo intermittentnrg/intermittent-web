@@ -2,13 +2,12 @@ import "dotenv/config";
 import { isMainThread } from "node:worker_threads";
 import type { MapSeriesOption } from "echarts/types/dist/echarts";
 import { processSeriesLabelFormatter } from "../shared/echartsFormatters.ts";
+import { fetchPayload } from "./shared/renderVideo.ts";
 import {
-  fetchEchartsPayload,
   renderEchartsVideo,
-  type VideoProfile,
   type EchartsJsonPayload,
-  type CreateFrameGenerator,
-} from "./shared/renderEchartsVideo.ts";
+} from "./shared/renderEcharts.ts";
+import type { VideoProfile, CreateFrameGenerator } from "./shared/renderVideo.ts";
 
 type PriceMapProfile = {
   url: string;
@@ -88,7 +87,7 @@ const profile: PriceMapProfile & VideoProfile = {
 
 const url = profile.url;
 async function main() {
-  const payload = await fetchEchartsPayload<PriceMapPayload>(url);
+  const payload = await fetchPayload<PriceMapPayload>(url);
   const frames = payload.options.options;
   if (!frames?.length) {
     throw new Error(

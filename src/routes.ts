@@ -2,7 +2,6 @@ import type { FastifyInstance } from "fastify";
 import {
   dashboardSpa,
   health,
-  nordpool,
 } from "./controllers.ts";
 import { geoipRedirect } from "./geoipController.ts";
 import { legacyDashboardRedirect } from "./legacyRedirectController.ts";
@@ -28,7 +27,6 @@ import { generationOfPeakMap, maps, priceMap, sweden } from "./dashboards/misc.t
 
 export async function registerRoutes(app: FastifyInstance) {
   app.get("/health", health);
-  app.get("/nordpool", nordpool);
   app.get("/d/:uid/:dashboard", legacyDashboardRedirect as never);
 
   const dataHandlers = {

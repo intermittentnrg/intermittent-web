@@ -1,6 +1,7 @@
 export interface DashboardTabItem {
   key: string;
   label: string;
+  chartLibrary?: string;
   features: string[];
 }
 
@@ -12,6 +13,7 @@ export interface DashboardTabGroup {
 export {
   dashboardTabGroups,
   dashboardHasFeature,
+  dashboardChartLibrary,
   dashboardLabel,
   areaLabel,
   dashboardPageTitle,
