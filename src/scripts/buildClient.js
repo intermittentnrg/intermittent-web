@@ -1,4 +1,5 @@
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, rm, writeFile } from "node:fs/promises";
+import path from "node:path";
 import * as esbuild from "esbuild";
 
 const watch = process.argv.includes("--watch");
@@ -56,6 +57,7 @@ const clientOptions = {
   entryNames: production ? "assets/[name]-[hash]" : "[dir]/[name]",
   chunkNames: production ? "chunks/[name]-[hash]" : "chunks/[name]",
   assetNames: production ? "assets/[name]-[hash]" : "assets/[name]",
+  external: ["../vendor/echarts_client.bundle.js"],
   metafile: true,
   write: true,
 };
@@ -76,6 +78,10 @@ async function buildClient() {
   await buildSupportBundles();
   const result = await esbuild.build(clientOptions);
   await writeManifest(result);
+
+  // Copy vendor bundles alongside the client build so the externalized
+  // import (../vendor/echarts_client.bundle.js) resolves in production.
+  await cp("public/vendor", path.join("dist/public/client/vendor"), { recursive: true });
 }
 
 if (watch) {
