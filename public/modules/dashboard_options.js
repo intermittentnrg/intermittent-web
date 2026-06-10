@@ -1,5 +1,6 @@
 import { router } from "../router.js"
 import { closeAllDropdowns, toggleMenu } from "../dropdown_utils.js"
+import { dashboardHasFeature } from "../../src/shared/dashboardCatalog.js"
 
 const targetNames = ["menu", "selectedText", "productionTypeSection", "simulationSection", "electricityMixSection", "tempsSection", "loadSection", "transmissionCheckboxSection", "productionTypeOptions", "perUnitSection", "unitOptions", "unitSelectedText", "unitMenu", "transmissionSection", "transmissionOptions", "transmissionSelectedText", "transmissionMenu", "multiplierMenu", "multiplierSelectedText", "nuclearInput", "windInput", "solarInput", "demandInput"]
 
@@ -207,39 +208,39 @@ class DashboardOptions {
     const dashboard = router.parsePath()?.dashboard || ''
 
     if (this.hasProductionTypeSectionTarget) {
-      this.productionTypeSectionTarget.style.display = ['generation', 'generation_min_max', 'generation_total', 'generation_yoy', 'capture_price', 'simulation', 'per_unit', 'per_unit_peak', 'per_unit_total', 'per_unit_moving_capacity', 'per_unit_battery'].includes(dashboard) ? 'flex' : 'none'
+      this.productionTypeSectionTarget.style.display = dashboardHasFeature(dashboard, 'production_type_selector') ? 'flex' : 'none'
     }
     
     if (this.hasSimulationSectionTarget) {
       this.simulationSectionTargets.forEach(el => {
-        el.style.display = dashboard === 'simulation' ? 'flex' : 'none'
+        el.style.display = dashboardHasFeature(dashboard, 'simulation_multipliers') ? 'flex' : 'none'
       })
     }
     
     if (this.hasElectricityMixSectionTarget) {
-      this.electricityMixSectionTarget.style.display = ['electricity_mix', 'generation', 'sweden'].includes(dashboard) ? 'flex' : 'none'
+      this.electricityMixSectionTarget.style.display = dashboardHasFeature(dashboard, 'prices_checkbox') ? 'flex' : 'none'
     }
     
     if (this.hasTempsSectionTarget) {
-      this.tempsSectionTarget.style.display = dashboard === 'generation' ? 'flex' : 'none'
+      this.tempsSectionTarget.style.display = dashboardHasFeature(dashboard, 'temps_checkbox') ? 'flex' : 'none'
     }
     
     if (this.hasLoadSectionTarget) {
-      this.loadSectionTarget.style.display = ['electricity_mix', 'generation', 'sweden'].includes(dashboard) ? 'flex' : 'none'
+      this.loadSectionTarget.style.display = dashboardHasFeature(dashboard, 'load_checkbox') ? 'flex' : 'none'
     }
 
     if (this.hasTransmissionCheckboxSectionTarget) {
-      this.transmissionCheckboxSectionTarget.style.display = ['electricity_mix', 'generation', 'simulation', 'sweden'].includes(dashboard) ? 'flex' : 'none'
+      this.transmissionCheckboxSectionTarget.style.display = dashboardHasFeature(dashboard, 'transmission_checkbox') ? 'flex' : 'none'
     }
 
     if (this.hasPerUnitSectionTarget) {
       this.perUnitSectionTargets.forEach(el => {
-        el.style.display = ['per_unit', 'per_unit_peak', 'per_unit_total', 'per_unit_moving_capacity', 'per_unit_battery'].includes(dashboard) ? 'flex' : 'none'
+        el.style.display = dashboardHasFeature(dashboard, 'per_unit_selector') ? 'flex' : 'none'
       })
     }
 
     if (this.hasTransmissionSectionTarget) {
-      this.transmissionSectionTarget.style.display = dashboard === 'transmission' ? 'flex' : 'none'
+      this.transmissionSectionTarget.style.display = dashboardHasFeature(dashboard, 'transmission_selector') ? 'flex' : 'none'
     }
   }
 

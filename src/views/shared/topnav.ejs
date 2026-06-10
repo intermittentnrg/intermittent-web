@@ -15,7 +15,7 @@
     <%- include('topnav_dashboard') %>
 
     <div class="topnav-item production-type-selector" id="dashboard-options-production-type-section"
-     style="display: <%= productionDashboards.has(dashboardType) ? 'flex' : 'none' %>;">
+     style="display: <%= dashboardHasFeature(dashboardType, 'production_type_selector') ? 'flex' : 'none' %>;">
       <label>Production Type</label>
       <button type="button" class="dropdown__trigger">
         <span class="dropdown__value" id="dashboard-options-selected-text"><%= productionType || 'All' %></span>
@@ -30,7 +30,7 @@
     </div>
 
     <div class="topnav-item multiplier-selector dashboard-options-simulation-section" id="dashboard-options-simulation-section"
-         style="display: <%= dashboardType === 'simulation' ? 'flex' : 'none' %>;">
+         style="display: <%= dashboardHasFeature(dashboardType, 'simulation_multipliers') ? 'flex' : 'none' %>;">
       <label>Multipliers</label>
       <button type="button" class="dropdown__trigger">
         <span class="dropdown__value" id="dashboard-options-multiplier-selected-text">Edit</span>
@@ -48,31 +48,31 @@
     </div>
 
     <div id="dashboard-options-electricity-mix-section" class="topnav-item"
-         style="display: <%= ['electricity_mix', 'generation', 'sweden'].includes(dashboardType) ? 'flex' : 'none' %>;">
+         style="display: <%= dashboardHasFeature(dashboardType, 'prices_checkbox') ? 'flex' : 'none' %>;">
       <label for="topnav-prices-checkbox">Prices</label>
       <div class="checkbox-wrapper"><input id="topnav-prices-checkbox" type="checkbox" <%= prices ? 'checked' : '' %>></div>
     </div>
 
     <div id="dashboard-options-temps-section" class="topnav-item"
-         style="display: <%= dashboardType === 'generation' ? 'flex' : 'none' %>;">
+         style="display: <%= dashboardHasFeature(dashboardType, 'temps_checkbox') ? 'flex' : 'none' %>;">
       <label for="topnav-temps-checkbox">Temps</label>
       <div class="checkbox-wrapper"><input id="topnav-temps-checkbox" type="checkbox" <%= temps ? 'checked' : '' %>></div>
     </div>
 
     <div id="dashboard-options-load-section" class="topnav-item"
-         style="display: <%= dashboardType === 'generation' ? 'flex' : 'none' %>;">
+         style="display: <%= dashboardHasFeature(dashboardType, 'load_checkbox') ? 'flex' : 'none' %>;">
       <label for="topnav-load-checkbox">Load</label>
       <div class="checkbox-wrapper"><input id="topnav-load-checkbox" type="checkbox" <%= load ? 'checked' : '' %>></div>
     </div>
 
     <div id="dashboard-options-transmission-checkbox-section" class="topnav-item"
-         style="display: <%= ['electricity_mix', 'generation', 'simulation', 'sweden'].includes(dashboardType) ? 'flex' : 'none' %>;">
+         style="display: <%= dashboardHasFeature(dashboardType, 'transmission_checkbox') ? 'flex' : 'none' %>;">
       <label for="topnav-transmission-checkbox">Transmission</label>
       <div class="checkbox-wrapper"><input id="topnav-transmission-checkbox" type="checkbox" <%= transmission ? 'checked' : '' %>></div>
     </div>
 
     <div id="dashboard-options-transmission-section" class="topnav-item transmission-selector"
-         style="display: <%= dashboardType === 'transmission' ? 'flex' : 'none' %>;">
+         style="display: <%= dashboardHasFeature(dashboardType, 'transmission_selector') ? 'flex' : 'none' %>;">
       <label>Transmission Line</label>
       <button type="button" class="dropdown__trigger">
         <span class="dropdown__value" id="dashboard-options-transmission-selected-text">Select line</span>
@@ -85,7 +85,7 @@
     </div>
 
     <div id="dashboard-options-unit-section" class="topnav-item unit-selector dashboard-options-per-unit-section"
-         style="display: <%= perUnitDashboards.has(dashboardType) ? 'flex' : 'none' %>;">
+         style="display: <%= dashboardHasFeature(dashboardType, 'per_unit_selector') ? 'flex' : 'none' %>;">
       <label>Units</label>
       <button type="button" class="dropdown__trigger">
         <span class="dropdown__value" id="dashboard-options-unit-selected-text"><%= unitLabel || 'All' %></span>

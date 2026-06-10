@@ -1,9 +1,47 @@
 import { router } from "../router.js"
 import { closeAllDropdowns } from "../dropdown_utils.js"
+import { dashboardTabGroups } from "../../src/shared/dashboardCatalog.js"
+
+/**
+ * Attach and populate the dropdown inside each .dashboard-tab-group.
+ * The tab buttons are server-rendered; the dropdown container and its items
+ * are created by JS from the shared data structure.
+ */
+function populateDropdowns() {
+  const groups = document.querySelectorAll('#topnav-dashboard .dashboard-tab-group')
+
+  for (const groupEl of groups) {
+    const trigger = groupEl.querySelector('.dashboard-tab')
+    if (!trigger) continue
+
+    const key = trigger.getAttribute('href')
+    const groupData = dashboardTabGroups.find(g => g.items[0]?.key === key)
+    if (!groupData) continue
+
+    // Only attach the dropdown once
+    if (groupEl.querySelector('.dashboard-dropdown')) continue
+
+    const dropdown = document.createElement('div')
+    dropdown.className = 'dashboard-dropdown'
+
+    for (const item of groupData.items) {
+      const link = document.createElement('a')
+      link.href = item.key
+      link.className = 'dashboard-dropdown-item'
+      link.textContent = item.label
+      dropdown.appendChild(link)
+    }
+
+    groupEl.appendChild(dropdown)
+  }
+}
 
 export function initTopnavDashboard() {
   const root = document.getElementById('topnav-dashboard')
   if (!root) return
+
+  // Ingest the dropdown contents into the server-rendered tab buttons
+  populateDropdowns()
 
   function switchDashboard(event, link) {
     event.preventDefault()

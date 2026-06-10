@@ -1,29 +1,7 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { AreaRow, DashboardParams } from "./dashboards/shared/types.ts";
 import { querySmall } from "./lib/db.ts";
-import { dashboardPageTitle } from "./shared/dashboardTitles.ts";
-
-const productionDashboards = new Set([
-  "generation",
-  "generation_min_max",
-  "generation_total",
-  "generation_yoy",
-  "capture_price",
-  "simulation",
-  "per_unit",
-  "per_unit_peak",
-  "per_unit_total",
-  "per_unit_moving_capacity",
-  "per_unit_battery",
-]);
-
-const perUnitDashboards = new Set([
-  "per_unit",
-  "per_unit_peak",
-  "per_unit_total",
-  "per_unit_moving_capacity",
-  "per_unit_battery",
-]);
+import { dashboardPageTitle, dashboardTabGroups, dashboardHasFeature } from "./shared/dashboardCatalog.ts";
 
 const datePresets = [
   { preset: "today", from: "today", to: "today", label: "Today" },
@@ -91,12 +69,12 @@ export async function dashboardSpa(request: FastifyRequest<{ Params: DashboardPa
     temps: query.temps === "true" || query.temps === "1",
     load: query.load === "true" || query.load === "1",
     transmission: query.transmission !== "0",
-    productionDashboards,
-    perUnitDashboards,
     fromRaw,
     toRaw,
     datePresets,
     currentPreset,
+    dashboardTabGroups,
+    dashboardHasFeature,
     resolutions: ["5m", "15m", "30m", "1h", "6h", "12h", "1d", "1w", "1M"],
     ...areas,
   });
