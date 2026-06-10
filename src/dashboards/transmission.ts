@@ -17,7 +17,6 @@ const transmissionSql = (filtered: boolean) => {
     : "to_area_id = ANY($1::int[])";
   const fromParam = "$2";
   const toParam = "$3";
-  const timezoneParam = "$4";
 
   return `
   WITH _transmission AS (
@@ -45,7 +44,7 @@ const transmissionSql = (filtered: boolean) => {
       time BETWEEN ${fromParam} AND ${toParam}
     GROUP BY 1,2,3
   )
-  SELECT EXTRACT(EPOCH FROM time AT TIME ZONE ${timezoneParam}) * 1000 AS time, fa.code AS from_area, ta.code AS to_area, SUM(value) AS value
+  SELECT EXTRACT(EPOCH FROM time) AS time, fa.code AS from_area, ta.code AS to_area, SUM(value) AS value
   FROM _transmission INNER JOIN areas fa ON(from_area_id=fa.id) INNER JOIN areas ta ON(to_area_id=ta.id)
   GROUP BY 1,2,3 ORDER BY 2,3,1
 `;
@@ -59,8 +58,8 @@ export async function transmission(
   const selectedLines = req.query.transmission_lines?.split(",").filter(Boolean) || [];
   const filtered = selectedLines.length > 0;
   const args: any[] = filtered
-    ? [selectedLines, ctx.from, ctx.to, ctx.timezone]
-    : [ctx.areaIds, ctx.from, ctx.to, ctx.timezone];
+    ? [selectedLines, ctx.from, ctx.to]
+    : [ctx.areaIds, ctx.from, ctx.to];
   const rows = await chartQuery<AnyRow>(req, transmissionSql(filtered), args);
   const lines = await querySmall<AnyRow>(`
     SELECT DISTINCT
@@ -77,7 +76,7 @@ export async function transmission(
     [ctx.areaIds],
   );
   const startTime = rows[0]?.time as number | undefined;
-  const interval = ctx.interval * 1000;
+  const interval = ctx.interval;
   const series = divergentSeries(buildTransmissionSeries(rows));
 
   if (startTime == null || series.length === 0) {

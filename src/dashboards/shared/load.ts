@@ -4,7 +4,7 @@ import type { TimeMetricValueRow } from "./types.ts";
 import type { UplotSeriesDesc } from "./uplotOptions.ts";
 
 const loadSql = `
-  SELECT EXTRACT(EPOCH FROM time AT TIME ZONE $5) * 1000 AS time, 'load' AS metric, SUM(value) AS value
+  SELECT EXTRACT(EPOCH FROM time) AS time, 'load' AS metric, SUM(value) AS value
   FROM (
     SELECT time_bucket_gapfill($1::interval, time) AS time, INTERPOLATE(AVG(value)) AS value
     FROM load l
@@ -18,7 +18,7 @@ const loadSql = `
 
 export async function getLoadSeries(
   request: FastifyRequest,
-  args: [string, Date, Date, number[], string],
+  args: [string, Date, Date, number[]],
 ): Promise<UplotSeriesDesc[]> {
   const rows = await chartQuery<TimeMetricValueRow>(request, loadSql, args);
   const series: UplotSeriesDesc[] = [];

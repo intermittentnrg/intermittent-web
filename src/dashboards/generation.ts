@@ -37,11 +37,11 @@ const generationSql = `
     INNER JOIN production_types pt ON(production_type_id=pt.id)
     WHERE
       time BETWEEN $2 AND $3 AND
-      production_type_id = ANY($6::int[]) AND
+      production_type_id = ANY($5::int[]) AND
       area_id = ANY($4::int[])
     GROUP BY 1,2,3
   )
-  SELECT EXTRACT(EPOCH FROM time AT TIME ZONE $5) * 1000 AS time, CONCAT_WS('/', area, production_type) AS metric, SUM(value) AS value
+  SELECT EXTRACT(EPOCH FROM time) AS time, CONCAT_WS('/', area, production_type) AS metric, SUM(value) AS value
   FROM _generation_gapfill
   GROUP BY 1,area, production_type
   HAVING SUM(value) IS NOT NULL
@@ -57,12 +57,11 @@ export async function generation(
     ctx.areaIds,
     request.query.production_type,
   );
-  const priceArgs: [string, Date, Date, number[], string] = [
+  const priceArgs: [string, Date, Date, number[]] = [
     `${ctx.interval} seconds`,
     ctx.from,
     ctx.to,
     ctx.areaIds,
-    ctx.timezone,
   ];
   const rows = await chartQuery<TimeMetricValueRow>(request, generationSql, [
     ...priceArgs,
@@ -75,7 +74,7 @@ export async function generation(
   }
   if (request.query.prices) series.push(...(await getPriceSeries(request, priceArgs, { scale: "%" })));
   const startTime = rows[0]?.time as number | undefined;
-  const interval = ctx.interval * 1000;
+  const interval = ctx.interval;
 
   if (startTime == null || series.length === 0) {
     return sendUplotResponse(request, reply, {
@@ -92,21 +91,23 @@ export async function generation(
   return sendUplotResponse(request, reply, payload, { production_types: productionTypes });
 }
 
+const DAILY = 86400;
+
 const generationTotalSql = `
-  SELECT EXTRACT(EPOCH FROM time_bucket('1d', time) AT TIME ZONE $4) * 1000 AS time, CONCAT_WS('/', area, production_type) AS metric, SUM(value) AS value
+  SELECT EXTRACT(EPOCH FROM time_bucket($5::interval, time)) AS time, CONCAT_WS('/', area, production_type) AS metric, SUM(value) AS value
   FROM (
     SELECT time_bucket_gapfill('1h', time) AS time, a.code AS area, pt.name AS production_type, AVG(GREATEST(0, value)) AS value
     FROM generation
     INNER JOIN areas a ON(area_id = a.id)
     INNER JOIN production_types pt ON(production_type_id = pt.id)
-    WHERE time BETWEEN $1 AND $2 AND production_type_id = ANY($5::int[]) AND area_id = ANY($3::int[])
+    WHERE time BETWEEN $1 AND $2 AND production_type_id = ANY($4::int[]) AND area_id = ANY($3::int[])
     GROUP BY 1, 2, 3
     UNION
     SELECT time_bucket_gapfill('1h', time) AS time, a.code AS area, CONCAT(pt.name, '_negative') AS production_type, AVG(LEAST(0, value)) AS value
     FROM generation
     INNER JOIN areas a ON(area_id = a.id)
     INNER JOIN production_types pt ON(production_type_id = pt.id)
-    WHERE time BETWEEN $1 AND $2 AND production_type_id = ANY($5::int[]) AND area_id = ANY($3::int[])
+    WHERE time BETWEEN $1 AND $2 AND production_type_id = ANY($4::int[]) AND area_id = ANY($3::int[])
     GROUP BY 1, 2, 3
   ) AS hourly_data
   WHERE time BETWEEN $1 AND $2
@@ -128,15 +129,14 @@ export async function generationTotal(
     ctx.from,
     ctx.to,
     ctx.areaIds,
-    ctx.timezone,
     ptIds,
+    `${DAILY} seconds`,
   ]);
   const colorFn = colorsFromQuery(request.query.colors);
   const series = buildBasicSeries(rows, "bar", true, "energy", {
     colorForMetric: colorFn,
   });
   const startTime = rows[0]?.time as number | undefined;
-  const interval = ctx.interval * 1000;
 
   if (startTime == null || series.length === 0) {
     return sendUplotResponse(request, reply, {
@@ -147,7 +147,7 @@ export async function generationTotal(
     });
   }
   const maxLen = series.reduce((max, s) => Math.max(max, s.data?.length ?? 0), 0);
-  const timestamps = buildXAxisTimestamps(startTime, interval, maxLen);
+  const timestamps = buildXAxisTimestamps(startTime, DAILY, maxLen);
   const payload = buildUplotPayload("Generation Total (Daily)", timestamps, series, ctx.timezone);
   const productionTypes = await getProductionTypeOptions(ctx.areaIds);
   return sendUplotResponse(request, reply, payload, { production_types: productionTypes });
@@ -157,10 +157,10 @@ const generationMinMaxSql = `
 WITH _full_res AS (
   SELECT time_bucket_gapfill('15 minutes', time) AS time, INTERPOLATE(AVG(value)) AS value
   FROM generation
-  WHERE time BETWEEN $2 AND $3 AND production_type_id = ANY($6::int[]) AND area_id = ANY($4::int[])
+  WHERE time BETWEEN $2 AND $3 AND production_type_id = ANY($5::int[]) AND area_id = ANY($4::int[])
   GROUP BY 1, area_id, production_type_id
 )
-SELECT EXTRACT(EPOCH FROM time AT TIME ZONE $5) * 1000 AS time, avg_value, min_value, max_value
+SELECT EXTRACT(EPOCH FROM time) AS time, avg_value, min_value, max_value
 FROM (
   SELECT time_bucket($1::interval, time) AS time, AVG(value) AS avg_value, MIN(value) AS min_value, MAX(value) AS max_value
   FROM (SELECT time, SUM(value) AS value FROM _full_res GROUP BY time) s
@@ -181,11 +181,10 @@ export async function generationMinMax(
     ctx.from,
     ctx.to,
     ctx.areaIds,
-    ctx.timezone,
     ptIds,
   ]);
   const startTime = rows[0]?.time as number | undefined;
-  const interval = ctx.interval * 1000;
+  const interval = ctx.interval;
   const series = buildMinMaxSeries(rows);
 
   if (startTime == null || series.length === 0) {
@@ -199,20 +198,18 @@ export async function generationMinMax(
   const maxLen = series.reduce((max, s) => Math.max(max, s.data?.length ?? 0), 0);
   const timestamps = buildXAxisTimestamps(startTime, interval, maxLen);
   const payload = buildUplotPayload("Generation Min/Max", timestamps, series, ctx.timezone);
-  // Force the y-axis to start at 0 so the confidence band sits on a meaningful baseline
-  payload.opts.scales = { y: { range: [0, null] } };
   const productionTypes = await getProductionTypeOptions(ctx.areaIds);
   return sendUplotResponse(req, reply, payload, { production_types: productionTypes });
 }
 
 const generationYoySql = `
-SELECT EXTRACT(EPOCH FROM (time + ($5 - EXTRACT(YEAR FROM time) || ' years')::interval) AT TIME ZONE $4) * 1000 AS time,
+SELECT EXTRACT(EPOCH FROM (time + ($4 - EXTRACT(YEAR FROM time) || ' years')::interval)) AS time,
        EXTRACT(YEAR FROM time)::text AS metric, SUM(value) AS value
 FROM (
   SELECT time_bucket_gapfill($1::interval, time, start => '2015-01-01', finish => $2) AS time, AVG(value) AS value
   FROM generation_data_hourly g
   INNER JOIN areas_production_types apt ON g.areas_production_type_id = apt.id
-  WHERE time BETWEEN '2015-01-01' AND $2 AND apt.production_type_id = ANY($6::int[]) AND apt.area_id = ANY($3::int[])
+  WHERE time BETWEEN '2015-01-01' AND $2 AND apt.production_type_id = ANY($5::int[]) AND apt.area_id = ANY($3::int[])
   GROUP BY 1, apt.area_id, apt.production_type_id
 ) s
 GROUP BY 1, 2 ORDER BY 2, 1`;
@@ -231,12 +228,11 @@ export async function generationYoy(
     `${ctx.interval} seconds`,
     finish,
     ctx.areaIds,
-    ctx.timezone,
     finish.getFullYear(),
     ptIds,
   ]);
   const startTime = rows[0]?.time as number | undefined;
-  const interval = ctx.interval * 1000;
+  const interval = ctx.interval;
   const series = buildYoySeries(rows);
 
   if (startTime == null || series.length === 0) {

@@ -13,7 +13,7 @@ import type uPlot from "uplot";
 
 export type UplotPayload = {
   chartLibrary: "uplot";
-  /** Partial uPlot Options — width/height are set by frontend, tzDate is constructed from payload.timezone. */
+  /** uPlot options — width/height are set by frontend, tzDate is constructed from payload.timezone. */
   opts: Partial<uPlot.Options>;
   /** Cumulative data for rendering (first col = timestamps, rest = cumulative series values) */
   data: (number | null)[][];
@@ -174,7 +174,7 @@ export function buildUplotPayload(
       stroke: "#888",
       grid: { stroke: "rgba(0,0,0,0.06)" },
       font: "12px system-ui, sans-serif",
-      label: "MW",
+      scale: "y",
     },
   ];
 
@@ -191,6 +191,10 @@ export function buildUplotPayload(
 
   const opts: Partial<uPlot.Options> = {
     title,
+    scales: {
+      x: { time: true },
+      y: { range: [0, null] },
+    },
     cursor: {
       show: true,
       lock: false,

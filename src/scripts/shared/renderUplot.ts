@@ -1,6 +1,8 @@
 import { Canvas, Path2D } from "skia-canvas";
 import type { ChartRenderer, TimelineRendererOptions, FrameGenerator, RendererFactory } from "./renderVideo.ts";
 import { renderVideo, type VideoProfile } from "./renderVideo.ts";
+import { formatPower, formatPrice } from "../../shared/echartsFormatters.ts";
+import type uPlot from "uplot";
 
 // ---------------------------------------------------------------------------
 // Minimal DOM shim so uPlot can create its canvas and render headlessly.
@@ -210,9 +212,14 @@ export async function createUplotRenderer(
   const uplotPayload = options.payload;
   const { opts, data, rawData } = uplotPayload;
 
-  // Build initial uPlot configuration
-  const uplotOpts: Record<string, any> = {
+  // Build initial uPlot configuration.
+  // Start from server-provided opts, apply baseOption overrides (if any),
+  // then overlay video-specific settings.
+  // Deep-merge nested objects like scales so the x-scale isn't dropped.
+  const uplotOpts: uPlot.Options = {
     ...opts,
+    ...options.baseOption,
+    scales: { ...opts.scales, ...options.baseOption?.scales },
     width,
     height,
     // Disable interactions for SSR
@@ -233,10 +240,30 @@ export async function createUplotRenderer(
     },
   };
 
+  // Apply axis value formatters matching the web frontend
+  // (see chart.js renderUplot: axes with scale "y" get formatPower, scale "%" get formatPrice).
+  if (Array.isArray(uplotOpts.axes)) {
+    uplotOpts.axes = uplotOpts.axes.map((axis) => {
+      if (axis.scale === "y") {
+        return { ...axis, values: (_u: uPlot, ticks: number[]) => ticks.map((v) => formatPower(v)) };
+      }
+      if (axis.scale === "%") {
+        return { ...axis, values: (_u: uPlot, ticks: number[]) => ticks.map((v) => formatPrice(v)) };
+      }
+      return axis;
+    });
+  }
+
+  // Configure timezone-aware x-axis from the payload
+  const timezone: string | undefined = (uplotPayload as any).timezone;
+  if (timezone) {
+    uplotOpts.tzDate = (ts: number) => uPlot.tzDate(new Date(ts * 1e3), timezone);
+  }
+
   // Create the uPlot instance — the DOM shim provides document.
   // Instead of passing a DOM element (which requires HTMLElement to be defined),
   // pass a function that just calls _init() to kickstart the chart.
-  const chart = new uPlot(uplotOpts as any, data, (_self: any, _init: Function) => { _init(); });
+  const chart = new uPlot(uplotOpts, data, (_self: uPlot, _init: Function) => { _init(); });
 
   // Load the frame generator
   const fg = getFramePayload ?? await loadFrameGenerator(options);

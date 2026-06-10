@@ -24,11 +24,11 @@ export async function prices(
   const colorFn = colorsFromQuery(request.query.colors);
   const series = await getPriceSeries(
     request,
-    [`${ctx.interval} seconds`, ctx.from, ctx.to, ctx.areaIds, ctx.timezone],
+    [`${ctx.interval} seconds`, ctx.from, ctx.to, ctx.areaIds],
     { colorForMetric: colorFn },
   );
-  const startTime = ctx.from.getTime();
-  const interval = ctx.interval * 1000;
+  const startTime = ctx.from.getTime() / 1000;
+  const interval = ctx.interval;
 
   if (startTime == null || series.length === 0) {
     return sendUplotResponse(request, reply, {

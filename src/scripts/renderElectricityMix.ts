@@ -67,13 +67,13 @@ async function main() {
   const interval = dataLen > 1 ? timestamps[1] - timestamps[0] : 0;
   if (interval === 0) throw new Error("Cannot determine interval from data");
 
-  const stepPts = Math.round(profile.stepHours * 3600 * 1000 / interval);
-  const winPts = Math.round(profile.windowHours * 3600 * 1000 / interval);
+  const stepPts = Math.round(profile.stepHours * 3600 / interval);
+  const winPts = Math.round(profile.windowHours * 3600 / interval);
   const frameCount = Math.max(1, Math.floor((dataLen - winPts) / stepPts) + 1);
 
   // Build the base uPlot option with video-specific overrides.
   // This is spread on top of the server-provided opts.
-  const baseOption = buildBaseUplotOption(payload, timestamps, interval, dataLen);
+  const baseOption = buildBaseUplotOption(payload);
 
   await renderUplotVideo(
     profile,
@@ -90,34 +90,17 @@ async function main() {
 
 function buildBaseUplotOption(
   uplotPayload: Record<string, any>,
-  timestamps: number[],
-  _interval: number,
-  _dataLen: number,
 ): Record<string, any> {
-  const { opts } = uplotPayload;
-  const base = structuredClone(opts || {});
-
-  // Override size for video rendering
-  base.width = profile.width;
-  base.height = profile.height;
-
-  // Disable interactions for SSR
-  base.cursor = { show: false };
-  base.select = { show: false };
-  base.legend = { show: false };
-
   // Compute global y-axis max across all data columns for stable axis range
   const data = uplotPayload.data as (number | null)[][];
   const globalMax = computeGlobalMax(data);
-  if (globalMax > 0) {
-    base.scales = base.scales ? structuredClone(base.scales) : {};
-    base.scales.y = {
-      ...(base.scales.y || {}),
-      range: [0, globalMax],
-    };
-  }
+  if (globalMax <= 0) return {};
 
-  return base;
+  return {
+    scales: {
+      y: { range: [0, globalMax] },
+    },
+  };
 }
 
 function computeGlobalMax(data: (number | null)[][]): number {

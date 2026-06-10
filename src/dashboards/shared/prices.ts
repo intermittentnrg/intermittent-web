@@ -10,7 +10,7 @@ type PriceSeriesOptions = {
 };
 
 const priceSql = `
-  SELECT EXTRACT(EPOCH FROM time AT TIME ZONE $5) * 1000 AS time, metric, value
+  SELECT EXTRACT(EPOCH FROM time) AS time, metric, value
   FROM (
     SELECT
       time_bucket_gapfill($1::interval, time) AS time,
@@ -32,7 +32,7 @@ const priceSql = `
 
 export async function getPriceSeries(
   request: FastifyRequest,
-  args: [string, Date, Date, number[], string],
+  args: [string, Date, Date, number[]],
   options: PriceSeriesOptions = {},
 ) {
   const rows = await chartQuery<TimeMetricValueRow>(request, priceSql, args);

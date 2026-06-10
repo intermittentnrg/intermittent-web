@@ -18,7 +18,7 @@ import type {
 } from "./shared/types.ts";
 
 const demandSql = `
-  SELECT EXTRACT(EPOCH FROM time AT TIME ZONE $5) * 1000 AS time, metric, value
+  SELECT EXTRACT(EPOCH FROM time) AS time, metric, value
   FROM (
     SELECT time_bucket_gapfill($1::interval, time) AS time, a.code AS metric, INTERPOLATE(AVG(value)) AS value
     FROM load l
@@ -39,10 +39,9 @@ export async function demand(
     ctx.from,
     ctx.to,
     ctx.areaIds,
-    ctx.timezone,
   ]);
   const startTime = rows[0]?.time as number | undefined;
-  const interval = ctx.interval * 1000;
+  const interval = ctx.interval;
   const series = buildPowerLineSeries(rows, areaColor);
 
   if (startTime == null || series.length === 0) {
@@ -64,7 +63,7 @@ WITH _full_res AS (
   SELECT time_bucket_gapfill('1 hour', time) AS time, INTERPOLATE(AVG(value)) AS value
   FROM load WHERE time BETWEEN $2 AND $3 AND area_id = ANY($4::int[]) GROUP BY 1, area_id
 )
-SELECT EXTRACT(EPOCH FROM time AT TIME ZONE $5) * 1000 AS time, avg_value, min_value, max_value
+SELECT EXTRACT(EPOCH FROM time) AS time, avg_value, min_value, max_value
 FROM (
   SELECT time_bucket($1::interval, time) AS time, AVG(value) AS avg_value, MIN(value) AS min_value, MAX(value) AS max_value
   FROM (SELECT time, SUM(value) AS value FROM _full_res GROUP BY time) s
@@ -72,7 +71,7 @@ FROM (
 ) s2`;
 
 const demandYoySql = `
-SELECT EXTRACT(EPOCH FROM (time + ($5 - EXTRACT(YEAR FROM time) || ' years')::interval) AT TIME ZONE $4) * 1000 AS time,
+SELECT EXTRACT(EPOCH FROM (time + ($4 - EXTRACT(YEAR FROM time) || ' years')::interval)) AS time,
        EXTRACT(YEAR FROM time)::text AS metric, SUM(value) AS value
 FROM (
   SELECT time_bucket_gapfill($1::interval, time, start => '2015-01-01', finish => $2) AS time, AVG(value) AS value
@@ -90,10 +89,9 @@ export async function demandMinMax(
     ctx.from,
     ctx.to,
     ctx.areaIds,
-    ctx.timezone,
   ]);
   const startTime = rows[0]?.time as number | undefined;
-  const interval = ctx.interval * 1000;
+  const interval = ctx.interval;
   const series = buildMinMaxSeries(rows);
 
   if (startTime == null || series.length === 0) {
@@ -107,8 +105,6 @@ export async function demandMinMax(
   const maxLen = series.reduce((max, s) => Math.max(max, s.data?.length ?? 0), 0);
   const timestamps = buildXAxisTimestamps(startTime, interval, maxLen);
   const payload = buildUplotPayload("Demand Min/Max", timestamps, series, ctx.timezone);
-  // Force the y-axis to start at 0 so the confidence band sits on a meaningful baseline
-  payload.opts.scales = { y: { range: [0, null] } };
   return sendUplotResponse(req, reply, payload);
 }
 
@@ -122,11 +118,10 @@ export async function demandYoy(
     `${ctx.interval} seconds`,
     finish,
     ctx.areaIds,
-    ctx.timezone,
     finish.getFullYear(),
   ]);
   const startTime = rows[0]?.time as number | undefined;
-  const interval = ctx.interval * 1000;
+  const interval = ctx.interval;
   const series = buildYoySeries(rows);
 
   if (startTime == null || series.length === 0) {

@@ -24,12 +24,12 @@ const SQL_GEN = `
     GROUP BY 1,2,areas_production_type_id
   )
   SELECT
-    EXTRACT(EPOCH FROM time AT TIME ZONE $5) * 1000 AS time,
+    EXTRACT(EPOCH FROM time) AS time,
     ptg.name AS metric,
     SUM(value) AS value
   FROM _g
   INNER JOIN production_type_groups ptg ON(production_type_group_id=ptg.id)
-  WHERE value IS NOT NULL AND ($6::text[] IS NULL OR ptg.name = ANY($6::text[]))
+  WHERE value IS NOT NULL AND ($5::text[] IS NULL OR ptg.name = ANY($5::text[]))
   GROUP BY ptg.name, 1
   ORDER BY 2, 1
 `;
@@ -43,7 +43,7 @@ const SQL_GEN_HOURLY = `
     WHERE time BETWEEN $2 AND $3 AND area_id = ANY($4::int[])
     GROUP BY 1,2
   )
-  SELECT EXTRACT(EPOCH FROM time AT TIME ZONE $5) * 1000 AS time, metric, value
+  SELECT EXTRACT(EPOCH FROM time) AS time, metric, value
   FROM (
     SELECT
       time_bucket_gapfill($1::interval, time) AS time,
@@ -51,7 +51,7 @@ const SQL_GEN_HOURLY = `
       INTERPOLATE(AVG(value)) AS value
     FROM _g
     INNER JOIN production_type_groups ptg ON(production_type_group_id=ptg.id)
-    WHERE time BETWEEN $2 AND $3 AND ($6::text[] IS NULL OR ptg.name = ANY($6::text[]))
+    WHERE time BETWEEN $2 AND $3 AND ($5::text[] IS NULL OR ptg.name = ANY($5::text[]))
     GROUP BY ptg.name, 1
   ) s
   ORDER BY metric, time
@@ -85,7 +85,7 @@ const SQL_TRANS = `
     GROUP BY 1,2,3
   )
   SELECT
-    EXTRACT(EPOCH FROM time AT TIME ZONE $5) * 1000 AS time,
+    EXTRACT(EPOCH FROM time) AS time,
     'transmission' AS metric,
     SUM(value) AS value
   FROM _transmission_avg
@@ -107,12 +107,11 @@ export async function electricityMix(
   const productionTypeGroups = request.query.production_type_groups
     ? request.query.production_type_groups.split(",").map((s) => s.trim()).filter(Boolean)
     : null;
-  const baseArgs: [string, Date, Date, number[], string] = [
+  const baseArgs: [string, Date, Date, number[]] = [
     intervalSql,
     ctx.from,
     ctx.to,
     ctx.areaIds,
-    ctx.timezone,
   ];
   const genArgs: [...typeof baseArgs, string[] | null] = [
     ...baseArgs,
@@ -133,7 +132,7 @@ export async function electricityMix(
 
   const allData = [...transData, ...genData];
   const startTime = allData.length > 0 ? allData[0].time : undefined;
-  const interval = ctx.interval * 1000;
+  const interval = ctx.interval;
 
   series.push(...divergentSeries(buildSeriesFromData(allData, colorFn)));
 

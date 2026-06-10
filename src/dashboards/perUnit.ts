@@ -42,7 +42,7 @@ async function unitMeta(areaIds: number[]) {
 
 const perUnitSql = `
   SELECT
-    EXTRACT(EPOCH FROM time AT TIME ZONE $5) * 1000 AS time,
+    EXTRACT(EPOCH FROM time) AS time,
     COALESCE(u.name, u.internal_id) AS metric,
     value
   FROM (
@@ -72,10 +72,9 @@ export async function perUnit(
     ctx.from,
     ctx.to,
     unitIds,
-    ctx.timezone,
   ]);
   const startTime = rows[0]?.time as number | undefined;
-  const interval = ctx.interval * 1000;
+  const interval = ctx.interval;
   const series = divergentSeries(buildBasicSeries(rows, "line", true, "power", {
     stackForMetric: (metric) =>
       metric.endsWith("_negative") ? "negative" : "total",
@@ -95,7 +94,9 @@ export async function perUnit(
   return sendUplotResponse(req, reply, payload, await unitMeta(ctx.areaIds));
 }
 
-const perUnitTotalSql = `SELECT EXTRACT(EPOCH FROM time_bucket('1d', time) AT TIME ZONE $4) * 1000 AS time, CONCAT_WS('/', a.code, pt.name, COALESCE(u.name, u.internal_id))||CASE WHEN SUM(value) < 0 THEN '_negative' ELSE '' END AS metric, SUM(value) AS value FROM (SELECT time_bucket_gapfill('1h', time) AS time, unit_id, AVG(value) AS value FROM generation_unit g WHERE time BETWEEN $1 AND $2 AND unit_id = ANY($3::int[]) GROUP BY 1,2 ORDER BY 1,2) s INNER JOIN units u ON(unit_id=u.id) INNER JOIN areas a ON(u.area_id=a.id) INNER JOIN production_types pt ON(u.production_type_id=pt.id) WHERE time BETWEEN $1 AND $2 GROUP BY 1,a.code,pt.name,u.name,u.internal_id HAVING SUM(value)<>0 ORDER BY 2,1`;
+const DAILY = 86400;
+
+const perUnitTotalSql = `SELECT EXTRACT(EPOCH FROM time_bucket($4::interval, time)) AS time, CONCAT_WS('/', a.code, pt.name, COALESCE(u.name, u.internal_id))||CASE WHEN SUM(value) < 0 THEN '_negative' ELSE '' END AS metric, SUM(value) AS value FROM (SELECT time_bucket_gapfill('1h', time) AS time, unit_id, AVG(value) AS value FROM generation_unit g WHERE time BETWEEN $1 AND $2 AND unit_id = ANY($3::int[]) GROUP BY 1,2 ORDER BY 1,2) s INNER JOIN units u ON(unit_id=u.id) INNER JOIN areas a ON(u.area_id=a.id) INNER JOIN production_types pt ON(u.production_type_id=pt.id) WHERE time BETWEEN $1 AND $2 GROUP BY 1,a.code,pt.name,u.name,u.internal_id HAVING SUM(value)<>0 ORDER BY 2,1`;
 
 export async function perUnitTotal(
   req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
@@ -107,12 +108,9 @@ export async function perUnitTotal(
     ctx.from,
     ctx.to,
     unitIds,
-    ctx.timezone,
+    `${DAILY} seconds`,
   ]);
-  const t0 = rows[0]?.time as number | undefined;
-  const t1 = rows[1]?.time as number | undefined;
-  const startTime = t0;
-  const interval = t0 != null && t1 != null ? t1 - t0 : ctx.interval * 1000;
+  const startTime = rows[0]?.time as number | undefined;
   const series = buildBasicSeries(rows, "bar", true, "energy");
 
   if (startTime == null || series.length === 0) {
@@ -124,7 +122,7 @@ export async function perUnitTotal(
     });
   }
   const maxLen = series.reduce((max, s) => Math.max(max, s.data?.length ?? 0), 0);
-  const timestamps = buildXAxisTimestamps(startTime, interval, maxLen);
+  const timestamps = buildXAxisTimestamps(startTime, DAILY, maxLen);
   const payload = buildUplotPayload("Per Unit Total (Daily)", timestamps, series, ctx.timezone);
   return sendUplotResponse(req, reply, payload, await unitMeta(ctx.areaIds));
 }
@@ -204,8 +202,8 @@ function heatmap(rows: AnyRow[]) {
   };
 }
 
-const movingCapSql = `WITH cap AS (SELECT unit_id,LAST(value,time) AS value FROM generation_unit_capacities WHERE time BETWEEN $1 AND $2 AND unit_id=ANY($3::int[]) GROUP BY unit_id), g AS (SELECT time_bucket_gapfill('1h', time) AS time, unit_id, COALESCE(AVG(value),0) AS value FROM generation_unit WHERE time BETWEEN $1 AND $2 AND unit_id=ANY($3::int[]) GROUP BY 1,2) SELECT EXTRACT(EPOCH FROM time_bucket($4::interval,time) AT TIME ZONE $5)*1000 AS time, CONCAT_WS(' - ',u.internal_id,u.name) AS metric, AVG(AVG(g.value)) OVER w / NULLIF(AVG(cap.value),0) AS moving_capacity FROM g INNER JOIN cap USING(unit_id) INNER JOIN units u ON(unit_id=u.id) WHERE time BETWEEN $1 AND $2 GROUP BY unit_id,time_bucket($4::interval,time),2 WINDOW w AS (PARTITION BY unit_id ORDER BY time_bucket($4::interval,time) RANGE '12 month' PRECEDING) ORDER BY 2,1`;
-const movingOutputSql = `SELECT EXTRACT(EPOCH FROM time AT TIME ZONE $5)*1000 AS time, metric, value FROM (SELECT time_bucket_gapfill($1::interval,time) AS time, CONCAT_WS(' - ',u.internal_id,u.name,'output') AS metric, AVG(value) AS value FROM generation_unit g INNER JOIN units u ON(unit_id=u.id) WHERE time BETWEEN $2 AND $3 AND unit_id=ANY($4::int[]) GROUP BY 1,u.internal_id,u.name ORDER BY 2,1) s`;
+const movingCapSql = `WITH cap AS (SELECT unit_id,LAST(value,time) AS value FROM generation_unit_capacities WHERE time BETWEEN $1 AND $2 AND unit_id=ANY($3::int[]) GROUP BY unit_id), g AS (SELECT time_bucket_gapfill('1h', time) AS time, unit_id, COALESCE(AVG(value),0) AS value FROM generation_unit WHERE time BETWEEN $1 AND $2 AND unit_id=ANY($3::int[]) GROUP BY 1,2) SELECT EXTRACT(EPOCH FROM time_bucket($4::interval,time)) AS time, CONCAT_WS(' - ',u.internal_id,u.name) AS metric, AVG(AVG(g.value)) OVER w / NULLIF(AVG(cap.value),0) AS moving_capacity FROM g INNER JOIN cap USING(unit_id) INNER JOIN units u ON(unit_id=u.id) WHERE time BETWEEN $1 AND $2 GROUP BY unit_id,time_bucket($4::interval,time),2 WINDOW w AS (PARTITION BY unit_id ORDER BY time_bucket($4::interval,time) RANGE '12 month' PRECEDING) ORDER BY 2,1`;
+const movingOutputSql = `SELECT EXTRACT(EPOCH FROM time) AS time, metric, value FROM (SELECT time_bucket_gapfill($1::interval,time) AS time, CONCAT_WS(' - ',u.internal_id,u.name,'output') AS metric, AVG(value) AS value FROM generation_unit g INNER JOIN units u ON(unit_id=u.id) WHERE time BETWEEN $2 AND $3 AND unit_id=ANY($4::int[]) GROUP BY 1,u.internal_id,u.name ORDER BY 2,1) s`;
 export async function perUnitMovingCapacity(
   req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
   reply: FastifyReply,
@@ -219,14 +217,12 @@ export async function perUnitMovingCapacity(
     ctx.to,
     unitIds,
     `${ctx.interval} seconds`,
-    ctx.timezone,
   ]);
   const out = await chartQuery<AnyRow>(req, movingOutputSql, [
     `${ctx.interval} seconds`,
     ctx.from,
     ctx.to,
     unitIds,
-    ctx.timezone,
   ]);
   const series = [
     ...buildFieldSeries(cap, "moving_capacity", "percent", {
@@ -241,7 +237,7 @@ export async function perUnitMovingCapacity(
   ];
   const t0 = [...cap, ...out].find((r: AnyRow) => r.time != null)?.time as number | undefined;
   const startTime = t0;
-  const interval = ctx.interval * 1000;
+  const interval = ctx.interval;
 
   if (startTime == null || series.length === 0) {
     return sendUplotResponse(req, reply, {
@@ -307,7 +303,7 @@ events AS (
 )
 
 SELECT
-  EXTRACT(EPOCH FROM min(time) AT TIME ZONE $4) * 1000 AS time,
+  EXTRACT(EPOCH FROM min(time)) AS time,
   unit_id,
   event_id,
   event_type,
@@ -330,12 +326,11 @@ export async function perUnitBattery(
     ctx.from,
     ctx.to,
     unitIds,
-    ctx.timezone,
   ]);
 
   const t0 = rows[0]?.time as number | undefined;
   const startTime = t0;
-  const interval = ctx.interval * 1000;
+  const interval = ctx.interval;
   const series = rowsToSeries(rows, {
     name: "event_type",
     y: "energy_mwh",

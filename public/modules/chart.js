@@ -165,7 +165,12 @@ class ChartModule {
     const pathParams = parsePath()
     if (!pathParams?.from || !pathParams?.to) return '15m'
     try {
-      const range = parseDateRange(pathParams.from, pathParams.to)
+      // YoY dashboards always return 1 year of data regardless of the URL's from/to.
+      // Override the duration so the resolution is appropriate for a year-long span.
+      const isYoy = ['demand_yoy', 'generation_yoy'].includes(pathParams.dashboard)
+      const range = isYoy
+        ? { from: new Date(Date.now() - 365 * 86400 * 1000), to: new Date() }
+        : parseDateRange(pathParams.from, pathParams.to)
       const width = window.innerWidth
       const minResolution = new URLSearchParams(window.location.search).get('min_resolution') || '15m'
       return calculateResolution(range.from, range.to, width, minResolution)
@@ -305,14 +310,15 @@ class ChartModule {
         },
       },
       axes: (opts.axes || []).map((axis) => {
-        if (axis.label === 'MW') {
+        if (axis.scale === 'y') {
           return { ...axis, values: (u, ticks) => ticks.map(v => formatPower(v)) }
         }
-        if (axis.label === '€/MWh') {
+        if (axis.scale === '%') {
           return { ...axis, values: (u, ticks) => ticks.map(v => formatPrice(v)) }
         }
         return axis
       }),
+      ...(data.timezone ? { tzDate: (ts) => uplot.tzDate(new Date(ts * 1e3), data.timezone) } : {}),
       hooks: {
         setCursor: [
           (u) => {
@@ -331,8 +337,8 @@ class ChartModule {
 
             // Format the timestamp
             const ts = rawData[0][idx]
-            const date = new Date(Number(ts)).toLocaleString('en-GB', {
-              timeZone: 'UTC',
+            const date = new Date(Number(ts) * 1e3).toLocaleString('en-GB', {
+              timeZone: data.timezone || 'UTC',
               hour12: false,
               day: 'numeric',
               month: 'short',
