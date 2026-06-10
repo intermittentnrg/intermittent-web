@@ -1,20 +1,19 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { chartQuery } from "./shared/chartQuery.ts";
 import { getContext } from "./shared/context.ts";
-import { buildXAxisTimestamps } from "./shared/chartOptions.ts";
 import {
   getProductionTypeIds,
   getProductionTypeOptions,
 } from "./shared/productionTypes.ts";
-import { colorsFromQuery } from "./shared/colors.ts";
+import { colorsFromQuery, PANEL_PALETTE } from "./shared/colors.ts";
 import { getPriceSeries } from "./shared/prices.ts";
-import { sendChartResponse, sendUplotResponse } from "./shared/chartResponse.ts";
-import { buildUplotPayload } from "./shared/uplotOptions.ts";
+import { sendUplotResponse } from "./shared/chartResponse.ts";
 import type {
   AnyRow,
   DashboardParams,
   DashboardQuery,
 } from "./shared/types.ts";
+import type { UplotSeriesDesc } from "./shared/uplotOptions.ts";
 
 export async function prices(
   request: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
@@ -32,18 +31,20 @@ export async function prices(
 
   if (startTime == null || series.length === 0) {
     return sendUplotResponse(request, reply, {
-      chartLibrary: "uplot",
-      opts: { title: "Prices", series: [], axes: [] },
-      data: [],
-      rawData: [],
+      title: "Prices",
+      mainSeries: [],
       startTime: 0,
       interval: 0,
+      timezone: ctx.timezone,
     });
   }
-  const maxLen = series.reduce((max, s) => Math.max(max, s.data?.length ?? 0), 0);
-  const timestamps = buildXAxisTimestamps(startTime, interval, maxLen);
-  const payload = buildUplotPayload("Prices", timestamps, series, ctx.timezone);
-  return sendUplotResponse(request, reply, payload);
+  return sendUplotResponse(request, reply, {
+    title: "Prices",
+    mainSeries: series,
+    startTime,
+    interval,
+    timezone: ctx.timezone,
+  });
 }
 
 const captureSql = `
@@ -138,127 +139,28 @@ const captureSummarySql = `
   GROUP BY 1
   ORDER BY 1
 `;
-function getOrCreateSeries(
-  series: any[],
-  name: string,
-  xAxisIndex: number,
-  yAxisIndex: number,
-  unit: string,
-) {
-  let existing = series.find(
-    (s) => s.name === name && s.xAxisIndex === xAxisIndex,
-  );
-  if (!existing) {
-    existing = {
-      name,
-      type: "line",
-      unit,
-      xAxisIndex,
-      yAxisIndex,
-      symbol: "none",
-      lineStyle: { width: 2 },
-      data: [],
-    };
-    series.push(existing);
+function rowsToPanelSeries(rows: AnyRow[], scale: string): UplotSeriesDesc[] {
+  const byName = new Map<string, UplotSeriesDesc>();
+  let idx = 0;
+  for (const row of rows) {
+    const name = String(row.name);
+    if (!byName.has(name)) {
+      const color = PANEL_PALETTE[idx % PANEL_PALETTE.length];
+      idx++;
+      const s: UplotSeriesDesc = { label: name, data: [], stroke: color, width: 2 };
+      if (scale === "price" || scale === "percent" || scale === "rate") s.scale = "%";
+      byName.set(name, s);
+    }
+    const s = byName.get(name)!;
+    const raw = row.value;
+    if (raw != null) {
+      const val = scale === "percent" || scale === "rate" ? Number(raw) * 100 : Number(raw);
+      s.data.push(val);
+    } else {
+      s.data.push(null);
+    }
   }
-  return existing;
-}
-
-function buildCapturePriceOptions(
-  timeSeriesRows: AnyRow[],
-  rollingRows: AnyRow[],
-  summaryRows: AnyRow[],
-  intervalMs = 3600000,
-) {
-  const series: any[] = [];
-
-  for (const row of timeSeriesRows) {
-    const isPrice = row.type === "price";
-    getOrCreateSeries(
-      series,
-      `${row.name}${isPrice ? "" : " (rate)"}`,
-      isPrice ? 0 : 1,
-      isPrice ? 0 : 1,
-      isPrice ? "price" : "percent",
-    ).data.push(row.value == null ? null : Number(row.value));
-  }
-
-  for (const row of rollingRows) {
-    getOrCreateSeries(series, String(row.name), 2, 2, "price").data.push(
-      row.capture_price == null ? null : Number(row.capture_price),
-    );
-    getOrCreateSeries(series, `${row.name} (rate)`, 3, 3, "percent").data.push(
-      row.capture_rate == null ? null : Number(row.capture_rate),
-    );
-  }
-
-  const names = summaryRows.map((row) => String(row.name));
-  series.push(
-    {
-      name: "Capture Price (12M)",
-      type: "bar",
-      unit: "price",
-      xAxisIndex: 4,
-      yAxisIndex: 4,
-      data: summaryRows.map((row) =>
-        row.capture_price == null ? null : Number(row.capture_price),
-      ),
-      itemStyle: { color: "#5470c6" },
-    },
-    {
-      name: "Capture Rate (12M)",
-      type: "bar",
-      unit: "percent",
-      xAxisIndex: 5,
-      yAxisIndex: 5,
-      data: summaryRows.map((row) =>
-        row.capture_rate == null ? null : Number(row.capture_rate),
-      ),
-      itemStyle: { color: "#91cc75" },
-    },
-  );
-
-  const allTimeRows = [...timeSeriesRows, ...rollingRows];
-  const startTime = allTimeRows[0]?.time != null ? Number(allTimeRows[0].time) : undefined;
-  const interval = intervalMs;
-
-  return {
-    useUTC: true,
-    title: { text: "Capture Prices", left: "center", top: 10 },
-    tooltip: { trigger: "axis", formatter: { type: "multi" } },
-    legend: {
-      orient: "horizontal",
-      top: 35,
-      data: [...new Set(series.map((s) => s.name))],
-    },
-    grid: [
-      { left: "5%", right: "52%", top: "12%", height: "22%", outerBoundsMode: "same", outerBoundsContain: "axisLabel" },
-      { left: "52%", right: "5%", top: "12%", height: "22%", outerBoundsMode: "same", outerBoundsContain: "axisLabel" },
-      { left: "5%", right: "52%", top: "38%", height: "22%", outerBoundsMode: "same", outerBoundsContain: "axisLabel" },
-      { left: "52%", right: "5%", top: "38%", height: "22%", outerBoundsMode: "same", outerBoundsContain: "axisLabel" },
-      { left: "5%", right: "52%", top: "64%", height: "22%", outerBoundsMode: "same", outerBoundsContain: "axisLabel" },
-      { left: "52%", right: "5%", top: "64%", height: "22%", outerBoundsMode: "same", outerBoundsContain: "axisLabel" },
-    ],
-    xAxis: [
-      { type: "category", gridIndex: 0, axisLabel: { formatter: { type: "date" } } },
-      { type: "category", gridIndex: 1, axisLabel: { formatter: { type: "date" } } },
-      { type: "category", gridIndex: 2, axisLabel: { formatter: { type: "date" } } },
-      { type: "category", gridIndex: 3, axisLabel: { formatter: { type: "date" } } },
-      { type: "value", gridIndex: 4 },
-      { type: "value", gridIndex: 5 },
-    ],
-    startTime,
-    interval,
-    yAxis: [
-      { type: "value", gridIndex: 0, axisLabel: { formatter: { type: "price" } } },
-      { type: "value", gridIndex: 1, axisLabel: { formatter: { type: "percent" } } },
-      { type: "value", gridIndex: 2, axisLabel: { formatter: { type: "price" } } },
-      { type: "value", gridIndex: 3, axisLabel: { formatter: { type: "percent" } } },
-      { type: "category", gridIndex: 4, data: names, inverse: true },
-      { type: "category", gridIndex: 5, data: names, inverse: true },
-    ],
-    series,
-  };
+  return [...byName.values()];
 }
 
 export async function capturePrice(
@@ -281,12 +183,95 @@ export async function capturePrice(
     chartQuery<AnyRow>(req, captureSummarySql, queryParams.slice(0, 4)),
   ]);
 
-  return sendChartResponse(
-    req,
-    reply,
-    buildCapturePriceOptions(timeSeriesRows, rollingRows, summaryRows, ctx.interval * 1000),
-    ctx.timezoneAbbreviation,
-    { production_types: await getProductionTypeOptions(ctx.areaIds) },
-    900,
-  );
+  // Split timeSeriesRows by type (price vs rate) for panels 0 and 1
+  const priceRows = timeSeriesRows.filter((r) => r.type === "price");
+  const rateRows = timeSeriesRows.filter((r) => r.type === "rate");
+
+  // Rolling rows — each row has both capture_price and capture_rate
+  // Split into panels 2 (price) and 3 (rate)
+  const rollingPrice: AnyRow[] = [];
+  const rollingRate: AnyRow[] = [];
+  for (const row of rollingRows) {
+    rollingPrice.push({ ...row, name: row.name, value: row.capture_price });
+    rollingRate.push({ ...row, name: row.name, value: row.capture_rate });
+  }
+
+  // Summary rows — for panels 4 (price bars) and 5 (rate bars)
+  const summaryNames = summaryRows.map((r) => String(r.name));
+
+  const allTimeRows = [...timeSeriesRows, ...rollingRows];
+  const startTime = allTimeRows[0]?.time != null ? Number(allTimeRows[0].time) / 1000 : undefined;
+  const interval = ctx.interval;
+
+  const productionTypes = await getProductionTypeOptions(ctx.areaIds);
+
+  return sendUplotResponse(req, reply, {
+    panels: [
+      {
+        title: "Capture Price",
+        mainSeries: rowsToPanelSeries(priceRows, "price"),
+        layout: { gridRow: "1", gridColumn: "1" },
+        axisSide: 3,
+        noStack: true,
+      },
+      {
+        title: "Capture Rate",
+        mainSeries: rowsToPanelSeries(rateRows, "percent"),
+        layout: { gridRow: "1", gridColumn: "2" },
+        axisFormat: "percent",
+        axisSide: 3,
+        noStack: true,
+      },
+      {
+        title: "Rolling Capture Price (12M)",
+        mainSeries: rowsToPanelSeries(rollingPrice, "price"),
+        layout: { gridRow: "2", gridColumn: "1" },
+        axisSide: 3,
+        noStack: true,
+      },
+      {
+        title: "Rolling Capture Rate (12M)",
+        mainSeries: rowsToPanelSeries(rollingRate, "percent"),
+        layout: { gridRow: "2", gridColumn: "2" },
+        axisFormat: "percent",
+        axisSide: 3,
+        noStack: true,
+      },
+      {
+        title: "Summary Capture Price",
+        mainSeries: summaryRows.map((r, i) => {
+          const val = r.capture_price == null ? null : Number(r.capture_price);
+          const data = new Array(summaryRows.length).fill(null);
+          data[i] = val;
+          return { label: String(r.name), data, stroke: PANEL_PALETTE[i % PANEL_PALETTE.length], fill: PANEL_PALETTE[i % PANEL_PALETTE.length], width: 0, type: "bar" };
+        }),
+        layout: { gridRow: "3", gridColumn: "1" },
+        axisFormat: "price",
+        xAxisSize: 0,
+        noStack: true,
+        scales: { y: { range: [0, null] } },
+      },
+      {
+        title: "Summary Capture Rate",
+        mainSeries: summaryRows.map((r, i) => {
+          const raw = r.capture_rate;
+          const val = raw == null ? null : Number(raw) * 100;
+          const data = new Array(summaryRows.length).fill(null);
+          data[i] = val;
+          return { label: String(r.name), data, stroke: PANEL_PALETTE[i % PANEL_PALETTE.length], fill: PANEL_PALETTE[i % PANEL_PALETTE.length], width: 0, type: "bar", scale: "%" };
+        }),
+        layout: { gridRow: "3", gridColumn: "2" },
+        axisFormat: "percent",
+        axisSide: 3,
+        xAxisSize: 0,
+        noStack: true,
+        scales: { '%': { range: [0, null] } },
+      },
+    ],
+    startTime,
+    interval,
+    timezone: ctx.timezone,
+    layout: { columns: "1fr 1fr", rows: "auto auto auto" },
+    height: 900,
+  }, { production_types: productionTypes });
 }

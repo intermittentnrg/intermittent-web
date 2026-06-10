@@ -9,7 +9,7 @@ export const dashboardTabGroups = [
     label: "Electricity Mix",
     items: [
       { key: "electricity_mix", label: "Electricity Mix", chartLibrary: "uplot", features: ["prices_checkbox", "load_checkbox", "transmission_checkbox"] },
-      { key: "simulation", label: "Simulation", features: ["production_type_selector", "transmission_checkbox", "simulation_multipliers"] },
+      { key: "simulation", label: "Simulation", chartLibrary: "uplot", features: ["production_type_selector", "transmission_checkbox", "simulation_multipliers"] },
     ],
   },
   {
@@ -49,7 +49,7 @@ export const dashboardTabGroups = [
     label: "Prices",
     items: [
       { key: "prices", label: "Prices", features: [] },
-      { key: "capture_price", label: "Capture Price", features: ["production_type_selector"] },
+      { key: "capture_price", label: "Capture Price", chartLibrary: "uplot", features: ["production_type_selector"] },
       { key: "price_map", label: "Price Map", features: [] },
     ],
   },
@@ -74,7 +74,7 @@ for (const group of dashboardTabGroups) {
     chartLibraryByKey[item.key] = item.chartLibrary || "echarts";
   }
 }
-chartLibraryByKey.sweden = "echarts";
+chartLibraryByKey.sweden = "uplot";
 chartLibraryByKey.generation_of_peak_map = "echarts";
 
 export function dashboardChartLibrary(dashboardType) {

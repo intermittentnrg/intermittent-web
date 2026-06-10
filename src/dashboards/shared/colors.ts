@@ -88,6 +88,12 @@ export function yoyColor(t: number): string {
   return "rgb(25, 25, 25)";
 }
 
+/** Cycling palette for multi-series panels (capture price, etc.). */
+export const PANEL_PALETTE = [
+  "#5470c6", "#91cc75", "#fac858", "#ee6666", "#73c0de",
+  "#3ba272", "#fc8452", "#9a60b4", "#ea7ccc", "#00a8ff",
+];
+
 export function areaColor(area: string) {
   return (
     (

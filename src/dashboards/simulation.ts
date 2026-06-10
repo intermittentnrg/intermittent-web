@@ -1,7 +1,7 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { chartQuery } from "./shared/chartQuery.ts";
 import { getContext } from "./shared/context.ts";
-import { sendChartResponse } from "./shared/chartResponse.ts";
+import { sendUplotResponse } from "./shared/chartResponse.ts";
 import {
   buildStackedPowerLineSeries,
   divergentSeries,
@@ -11,8 +11,17 @@ import {
   getProductionTypeOptions,
 } from "./shared/productionTypes.ts";
 import { colorsFromQuery } from "./shared/colors.ts";
-import { formatEnergy } from "../shared/echartsFormatters.ts";
 import type { AnyRow, DashboardParams, DashboardQuery } from "./shared/types.ts";
+import type { UplotSeriesDesc } from "./shared/uplotOptions.ts";
+
+/** A panel descriptor sent to the frontend. */
+type PanelDesc = {
+  title: string;
+  mainSeries: UplotSeriesDesc[];
+  extraSeries?: UplotSeriesDesc[];
+  axisScale?: string;
+  barCenter?: boolean;
+};
 
 
 export async function simulation(
@@ -82,14 +91,14 @@ WITH _generation AS (
     SELECT
       time_bucket_gapfill('1h'::interval,time) AS time,
       pt.name AS production_type,
-      INTERPOLATE(CASE WHEN pt.name='nuclear' THEN AVG(g.value)*$5 WHEN pt.name LIKE 'wind%' THEN AVG(g.value)*$6 WHEN pt.name LIKE 'solar%' THEN AVG(g.value)*$7 ELSE AVG(g.value) END) AS value
+      INTERPOLATE(CASE WHEN pt.name='nuclear' THEN AVG(g.value)*$4 WHEN pt.name LIKE 'wind%' THEN AVG(g.value)*$5 WHEN pt.name LIKE 'solar%' THEN AVG(g.value)*$6 ELSE AVG(g.value) END) AS value
     FROM generation_data g
     INNER JOIN areas_production_types apt ON(g.areas_production_type_id=apt.id)
     INNER JOIN production_types pt ON(apt.production_type_id=pt.id)
     WHERE
       time BETWEEN $1 AND $2 AND
       apt.area_id=ANY($3::int[]) AND
-      apt.production_type_id=ANY($8::int[])
+      apt.production_type_id=ANY($7::int[])
     GROUP BY 1,pt.name,apt.area_id
   ) s
   GROUP BY 1
@@ -99,7 +108,7 @@ _load AS (
   SELECT
     time,
     'load' AS metric,
-    SUM(value)*$9 AS value
+    SUM(value)*$8 AS value
   FROM (
     SELECT
       time_bucket_gapfill('1h'::interval,time) AS time,
@@ -130,7 +139,7 @@ _load AS (
 )${transmissionCte}
 
 SELECT
-  EXTRACT(EPOCH FROM time AT TIME ZONE $4)*1000 AS time,
+  EXTRACT(EPOCH FROM time ) AS time,
   ${transmissionSelect} AS transmission,
   g.value AS gen,
   l.value AS load,
@@ -146,7 +155,6 @@ ORDER BY time`;
     ctx.from,
     ctx.to,
     ctx.areaIds,
-    ctx.timezone,
   ];
   const summary = await chartQuery<AnyRow>(req, summarySql, [
     ...args,
@@ -156,55 +164,40 @@ ORDER BY time`;
     pt,
     mult.demand,
   ]);
-  const options = await simulationOptions(req, args, mult, pt, summary, includeTransmission, ctx.interval * 1000);
-  return sendChartResponse(
-    req,
-    reply,
-    options,
-    ctx.timezoneAbbreviation,
-    { production_types: await getProductionTypeOptions(ctx.areaIds) },
-    900,
-  );
-}
 
-async function simulationOptions(
-  req: FastifyRequest,
-  args: unknown[],
-  mult: { nuclear: number; wind: number; solar: number; demand: number },
-  productionTypeIds: number[],
-  summaryRows: AnyRow[],
-  includeTransmission: boolean,
-  intervalMs = 3600000,
-) {
-  const summary = summaryRows.at(-1) ?? {};
+  // Compute startTime from the first row of gen data (primary time-series source)
+  const genRows = await chartQuery<AnyRow>(req, genSql, [...args, mult.nuclear, mult.wind, mult.solar, pt]);
+  const startTimeRaw = genRows[0]?.time as number | undefined;
+  const startTime = startTimeRaw != null && startTimeRaw > 1e8 ? startTimeRaw : undefined;
+  const interval = 3600; // SQL buckets at 1-hour intervals
 
-  const startTime = summaryRows.find((r: AnyRow) => r.time != null)?.time as number | undefined;
-  const interval = intervalMs;
+  // Build panel payloads
+  const genPanel = await buildGenPanelFromRows(genRows, req, args, mult, pt, includeTransmission);
+  const summaryData = summary.at(-1) ?? {};
+  const summaryPanel = buildSummaryPanel(summaryData);
+  const cumPanel = buildCumulativePanel(summary);
+  const diffPanel = buildDifferencePanel(summary);
 
-  const options: any = {
-    height: 900,
-    tooltip: { trigger: "axis", formatter: { type: "multi" } },
-    title: [],
-    legend: [],
-    grid: [],
-    xAxis: [],
-    yAxis: [],
-    series: [],
+  const productionTypes = await getProductionTypeOptions(ctx.areaIds);
+
+  return sendUplotResponse(req, reply, {
+    panels: [
+      { ...genPanel, layout: { gridRow: "1", gridColumn: "1" } },
+      { ...summaryPanel, layout: { gridRow: "1 / 3", gridColumn: "2" } },
+      { ...cumPanel, layout: { gridRow: "2", gridColumn: "1" } },
+      { ...diffPanel, layout: { gridRow: "3", gridColumn: "1 / 3" } },
+    ],
     startTime,
     interval,
-  };
-
-  await addGenerationPanel(options, req, args, mult, productionTypeIds, includeTransmission);
-  addSummaryPanel(options, summary);
-  addCumulativeDeficitPanel(options, summaryRows);
-  addDifferencePanel(options, summaryRows);
-
-  return options;
+    timezone: ctx.timezone,
+    layout: { columns: "1fr 160px", rows: "225px 225px 225px" },
+    height: 900,
+  }, { production_types: productionTypes });
 }
 
 const genSql = `
 SELECT
-  EXTRACT(EPOCH FROM time AT TIME ZONE $4)*1000 AS time,
+  EXTRACT(EPOCH FROM time ) AS time,
   name2 AS metric,
   SUM(value) AS value
 FROM (
@@ -212,14 +205,14 @@ FROM (
     time_bucket_gapfill('1h'::interval,time) AS time,
     pt.name,
     pt.name2,
-    INTERPOLATE(CASE WHEN pt.name='nuclear' THEN AVG(g.value)*$5 WHEN pt.name LIKE 'wind%' THEN AVG(g.value)*$6 WHEN pt.name LIKE 'solar%' THEN AVG(g.value)*$7 ELSE AVG(g.value) END) AS value
+    INTERPOLATE(CASE WHEN pt.name='nuclear' THEN AVG(g.value)*$4 WHEN pt.name LIKE 'wind%' THEN AVG(g.value)*$5 WHEN pt.name LIKE 'solar%' THEN AVG(g.value)*$6 ELSE AVG(g.value) END) AS value
   FROM generation_data g
   INNER JOIN areas_production_types apt ON(g.areas_production_type_id=apt.id)
   INNER JOIN production_types pt ON(apt.production_type_id=pt.id)
   WHERE
     time BETWEEN $1 AND $2 AND
     apt.area_id=ANY($3::int[]) AND
-    apt.production_type_id=ANY($8::int[])
+    apt.production_type_id=ANY($7::int[])
   GROUP BY 1,pt.name,pt.name2
 ) s
 GROUP BY 1,name2
@@ -227,9 +220,9 @@ ORDER BY 2,1
 `;
 const demandSql = `
 SELECT
-  EXTRACT(EPOCH FROM time AT TIME ZONE $4)*1000 AS time,
+  EXTRACT(EPOCH FROM time ) AS time,
   'demand' AS metric,
-  SUM(value)*$5 AS value
+  SUM(value)*$4 AS value
 FROM (
   SELECT
     time_bucket_gapfill('1h'::interval,time) AS time,
@@ -261,7 +254,7 @@ ORDER BY 1
 `;
 const transSql = `
 SELECT
-  EXTRACT(EPOCH FROM time AT TIME ZONE $4)*1000 AS time,
+  EXTRACT(EPOCH FROM time ) AS time,
   'transmission' AS metric,
   SUM(value) AS value
 FROM (
@@ -300,168 +293,98 @@ WHERE
 GROUP BY 1
 ORDER BY 1
 `;
-async function addGenerationPanel(
-  options: any,
+async function buildGenPanelFromRows(
+  genRows: AnyRow[],
   req: FastifyRequest,
   args: unknown[],
   mult: { nuclear: number; wind: number; solar: number; demand: number },
   productionTypeIds: number[],
   includeTransmission: boolean,
-) {
-  const genRows = await chartQuery<AnyRow>(req, genSql, [
-    ...args,
-    mult.nuclear,
-    mult.wind,
-    mult.solar,
-    productionTypeIds,
-  ]);
+): Promise<PanelDesc> {
   const demandRows = await chartQuery<AnyRow>(req, demandSql, [...args, mult.demand]);
   const transRows = includeTransmission ? await chartQuery<AnyRow>(req, transSql, args) : [];
   const colorFn = colorsFromQuery((req.query as Record<string, string | undefined>).colors);
 
-  const genSeries = divergentSeries(buildStackedPowerLineSeries(genRows)).map((s) => ({
-    ...s,
-    label: s.label,
-    itemStyle: { color: colorFn(s.label) },
-  }));
-  const demandSeries = buildStackedPowerLineSeries(demandRows).map((s) => ({
-    ...s,
+  function applyColor(s: AnyRow, label: string): UplotSeriesDesc {
+    const c = colorFn(label);
+    return { label, data: s.data as number[], stroke: c, fill: c ? c.replace("rgb(", "rgba(").replace(")", ",0.75)") : undefined };
+  }
+
+  const genSeries: UplotSeriesDesc[] = divergentSeries(buildStackedPowerLineSeries(genRows)).map((s: AnyRow) => applyColor(s, s.label));
+  const demandSeries: UplotSeriesDesc[] = buildStackedPowerLineSeries(demandRows).map((s: AnyRow) => ({
     label: "demand",
+    data: s.data as number[],
     stack: undefined,
-    lineStyle: { width: 2 },
-    itemStyle: { color: "rgb(36, 41, 46)" },
+    stroke: "rgb(36, 41, 46)",
+    width: 2,
+    fill: undefined,
   }));
-  const transSeries = includeTransmission ? divergentSeries(buildStackedPowerLineSeries(transRows)).map((s) => ({
-    ...s,
-    label: "transmission",
-    itemStyle: { color: colorFn("transmission") },
-  })) : [];
-  const gridIndex = options.grid.length;
-  const series = [
-    ...transSeries,
-    ...genSeries,
-    ...demandSeries,
-  ].map((s) => ({ ...s, xAxisIndex: gridIndex, yAxisIndex: gridIndex }));
+  const transSeries: UplotSeriesDesc[] = includeTransmission
+    ? divergentSeries(buildStackedPowerLineSeries(transRows)).map((s: AnyRow) => applyColor(s, "transmission"))
+    : [];
 
-  options.title.push({ text: "Generation", left: "center", right: "15%", top: 10 });
-  options.legend.push({
-    top: 30,
-    left: "center",
-    right: "15%",
-    data: [...new Set(series.map((s) => s.label))],
-  });
-  options.grid.push({ left: "3%", right: "15%", top: "7%", height: "25%" });
-  options.xAxis.push({ type: "category", gridIndex, axisLabel: { show: false } });
-  options.yAxis.push(powerAxis(gridIndex));
-  options.series.push(...series);
+  const mainSeries = [...transSeries, ...genSeries, ...demandSeries];
+
+  return { title: "Generation", mainSeries };
 }
 
-function addSummaryPanel(options: any, data: AnyRow) {
-  const gridIndex = options.grid.length;
-
-  options.title.push({ text: "Summary", left: "93.5%", top: 10, textAlign: "center" });
-  options.grid.push({ left: "89%", right: "2%", top: "7%", height: "55%" });
-  options.xAxis.push({ type: "category", gridIndex, data: [""] });
-  options.yAxis.push(energyAxis(gridIndex));
-  options.series.push(
-    summaryBarSeries("Matched", "rgb(86, 166, 75)", gridIndex, Number(data.cum_matched || 0)),
-    summaryBarSeries("Surplus", "rgb(242, 204, 12)", gridIndex, Number(data.cum_surplus || 0)),
-    summaryBarSeries("Deficit", "rgb(224, 47, 68)", gridIndex, Number(data.cum_deficit || 0)),
-  );
-}
-
-function addCumulativeDeficitPanel(options: any, rows: AnyRow[]) {
-  const gridIndex = options.grid.length;
-
-  options.title.push({ text: "Cumulative Deficit", left: "center", right: "15%", top: "33%" });
-  options.legend.push({ top: "35%", left: "center", right: "15%", data: ["sum deficit"] });
-  options.grid.push({ left: "3%", right: "15%", top: "37%", height: "25%" });
-  options.xAxis.push({ type: "category", gridIndex, axisLabel: { show: false } });
-  options.yAxis.push(energyAxis(gridIndex));
-  options.series.push(lineSeries("sum deficit", "energy", gridIndex, fieldData(rows, "sum_deficit")));
-}
-
-function summaryBarSeries(name: string, color: string, axisIndex: number, value: number) {
-  const formattedValue = formatEnergy(value);
-  return {
-    name,
-    type: "bar",
-    unit: "energy",
-    xAxisIndex: axisIndex,
-    yAxisIndex: axisIndex,
-    stack: "summary",
-    itemStyle: { color },
-    label: {
-      show: true,
-      position: "inside",
-      formatter: `${name}\n${formattedValue}`,
-      color: "#111827",
-      fontSize: 18,
-      lineHeight: 26,
-    },
+function buildSummaryPanel(data: AnyRow): PanelDesc {
+  const pos = (name: string, color: string, value: number): UplotSeriesDesc => ({
+    label: name,
     data: [value],
-  };
-}
-
-function addDifferencePanel(options: any, rows: AnyRow[]) {
-  const gridIndex = options.grid.length;
-
-  options.title.push({ text: "Difference", left: "center", top: "65%" });
-  options.legend.push({
-    top: "67%",
-    left: "center",
-    data: [
-      "transmission",
-      "generation",
-      "load",
-      "diff",
-      "cum matched",
-      "cum surplus",
-      "cum deficit",
-    ],
+    stroke: color,
+    fill: color,
+    width: 0,
+    type: "bar",
+    stack: "pos",
   });
-  options.grid.push({ left: "3%", right: "2%", top: "69%", height: "26%" });
-  options.xAxis.push({ type: "category", gridIndex, axisLabel: { formatter: { type: "date" } } });
-  options.yAxis.push(powerAxis(gridIndex));
-  options.series.push(
-    lineSeries("transmission", "power", gridIndex, fieldData(rows, "transmission")),
-    lineSeries("generation", "power", gridIndex, fieldData(rows, "gen")),
-    lineSeries("load", "power", gridIndex, fieldData(rows, "load")),
-    lineSeries("diff", "power", gridIndex, fieldData(rows, "diff")),
-    lineSeries("cum matched", "energy", gridIndex, fieldData(rows, "cum_matched")),
-    lineSeries("cum surplus", "energy", gridIndex, fieldData(rows, "cum_surplus")),
-    lineSeries("cum deficit", "energy", gridIndex, fieldData(rows, "cum_deficit")),
-  );
-}
+  const neg = (name: string, color: string, value: number): UplotSeriesDesc => ({
+    label: name,
+    data: [value],
+    stroke: color,
+    fill: color,
+    width: 0,
+    type: "bar",
+    stack: "neg",
+  });
 
-function powerAxis(gridIndex: number) {
   return {
-    type: "value",
-    gridIndex,
-    axisLabel: { formatter: { type: "power" } },
+    title: "Summary",
+    mainSeries: [
+      pos("Matched", "rgb(86, 166, 75)", Number(data.cum_matched || 0)),
+      pos("Surplus", "rgb(242, 204, 12)", Number(data.cum_surplus || 0)),
+      neg("Deficit", "rgb(224, 47, 68)", Number(data.cum_deficit || 0)),
+    ],
+    axisScale: "energy",
+    barCenter: true,
   };
 }
 
-function energyAxis(gridIndex: number) {
+function buildCumulativePanel(rows: AnyRow[]): PanelDesc {
   return {
-    type: "value",
-    gridIndex,
-    axisLabel: { formatter: { type: "energy" } },
+    title: "Cumulative Deficit",
+    mainSeries: [{
+      label: "sum deficit",
+      data: rows.map((r) => Number(r.sum_deficit || 0)),
+      stroke: "rgb(224, 47, 68)",
+      width: 2,
+    }],
+    axisScale: "energy",
   };
 }
 
-function fieldData(rows: AnyRow[], field: string) {
-  return rows.map((row) => Number(row[field] || 0));
-}
-
-function lineSeries(name: string, unit: string, axisIndex: number, data: any[]) {
+function buildDifferencePanel(rows: AnyRow[]): PanelDesc {
+  const fieldData = (field: string) => rows.map((r) => Number(r[field] || 0));
   return {
-    name,
-    type: "line",
-    unit,
-    xAxisIndex: axisIndex,
-    yAxisIndex: axisIndex,
-    symbol: "none",
-    data,
+    title: "Difference",
+    mainSeries: [
+      { label: "transmission", data: fieldData("transmission"), stroke: "rgb(124, 46, 163)", width: 1.5 },
+      { label: "generation", data: fieldData("gen"), stroke: "rgb(0, 119, 255)", width: 1.5 },
+      { label: "load", data: fieldData("load"), stroke: "rgb(36, 41, 46)", width: 1.5 },
+      { label: "diff", data: fieldData("diff"), stroke: "rgb(255, 165, 0)", width: 1.5 },
+      { label: "cum matched", data: fieldData("cum_matched"), stroke: "rgb(86, 166, 75)", width: 1.5 },
+      { label: "cum surplus", data: fieldData("cum_surplus"), stroke: "rgb(242, 204, 12)", width: 1.5 },
+      { label: "cum deficit", data: fieldData("cum_deficit"), stroke: "rgb(224, 47, 68)", width: 1.5 },
+    ],
   };
 }

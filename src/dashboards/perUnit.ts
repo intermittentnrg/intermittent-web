@@ -2,11 +2,9 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { querySmall } from "../lib/db.ts";
 import { chartQuery } from "./shared/chartQuery.ts";
 import { getContext } from "./shared/context.ts";
-import { buildXAxisTimestamps } from "./shared/chartOptions.ts";
 import { buildBasicSeries, buildFieldSeries, rowsToSeries } from "./shared/series.ts";
 import { getProductionTypeOptions } from "./shared/productionTypes.ts";
 import { sendUplotResponse } from "./shared/chartResponse.ts";
-import { buildUplotPayload } from "./shared/uplotOptions.ts";
 import type { AnyRow, DashboardParams, DashboardQuery } from "./shared/types.ts";
 
 
@@ -82,7 +80,6 @@ export async function perUnit(
 
   if (startTime == null || mainSeries.length === 0) {
     return sendUplotResponse(req, reply, {
-      chartLibrary: "uplot",
       title: "Per Unit",
       mainSeries: [],
       startTime: 0,
@@ -91,7 +88,6 @@ export async function perUnit(
     });
   }
   return sendUplotResponse(req, reply, {
-    chartLibrary: "uplot",
     title: "Per Unit",
     mainSeries,
     startTime,
@@ -121,18 +117,20 @@ export async function perUnitTotal(
 
   if (startTime == null || series.length === 0) {
     return sendUplotResponse(req, reply, {
-      chartLibrary: "uplot",
-      opts: { title: "Per Unit Total (Daily)", series: [], axes: [] },
-      data: [],
-      rawData: [],
+      title: "Per Unit Total (Daily)",
+      mainSeries: [],
       startTime: 0,
       interval: 0,
+      timezone: ctx.timezone,
     });
   }
-  const maxLen = series.reduce((max, s) => Math.max(max, s.data?.length ?? 0), 0);
-  const timestamps = buildXAxisTimestamps(startTime, DAILY, maxLen);
-  const payload = buildUplotPayload("Per Unit Total (Daily)", timestamps, series, ctx.timezone);
-  return sendUplotResponse(req, reply, payload, await unitMeta(ctx.areaIds));
+  return sendUplotResponse(req, reply, {
+    title: "Per Unit Total (Daily)",
+    mainSeries: series,
+    startTime,
+    interval: DAILY,
+    timezone: ctx.timezone,
+  }, await unitMeta(ctx.areaIds));
 }
 
 const perUnitPeakSql = `WITH _gen AS (SELECT time_bucket_gapfill($1::interval, time) AS time, unit_id, INTERPOLATE(AVG(value)) AS value FROM generation_unit g WHERE time BETWEEN $2 AND $3 AND unit_id = ANY($4::int[]) GROUP BY 1,2), _peak AS (SELECT unit_id, MAX(value) AS peak_value FROM generation_unit g WHERE unit_id = ANY($4::int[]) AND time BETWEEN ($3::timestamptz - INTERVAL '1 year') AND $3::timestamptz GROUP BY 1) SELECT EXTRACT(EPOCH FROM g.time AT TIME ZONE $5) * 1000 AS time, COALESCE(u.name,u.internal_id) AS metric, g.value / NULLIF(p.peak_value,0) AS value FROM _gen g INNER JOIN _peak p ON g.unit_id=p.unit_id INNER JOIN units u ON g.unit_id=u.id WHERE g.value > 0 ORDER BY 2,1`;
@@ -153,7 +151,6 @@ export async function perUnitPeak(
 
   if (rows.length === 0) {
     return sendUplotResponse(req, reply, {
-      chartLibrary: "uplot",
       title: "Unit % of Peak Output",
       mainSeries: [],
       startTime: 0,
@@ -182,7 +179,6 @@ export async function perUnitPeak(
   const interval = timestamps.length > 1 ? timestamps[1] - timestamps[0] : 0;
 
   return sendUplotResponse(req, reply, {
-    chartLibrary: "uplot",
     title: "Unit % of Peak Output",
     heatmapMeta: {
       timestamps,
@@ -234,18 +230,20 @@ export async function perUnitMovingCapacity(
 
   if (startTime == null || series.length === 0) {
     return sendUplotResponse(req, reply, {
-      chartLibrary: "uplot",
-      opts: { title: "Per Unit Moving Capacity Factor & Output", series: [], axes: [] },
-      data: [],
-      rawData: [],
+      title: "Per Unit Moving Capacity Factor & Output",
+      mainSeries: [],
       startTime: 0,
       interval: 0,
+      timezone: ctx.timezone,
     });
   }
-  const maxLen = series.reduce((max, s) => Math.max(max, s.data?.length ?? 0), 0);
-  const timestamps = buildXAxisTimestamps(startTime, interval, maxLen);
-  const payload = buildUplotPayload("Per Unit Moving Capacity Factor & Output", timestamps, series, ctx.timezone);
-  return sendUplotResponse(req, reply, payload, await unitMeta(ctx.areaIds));
+  return sendUplotResponse(req, reply, {
+    title: "Per Unit Moving Capacity Factor & Output",
+    mainSeries: series,
+    startTime,
+    interval,
+    timezone: ctx.timezone,
+  }, await unitMeta(ctx.areaIds));
 }
 
 
@@ -333,16 +331,18 @@ export async function perUnitBattery(
 
   if (startTime == null || series.length === 0) {
     return sendUplotResponse(req, reply, {
-      chartLibrary: "uplot",
-      opts: { title: "Battery Events", series: [], axes: [] },
-      data: [],
-      rawData: [],
+      title: "Battery Events",
+      mainSeries: [],
       startTime: 0,
       interval: 0,
+      timezone: ctx.timezone,
     });
   }
-  const maxLen = series.reduce((max, s) => Math.max(max, s.data?.length ?? 0), 0);
-  const timestamps = buildXAxisTimestamps(startTime, interval, maxLen);
-  const payload = buildUplotPayload("Battery Events", timestamps, series, ctx.timezone);
-  return sendUplotResponse(req, reply, payload, await unitMeta(ctx.areaIds));
+  return sendUplotResponse(req, reply, {
+    title: "Battery Events",
+    mainSeries: series,
+    startTime,
+    interval,
+    timezone: ctx.timezone,
+  }, await unitMeta(ctx.areaIds));
 }

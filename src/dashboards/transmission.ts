@@ -79,7 +79,6 @@ export async function transmission(
 
   if (startTime == null || mainSeries.length === 0) {
     return sendUplotResponse(req, reply, {
-      chartLibrary: "uplot",
       title: "Transmission",
       mainSeries: [],
       startTime: 0,
@@ -88,7 +87,6 @@ export async function transmission(
     });
   }
   return sendUplotResponse(req, reply, {
-    chartLibrary: "uplot",
     title: "Transmission",
     mainSeries,
     startTime,

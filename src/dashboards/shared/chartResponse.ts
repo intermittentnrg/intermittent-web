@@ -49,21 +49,46 @@ export async function sendChartResponse(
 export async function sendUplotResponse(
   request: FastifyRequest,
   reply: FastifyReply,
-  payload: Record<string, unknown>,
+  payload: Record<string, unknown> | Record<string, unknown>[],
   extra: Record<string, unknown> = {},
 ) {
-  // For .png requests, render via ECharts SSR (fallback for social previews)
+  // For .png requests, return a placeholder — uPlot doesn't have SSR rendering
   if (request.url.split("?", 1)[0].endsWith(".png")) {
-    // For now, return a placeholder or simplify — uPlot doesn't have SSR rendering
     return reply
       .header("Content-Type", "image/png")
       .header("Cache-Control", "public, max-age=3600")
       .send(Buffer.alloc(0));
   }
 
+  // Build unified response with panels array
+  const response: Record<string, unknown> = {
+    chartLibrary: "uplot",
+    ...extra,
+  };
+
+  if (Array.isArray(payload)) {
+    // Multi-panel: raw array of panel configs
+    response.panels = payload;
+  } else if (payload.panels) {
+    // Multi-panel: payload already has panels key + top-level fields
+    Object.assign(response, payload);
+  } else {
+    // Single panel: wrap in array, hoist common fields to top level
+    const commonFields = ["startTime", "interval", "timezone", "height", "title"] as const;
+    const panelEntry: Record<string, unknown> = {};
+    for (const key of Object.keys(payload)) {
+      if ((commonFields as readonly string[]).includes(key)) {
+        response[key] = payload[key];
+      } else {
+        panelEntry[key] = payload[key];
+      }
+    }
+    response.panels = [panelEntry];
+  }
+
   return reply
     .header("Cache-Control", "public, max-age=3600")
-    .send({ ...payload, ...extra });
+    .send(response);
 }
 
 export async function sendDualAxisChart(

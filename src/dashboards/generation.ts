@@ -1,7 +1,6 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { chartQuery } from "./shared/chartQuery.ts";
 import { getContext } from "./shared/context.ts";
-import { buildXAxisTimestamps } from "./shared/chartOptions.ts";
 import {
   buildBasicSeries,
   buildMinMaxSeries,
@@ -14,7 +13,6 @@ import {
 } from "./shared/productionTypes.ts";
 import { colorsFromQuery } from "./shared/colors.ts";
 import { sendUplotResponse } from "./shared/chartResponse.ts";
-import { buildUplotPayload } from "./shared/uplotOptions.ts";
 import { getPriceSeries } from "./shared/prices.ts";
 import { getLoadSeries } from "./shared/load.ts";
 import type {
@@ -75,7 +73,6 @@ export async function generation(
 
   if (startTime == null || (mainSeries.length === 0 && loadSeries.length === 0 && priceSeries.length === 0)) {
     return sendUplotResponse(request, reply, {
-      chartLibrary: "uplot",
       title: "Generation",
       mainSeries: [],
       startTime: 0,
@@ -85,7 +82,6 @@ export async function generation(
   }
   const productionTypes = await getProductionTypeOptions(ctx.areaIds);
   return sendUplotResponse(request, reply, {
-    chartLibrary: "uplot",
     title: "Generation",
     mainSeries,
     extraSeries: [...loadSeries, ...priceSeries],
@@ -144,19 +140,21 @@ export async function generationTotal(
 
   if (startTime == null || series.length === 0) {
     return sendUplotResponse(request, reply, {
-      chartLibrary: "uplot",
-      opts: { title: "Generation Total (Daily)", series: [], axes: [] },
-      data: [],
-      rawData: [],
+      title: "Generation Total (Daily)",
+      mainSeries: [],
       startTime: 0,
       interval: 0,
+      timezone: ctx.timezone,
     });
   }
-  const maxLen = series.reduce((max, s) => Math.max(max, s.data?.length ?? 0), 0);
-  const timestamps = buildXAxisTimestamps(startTime, DAILY, maxLen);
-  const payload = buildUplotPayload("Generation Total (Daily)", timestamps, series, ctx.timezone);
   const productionTypes = await getProductionTypeOptions(ctx.areaIds);
-  return sendUplotResponse(request, reply, payload, { production_types: productionTypes });
+  return sendUplotResponse(request, reply, {
+    title: "Generation Total (Daily)",
+    mainSeries: series,
+    startTime,
+    interval: DAILY,
+    timezone: ctx.timezone,
+  }, { production_types: productionTypes });
 }
 
 const generationMinMaxSql = `
@@ -195,21 +193,22 @@ export async function generationMinMax(
 
   if (startTime == null || series.length === 0) {
     return sendUplotResponse(req, reply, {
-      chartLibrary: "uplot",
-      opts: { title: "Generation Min/Max", series: [], axes: [] },
-      data: [],
-      rawData: [],
+      title: "Generation Min/Max",
+      mainSeries: [],
       startTime: 0,
       interval: 0,
+      timezone: ctx.timezone,
     });
   }
-  const maxLen = series.reduce((max, s) => Math.max(max, s.data?.length ?? 0), 0);
-  const timestamps = buildXAxisTimestamps(startTime, interval, maxLen);
-  const payload = buildUplotPayload("Generation Min/Max", timestamps, series, ctx.timezone);
-  // Force the y-axis to start at 0 so the confidence band sits on a meaningful baseline
-  payload.opts.scales = { y: { range: [0, null] } };
   const productionTypes = await getProductionTypeOptions(ctx.areaIds);
-  return sendUplotResponse(req, reply, payload, { production_types: productionTypes });
+  return sendUplotResponse(req, reply, {
+    title: "Generation Min/Max",
+    mainSeries: series,
+    startTime,
+    interval,
+    timezone: ctx.timezone,
+    scales: { y: { range: [0, null] } },
+  }, { production_types: productionTypes });
 }
 
 const generationYoySql = `
@@ -247,19 +246,21 @@ export async function generationYoy(
 
   if (startTime == null || series.length === 0) {
     return sendUplotResponse(req, reply, {
-      chartLibrary: "uplot",
-      opts: { title: "Generation Year over Year", series: [], axes: [] },
-      data: [],
-      rawData: [],
+      title: "Generation Year over Year",
+      mainSeries: [],
       startTime: 0,
       interval: 0,
+      timezone: ctx.timezone,
     });
   }
-  const maxLen = series.reduce((max, s) => Math.max(max, s.data?.length ?? 0), 0);
-  const timestamps = buildXAxisTimestamps(startTime, interval, maxLen);
-  const payload = buildUplotPayload("Generation Year over Year", timestamps, series, ctx.timezone);
   const productionTypes = await getProductionTypeOptions(ctx.areaIds);
-  return sendUplotResponse(req, reply, payload, { production_types: productionTypes });
+  return sendUplotResponse(req, reply, {
+    title: "Generation Year over Year",
+    mainSeries: series,
+    startTime,
+    interval,
+    timezone: ctx.timezone,
+  }, { production_types: productionTypes });
 }
 
 export { simulation } from "./simulation.ts";

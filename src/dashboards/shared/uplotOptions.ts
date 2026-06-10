@@ -33,7 +33,7 @@ export type UplotPayload = {
  */
 export type UplotSeriesDesc = {
   label: string;
-  data: number[];
+  data: (number | null)[];
   stroke?: string;
   width?: number;
   fill?: string;

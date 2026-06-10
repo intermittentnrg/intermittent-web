@@ -2,19 +2,48 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { querySmall } from "../lib/db.ts";
 import { chartQuery } from "./shared/chartQuery.ts";
 import { getContext } from "./shared/context.ts";
-import {
-  buildChartOptions,
-  buildDualAxisOptions,
-} from "./shared/chartOptions.ts";
-import { sendChartResponse } from "./shared/chartResponse.ts";
-import { divergentSeries, buildStackedPowerLineSeries } from "./shared/series.ts";
+import { sendChartResponse, sendUplotResponse } from "./shared/chartResponse.ts";
+import { divergentSeries } from "./shared/series.ts";
 import { resolutionToSeconds } from "../shared/dateParsing.ts";
 import { parseDateRangeInTimeZone } from "./shared/timezoneDateRange.ts";
 import { getProductionTypeIds } from "./shared/productionTypes.ts";
 import type { AnyRow, DashboardParams, DashboardQuery } from "./shared/types.ts";
+import type { UplotSeriesDesc } from "./shared/uplotOptions.ts";
 import { colorsFromQuery } from "./shared/colors.ts";
 import { buildMapTimelineFrames, buildMapTimelineOptions } from "./shared/mapTimeline.ts";
 import { titleize } from "./shared/text.ts";
+
+/** Convert an rgb() color to rgba() with given opacity. */
+function rgba(color: string | undefined, opacity: number): string | undefined {
+  if (!color) return undefined;
+  if (color.startsWith("rgb(")) return color.replace("rgb(", "rgba(").replace(")", `,${opacity})`);
+  return color;
+}
+
+/**
+ * Helper: accumulate data into per-area series arrays, building UplotSeriesDesc directly.
+ * `series` carries a _areaIdx property for later panel splitting.
+ */
+// Internal type for series that carry their area index
+interface SeriesWithArea extends UplotSeriesDesc { _areaIdx: number; _key?: string; }
+
+function pushSeries(
+  key: string,
+  make: () => SeriesWithArea,
+  row: AnyRow,
+  pushValue: number,
+  target: SeriesWithArea[]
+) {
+  const last = target[target.length - 1];
+  if (last && last._key === key) {
+    last.data.push(pushValue);
+  } else {
+    const s = make();
+    s.data = [pushValue];
+    s._key = key;
+    target.push(s);
+  }
+}
 
 const mapSql = `WITH _gen AS (SELECT time_bucket_gapfill('1h',time) AS time, area_id, production_type_id, INTERPOLATE(AVG(value)) AS value FROM generation g INNER JOIN areas a ON(area_id=a.id) WHERE area_id=ANY($1::int[]) AND electricitymaps_id IS NOT NULL AND production_type_id=ANY($2::int[]) AND time BETWEEN $3 AND $4 GROUP BY 1,2,3), _gen_sum AS (SELECT time,area_id,SUM(value) AS value FROM _gen GROUP BY 1,2), _peak AS (SELECT area_id,production_type_id,MAX(value) AS value FROM generation g INNER JOIN areas a ON(area_id=a.id) WHERE area_id=ANY($1::int[]) AND electricitymaps_id IS NOT NULL AND production_type_id=ANY($2::int[]) AND time BETWEEN ($3::timestamptz - '1 year'::interval) AND $4::timestamptz GROUP BY 1,2), _peak_sum AS (SELECT area_id,SUM(value) AS value FROM _peak GROUP BY 1) SELECT EXTRACT(EPOCH FROM time AT TIME ZONE $5)*1000 AS time, a.electricitymaps_id AS metric, g.value/NULLIF(peak.value,0) AS value FROM _gen_sum g INNER JOIN _peak_sum peak ON(g.area_id=peak.area_id) INNER JOIN areas a ON(g.area_id=a.id) WHERE time BETWEEN $3 AND $4 ORDER BY 1`;
 export async function maps(
@@ -418,7 +447,7 @@ function timezoneAbbr(timeZone: string, date = new Date()) {
 
 const swedenGenSql = `
 SELECT
-  EXTRACT(EPOCH FROM time AT TIME ZONE $5)*1000 AS time,
+  EXTRACT(EPOCH FROM time AT TIME ZONE $5) AS time,
   metric,
   SUM(value) AS value
 FROM (
@@ -474,7 +503,7 @@ const swedenTransSql = `
     GROUP BY 1,2,3
   )
   SELECT
-    EXTRACT(EPOCH FROM time AT TIME ZONE $5) * 1000 AS time,
+    EXTRACT(EPOCH FROM time AT TIME ZONE $5) AS time,
     code AS area_code,
     SUM(CASE WHEN to_area_id = ANY($2::int[]) THEN value ELSE 0 END) AS transmission_domestic,
     SUM(CASE WHEN NOT (to_area_id = ANY($2::int[])) THEN value ELSE 0 END) AS transmission_international
@@ -486,7 +515,7 @@ const swedenTransSql = `
 
 const swedenPriceSql = `
   SELECT
-    EXTRACT(EPOCH FROM time AT TIME ZONE $5)*1000 AS time,
+    EXTRACT(EPOCH FROM time AT TIME ZONE $5) AS time,
     metric,
     value
   FROM (
@@ -550,195 +579,119 @@ export async function sweden(
   const areaCodes = ["SE1", "SE2", "SE3", "SE4"];
   const numAreas = areaCodes.length;
 
-  // Build series — process transmission first so it ends up at bottom of stack
-  // Keep stacked, load, and price series separate from the start
-  const stackedSeries: AnyRow[] = [];
-  const loadSeries: AnyRow[] = [];
-  const priceSeries: AnyRow[] = [];
+  // ── Build UplotSeriesDesc arrays per area ──
+  // Transmission + generation (stacked) and load go to mainSeries.
+  // Price goes to extraSeries (secondary axis).
 
-  let lastKey = "";
-  let lastTarget: AnyRow[] | null = null;
-  function pushCurrent(key: string, make: () => AnyRow, row: AnyRow, pushValue: number, target: AnyRow[]) {
-    let cur = lastTarget === target ? target[target.length - 1] : null;
-    if (key !== lastKey || !cur) {
-      cur = { ...make(), data: [] as number[] };
-      target.push(cur);
-      lastKey = key;
-      lastTarget = target;
-    }
-    cur.data.push(pushValue);
-  }
+  const stackedSeries: SeriesWithArea[] = [];
+  const loadSeries: SeriesWithArea[] = [];
+  const priceSeries: SeriesWithArea[] = [];
 
-  // Transmission — ordered by area_id, each row has domestic + international columns
-  // Two separate loops to avoid lastKey toggling between dom/int
-  lastKey = "";
-  lastTarget = null;
+  // Transmission: domestic
   for (const row of transRows) {
-    const areaCode = row.area_code as string;
-    const areaIdx = areaCodes.indexOf(areaCode);
+    const areaIdx = areaCodes.indexOf(row.area_code as string);
     if (areaIdx === -1) continue;
-
-    const domValue = row.transmission_domestic as number;
-    if (domValue != null) {
-      pushCurrent(`dom_${areaCode}`, () => ({
-        name: "domestic", type: "line", unit: "power", symbol: "none",
-        lineStyle: { width: 0 }, areaStyle: { opacity: 0.75 },
-        itemStyle: { color: "rgb(210, 180, 230)" },
-        xAxisIndex: areaIdx, yAxisIndex: areaIdx,
-      }), row, domValue, stackedSeries);
-    }
+    const v = row.transmission_domestic as number;
+    if (v == null) continue;
+    pushSeries(`dom_${areaIdx}`, () => ({
+      label: "domestic", data: [], _areaIdx: areaIdx,
+      stroke: "rgb(210, 180, 230)", fill: "rgba(210, 180, 230, 0.75)", width: 0,
+    }), row, v, stackedSeries);
   }
 
-  lastKey = "";
-  lastTarget = null;
+  // Transmission: international
   for (const row of transRows) {
-    const areaCode = row.area_code as string;
-    const areaIdx = areaCodes.indexOf(areaCode);
+    const areaIdx = areaCodes.indexOf(row.area_code as string);
     if (areaIdx === -1) continue;
-
-    const intValue = row.transmission_international as number;
-    if (intValue != null) {
-      pushCurrent(`int_${areaCode}`, () => ({
-        name: "international", type: "line", unit: "power", symbol: "none",
-        lineStyle: { width: 0 }, areaStyle: { opacity: 0.75 },
-        itemStyle: { color: "rgb(124, 46, 163)" },
-        xAxisIndex: areaIdx, yAxisIndex: areaIdx,
-      }), row, intValue, stackedSeries);
-    }
+    const v = row.transmission_international as number;
+    if (v == null) continue;
+    pushSeries(`int_${areaIdx}`, () => ({
+      label: "international", data: [], _areaIdx: areaIdx,
+      stroke: "rgb(124, 46, 163)", fill: "rgba(124, 46, 163, 0.75)", width: 0,
+    }), row, v, stackedSeries);
   }
 
-  // Generation — ordered by metric like "SE1/nuclear", "SE1/wind", "SE2/nuclear"
-  lastKey = "";
-  lastTarget = null;
+  // Generation and load
   for (const row of genRows) {
     const metric = String(row.metric);
     const slashIdx = metric.indexOf("/");
     if (slashIdx === -1) continue;
-    const areaCode = metric.substring(0, slashIdx);
+    const areaIdx = areaCodes.indexOf(metric.substring(0, slashIdx));
     const type = metric.substring(slashIdx + 1);
-    const areaIdx = areaCodes.indexOf(areaCode);
     if (areaIdx === -1) continue;
-    if (type === "load" && !showLoad) continue;
 
-    const key = `${areaCode}/${type}`;
     if (type === "load") {
-      pushCurrent(key, () => ({
-        name: type, type: "line", unit: "power", symbol: "none",
-        lineStyle: { width: 2, color: "#000" }, itemStyle: { color: "#000" },
-        xAxisIndex: areaIdx, yAxisIndex: areaIdx,
-      }), row, (row.value as number), loadSeries);
+      if (!showLoad) continue;
+      pushSeries(`load_${areaIdx}`, () => ({
+        label: "load", data: [], _areaIdx: areaIdx,
+        stroke: "#000", width: 2,
+      }), row, row.value as number, loadSeries);
     } else {
-      const color = colorFn(type);
-      pushCurrent(key, () => ({
-        name: type, type: "line", unit: "power", symbol: "none",
-        lineStyle: { width: 0 }, areaStyle: { opacity: 0.75 },
-        ...(color ? { itemStyle: { color } } : {}),
-        xAxisIndex: areaIdx, yAxisIndex: areaIdx,
-      }), row, (row.value as number), stackedSeries);
+      const c = colorFn(type);
+      pushSeries(`gen_${areaIdx}_${type}`, () => ({
+        label: type, data: [], _areaIdx: areaIdx,
+        stroke: c, fill: rgba(c, 0.75), width: 0,
+      }), row, row.value as number, stackedSeries);
     }
   }
 
-  // Price — ordered by area code
-  lastKey = "";
-  lastTarget = null;
+  // Price
   for (const row of priceRows) {
-    const areaCode = String(row.metric);
-    const areaIdx = areaCodes.indexOf(areaCode);
+    const areaIdx = areaCodes.indexOf(String(row.metric));
     if (areaIdx === -1) continue;
-
-    pushCurrent(`price_${areaCode}`, () => ({
-      name: "Price", type: "line", unit: "price", symbol: "none", step: "start",
-      lineStyle: { color: "green", width: 2 }, itemStyle: { color: "green" },
-      xAxisIndex: areaIdx, yAxisIndex: numAreas + areaIdx,
+    pushSeries(`price_${areaIdx}`, () => ({
+      label: "Price", data: [], _areaIdx: areaIdx,
+      stroke: "green", width: 2, scale: "%",
     }), row, row.value as number, priceSeries);
   }
 
-  // divergentSeries handles stack assignment (pos/neg) for stacked series only
-  const series = [...divergentSeries(stackedSeries), ...loadSeries, ...priceSeries];
-  // Make stacks unique per panel so they don't interfere across grids
-  for (const s of series) {
-    if (s.stack) s.stack = `${s.stack}_${s.xAxisIndex}`;
-  }
+  // Split by area into per-panel main/extra series
+  const stacked = divergentSeries(stackedSeries) as SeriesWithArea[];
+  const allSeries = [...stacked, ...loadSeries, ...priceSeries];
 
-  // Build 4 vertically stacked grids with linked axes
-  const grids: AnyRow[] = [];
-  const xAxes: AnyRow[] = [];
-  const yAxes: AnyRow[] = [];
-
-  const hasPriceRows = priceRows.length > 0;
-
+  const panelSeries: { areaCode: string; mainSeries: UplotSeriesDesc[]; extraSeries: UplotSeriesDesc[] }[] = [];
   for (let i = 0; i < numAreas; i++) {
-    grids.push({
-      left: 0,
-      right: hasPriceRows ? 60 : 0,
-      top: `${10 + i * 22}%`,
-      height: "18%",
-      containLabel: true,
-    });
-    xAxes.push({
-      type: "category",
-      gridIndex: i,
-      axisLabel: { show: i === numAreas - 1, formatter: { type: "date" } },
-    });
-    yAxes.push({
-      type: "value",
-      gridIndex: i,
-      axisLabel: { formatter: { type: "power" } },
-    });
+    const main: UplotSeriesDesc[] = [];
+    const extra: UplotSeriesDesc[] = [];
+    for (const s of allSeries) {
+      if (s._areaIdx !== i) continue;
+      const uS: UplotSeriesDesc = { label: s.label, data: s.data, stroke: s.stroke, width: s.width, fill: s.fill };
+      if (s.stack) uS.stack = `${s.stack}_${i}`;
+      if (s.scale === "%") { extra.push(uS); } else { main.push(uS); }
+    }
+    panelSeries.push({ areaCode: areaCodes[i], mainSeries: main, extraSeries: extra });
   }
 
-  // Price secondary y-axes (right side) for each panel (only if price is shown)
-  if (hasPriceRows) {
-    for (let i = 0; i < numAreas; i++) {
-      yAxes.push({
-        type: "value",
-        gridIndex: i,
-        name: "\u20AC/MWh",
-        nameLocation: "end",
-        nameGap: 10,
-        nameTextStyle: { align: "left" },
-        position: "right",
-        axisLabel: { formatter: { type: "price" } },
-      });
+  // Build shared legend from unique labels across all panels
+  const legendGroups: { label: string; color: string; visible: boolean }[] = [];
+  const seen = new Set<string>();
+  for (const ps of panelSeries) {
+    for (const s of [...ps.mainSeries, ...ps.extraSeries]) {
+      if (!seen.has(s.label)) {
+        seen.add(s.label);
+        legendGroups.push({ label: s.label, color: s.stroke || "#888", visible: true });
+      }
     }
   }
 
-  // Compute time metadata from genRows (the primary data source).
   const startTime = genRows[0]?.time as number | undefined;
-  const interval = ctx.interval * 1000;
+  const interval = ctx.interval;
 
-  const options = {
-    height: 900,
-    title: {
-      text: "Sweden - SE1/SE2/SE3/SE4",
-      left: "center",
-      top: 5,
-    },
-    tooltip: {
-      trigger: "axis",
-      axisPointer: { type: "cross" },
-      formatter: { type: "multi" },
-    },
-    legend: {
-      type: "scroll",
-      orient: "horizontal",
-      top: 35,
-      data: [...new Set(series.map((s) => s.name))],
-    },
-    grid: grids,
-    xAxis: xAxes,
-    yAxis: yAxes,
-    series,
+  return sendUplotResponse(req, reply, {
+    panels: panelSeries.map((ps, i) => ({
+      mainSeries: ps.mainSeries,
+      extraSeries: ps.extraSeries,
+      layout: { gridRow: `${i + 1}`, gridColumn: "1" },
+      // Hide x-axis on all panels except the last (bottom) one
+      xAxisSize: i < numAreas - 1 ? 0 : undefined,
+      // Remove default canvas padding so panels stack tightly
+      padding: [0, 0, 0, 0],
+    })),
+    sharedLegend: { groups: legendGroups },
     startTime,
     interval,
-  };
-
-  return sendChartResponse(
-    req,
-    reply,
-    options,
-    ctx.timezoneAbbreviation,
-    {},
-    900,
-  );
+    timezone: ctx.timezone,
+    layout: { columns: "1fr", rows: `repeat(${numAreas}, 1fr)` },
+    height: 900,
+  });
 }

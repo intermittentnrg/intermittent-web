@@ -135,7 +135,6 @@ export async function electricityMix(
   // Build uPlot-compatible data and options
   if (startTime == null || (mainSeries.length === 0 && loadSeries.length === 0 && priceSeries.length === 0)) {
     return sendUplotResponse(request, reply, {
-      chartLibrary: "uplot",
       title: "Electricity Mix",
       mainSeries: [],
       startTime: 0,
@@ -145,7 +144,6 @@ export async function electricityMix(
   }
 
   return sendUplotResponse(request, reply, {
-    chartLibrary: "uplot",
     title: "Electricity Mix",
     mainSeries,
     extraSeries: [...loadSeries, ...priceSeries],
