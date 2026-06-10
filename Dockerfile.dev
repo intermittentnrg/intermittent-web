@@ -16,13 +16,15 @@ RUN apt-get update \
     fontconfig \
     fonts-dejavu-core \
     fonts-noto-color-emoji \
+    git \
     mesa-va-drivers \
     mesa-vulkan-drivers \
     postgresql-client \
     unzip \
     vainfo \
-  && rm -rf /var/lib/apt/lists/* \
-  && npm install -g @earendil-works/pi-coding-agent \
+  && rm -rf /var/lib/apt/lists/*
+RUN npm install -g @earendil-works/pi-coding-agent \
+  && pi install npm:@narumitw/pi-retry \
   && mkdir -p /workspace/node_modules \
   && chown -R node: /workspace \
   && groupadd -g 109 render \
