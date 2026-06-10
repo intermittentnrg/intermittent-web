@@ -39,7 +39,7 @@ export const dashboardTabGroups = [
     label: "Per Unit",
     items: [
       { key: "per_unit", label: "Per Unit", features: ["production_type_selector", "per_unit_selector"] },
-      { key: "per_unit_peak", label: "Heatmap", features: ["production_type_selector", "per_unit_selector"] },
+      { key: "per_unit_peak", label: "Heatmap", chartLibrary: "uplot", features: ["production_type_selector", "per_unit_selector"] },
       { key: "per_unit_total", label: "Total", features: ["production_type_selector", "per_unit_selector"] },
       { key: "per_unit_moving_capacity", label: "Moving Capacity", features: ["production_type_selector", "per_unit_selector"] },
       { key: "per_unit_battery", label: "Battery", features: ["production_type_selector", "per_unit_selector"] },

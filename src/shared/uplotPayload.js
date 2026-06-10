@@ -163,6 +163,7 @@ export function buildUplotPayload(title, timestamps, series) {
       show: true,
       lock: false,
       focus: { prox: 10 },
+      y: false,
     },
     select: {
       show: true,

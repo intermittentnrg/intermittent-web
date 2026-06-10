@@ -1,6 +1,5 @@
 import type {
   BarSeriesOption,
-  HeatmapSeriesOption,
   LineSeriesOption,
   MapSeriesOption,
   ScatterSeriesOption,
@@ -49,7 +48,6 @@ export type TimeMetricValueRow = {
 type BuiltInSeriesOption =
   | LineSeriesOption
   | BarSeriesOption
-  | HeatmapSeriesOption
   | MapSeriesOption
   | ScatterSeriesOption;
 

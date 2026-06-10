@@ -227,6 +227,7 @@ class ChartModule {
   }
 
   renderUplot(data) {
+    // Dispose any previous chart instance first
     if (this.chart) {
       this.chart.dispose()
       this.chart = null
@@ -234,6 +235,12 @@ class ChartModule {
     if (this.chartTarget._uplot) {
       this.chartTarget._uplot.destroy()
       this.chartTarget._uplot = null
+    }
+
+    // Delegate to heatmap renderer when heatmap data is present
+    if (data.heatmapMeta) {
+      this._renderUplotHeatmap(data)
+      return
     }
 
     // Remove old custom elements
@@ -453,6 +460,240 @@ class ChartModule {
       }
     } catch (error) {
       console.error('uPlot: Failed to render chart', error)
+    }
+  }
+
+  /**
+   * Render a heatmap using uPlot with a custom plugin.
+   * Receives heatmapMeta from the server: { timestamps, unitNames, values }
+   */
+  _renderUplotHeatmap(data) {
+    const { heatmapMeta, timezone } = data
+    const { timestamps, unitNames, values } = heatmapMeta
+
+    const unitCount = unitNames.length
+    const count = timestamps.length
+    if (count === 0 || unitCount === 0) return
+
+    // Override uPlot's default width:min-content so chart fills the container
+    this.chartTarget.style.width = '100%'
+    this.chartTarget.style.minWidth = '0'
+    this.chartTarget.style.position = 'relative'
+    const fixedHeight = data.height || 567
+    this.chartTarget.style.height = fixedHeight + 'px'
+
+    const width = this.chartTarget.clientWidth || 800
+
+    // Build tooltip element
+    const tooltip = document.createElement('div')
+    tooltip.className = 'uplot-heatmap-tooltip'
+    tooltip.style.cssText = `
+      position: absolute;
+      pointer-events: none;
+      z-index: 1000;
+      background: rgba(255,255,255,0.95);
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font: 13px system-ui, sans-serif;
+      line-height: 1.6;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      display: none;
+      max-width: 260px;
+    `
+    this.chartTarget.appendChild(tooltip)
+
+    // Color gradient matching the ECharts heatmap version
+    const colors = ['#FFFFB2', '#FECC5C', '#FD8D3C', '#F03B20', '#BD0026']
+
+    // Heatmap plugin — paints colored rectangles at each (timestamp, unit) cell
+    function heatmapPlugin() {
+      return {
+        hooks: {
+          draw: (u) => {
+            const { ctx } = u
+            const interval = timestamps.length > 1 ? timestamps[1] - timestamps[0] : 0
+            if (interval === 0) return
+
+            // Divide plot area equally among units, ensuring a minimum track height
+            const rawCellH = Math.floor(u.bbox.height / unitCount)
+            const minCellH = 16
+            const cellH = Math.max(minCellH, rawCellH)
+            // Add a small gap between rows when tracks are roomy enough
+            const gap = rawCellH >= minCellH + 2 ? 2 : (rawCellH >= minCellH + 1 ? 1 : 0)
+            const drawH = cellH - gap
+
+            ctx.save()
+            ctx.beginPath()
+            ctx.rect(u.bbox.left, u.bbox.top, u.bbox.width, u.bbox.height)
+            ctx.clip()
+
+            for (let xi = 0; xi < count; xi++) {
+              // Tile each column from this timestamp's pixel position
+              // to the next timestamp's — guarantees no gaps between columns
+              const colStart = u.valToPos(timestamps[xi], 'x', true)
+              const colEnd = xi < count - 1
+                ? u.valToPos(timestamps[xi + 1], 'x', true)
+                : colStart + (timestamps.length > 1 ? timestamps[1] - timestamps[0] : 0)
+
+              const xPos = Math.round(colStart)
+              const xEnd = Math.round(colEnd)
+              const drawW = Math.max(1, xEnd - xPos)
+
+              const row = values[xi]
+              if (!row) continue
+
+              // Skip columns that are entirely off-screen
+              if (xPos + drawW < u.bbox.left || xPos > u.bbox.left + u.bbox.width) continue
+
+              for (let yi = 0; yi < unitCount; yi++) {
+                const val = row[yi]
+                if (val == null) continue
+                // Center cell at the unit's y-position (aligns with tooltip posToVal)
+                const yPos = Math.round(u.valToPos(yi, 'y', true) - cellH / 2)
+
+                // Skip rows off-screen
+                if (yPos + drawH < u.bbox.top || yPos > u.bbox.top + u.bbox.height) continue
+
+                // Map 0–100 % to 0–4 color index
+                const ci = Math.min(colors.length - 1, Math.floor(val / 100 * colors.length))
+                ctx.fillStyle = colors[ci]
+                ctx.fillRect(xPos, yPos, drawW, drawH)
+              }
+            }
+
+            ctx.restore()
+          }
+        }
+      }
+    }
+
+    // Heatmap tooltip — shows on hover
+    function makeHeatmapTooltip() {
+      return (u) => {
+        const idx = u.cursor.idx
+        if (idx == null || idx >= count) {
+          tooltip.style.display = 'none'
+          return
+        }
+
+        // Find the closest unit index from cursor y-position
+        const yVal = u.posToVal(u.cursor.top, 'y')
+        const yi = Math.round(yVal)
+
+        if (yi < 0 || yi >= unitCount) {
+          tooltip.style.display = 'none'
+          return
+        }
+
+        const val = values[idx]?.[yi]
+        if (val == null) {
+          tooltip.style.display = 'none'
+          return
+        }
+
+        const date = new Date(timestamps[idx] * 1e3).toLocaleString('en-GB', {
+          timeZone: timezone || 'UTC',
+          hour12: false,
+          day: 'numeric',
+          month: 'short',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+
+        tooltip.innerHTML = `
+          <div style="font-weight:600;border-bottom:1px solid #e5e7eb;padding-bottom:3px;margin-bottom:3px;">${date}</div>
+          <div>${unitNames[yi]}</div>
+          <div style="font-weight:500;">${val.toFixed(1)}% of peak</div>
+        `
+
+        // Position tooltip near cursor, staying within chart bounds
+        const cx = u.cursor.left
+        const cy = u.cursor.top
+        const tw = 260
+        let left = cx + 8 + tw < width ? cx + 8 : cx - tw - 8
+        left = Math.max(4, Math.min(left, width - tw - 4))
+        tooltip.style.left = left + 'px'
+        tooltip.style.top = Math.max(0, cy - 50) + 'px'
+        tooltip.style.display = 'block'
+      }
+    }
+
+    // Y-axis splits: one tick per unit at integer positions
+    const ySplits = []
+    for (let i = 0; i < unitCount; i++) ySplits.push(i)
+
+    // Estimate y-axis width needed for the longest unit name
+    const maxLabelChars = unitNames.reduce((max, n) => Math.max(max, n.length), 0)
+    // ~7px per char at 12px font, plus padding for tick/gap
+    const yAxisSize = Math.min(Math.max(maxLabelChars * 7 + 24, 80), 300)
+
+    const opts = {
+      title: data.title || 'Unit % of Peak Output',
+      width,
+      height: fixedHeight,
+      padding: [0, 0, 0, 0],
+      scales: {
+        x: { time: true },
+        y: { range: [-0.5, Math.max(0.5, unitCount - 0.5)] },
+      },
+      cursor: {
+        show: true,
+        drag: { y: true },
+        points: { show: false },
+      },
+      select: { show: true, left: 0, top: 0, width: 0, height: 0 },
+      legend: { show: false },
+      series: [
+        { label: 'Time' },
+        { show: false },
+        { show: false },
+      ],
+      axes: [
+        {
+          stroke: '#888',
+          grid: { stroke: 'rgba(0,0,0,0.06)' },
+          font: '12px system-ui, sans-serif',
+        },
+        {
+          stroke: '#888',
+          grid: { stroke: 'rgba(0,0,0,0.06)' },
+          font: '12px system-ui, sans-serif',
+          size: yAxisSize,
+          values: (_u, ticks) => ticks.map(v => unitNames[Math.round(v)] ?? ''),
+          splits: () => ySplits,
+        },
+      ],
+      plugins: [heatmapPlugin()],
+      ...(timezone ? { tzDate: (ts) => uplot.tzDate(new Date(ts * 1e3), timezone) } : {}),
+      hooks: {
+        setCursor: [makeHeatmapTooltip()],
+      },
+    }
+
+    // Dummy series data to establish y-scale range
+    const yMin = new Array(count).fill(0)
+    const yMax = new Array(count).fill(unitCount - 1)
+    const plotData = [timestamps, yMin, yMax]
+
+    try {
+      const plot = new uplot(opts, plotData, this.chartTarget)
+      this.chartTarget._uplot = plot
+
+      // Watch for resize
+      if (!this._uplotResizeHandler) {
+        this._uplotResizeHandler = () => {
+          if (this.chartTarget._uplot) {
+            this.chartTarget._uplot.setSize({
+              width: this.chartTarget.clientWidth,
+              height: this.chartTarget.clientHeight,
+            })
+          }
+        }
+        window.addEventListener('resize', this._uplotResizeHandler)
+      }
+    } catch (error) {
+      console.error('uPlot: Failed to render heatmap', error)
     }
   }
 

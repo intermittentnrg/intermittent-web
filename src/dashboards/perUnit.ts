@@ -5,7 +5,7 @@ import { getContext } from "./shared/context.ts";
 import { buildXAxisTimestamps } from "./shared/chartOptions.ts";
 import { buildBasicSeries, buildFieldSeries, rowsToSeries } from "./shared/series.ts";
 import { getProductionTypeOptions } from "./shared/productionTypes.ts";
-import { sendChartResponse, sendUplotResponse } from "./shared/chartResponse.ts";
+import { sendUplotResponse } from "./shared/chartResponse.ts";
 import { buildUplotPayload } from "./shared/uplotOptions.ts";
 import type { AnyRow, DashboardParams, DashboardQuery } from "./shared/types.ts";
 
@@ -150,64 +150,49 @@ export async function perUnitPeak(
     unitIds,
     ctx.timezone,
   ]);
-  return sendChartResponse(
-    req,
-    reply,
-    heatmap(rows),
-    ctx.timezoneAbbreviation,
-    await unitMeta(ctx.areaIds),
-  );
-}
 
-function heatmap(rows: AnyRow[]) {
-  const units = [...new Set(rows.map((r) => String(r.metric)))];
-  const times = [...new Set(rows.map((r) => Number(r.time)))].sort(
-    (a, b) => a - b,
-  );
-  const data: any[] = [];
-  for (const r of rows) {
-    data.push([
-      times.indexOf(Number(r.time)),
-      units.indexOf(String(r.metric)),
-      r.value == null ? null : Math.round(Number(r.value) * 1000) / 10,
-    ]);
+  if (rows.length === 0) {
+    return sendUplotResponse(req, reply, {
+      chartLibrary: "uplot",
+      title: "Unit % of Peak Output",
+      mainSeries: [],
+      startTime: 0,
+      interval: 0,
+      timezone: ctx.timezone,
+    });
   }
-  return {
-    title: { text: "Unit % of Peak Output", left: "center", top: 10 },
-    tooltip: { position: "top" },
-    grid: {
-      left: "3%",
-      right: "4%",
-      bottom: "10%",
-      top: "15%",
-      outerBoundsMode: "same",
-      outerBoundsContain: "axisLabel",
+
+  // Collect unique units and timestamps
+  const units = [...new Set(rows.map((r) => String(r.metric)))];
+  // rawTimes are epoch ms (EXTRACT(EPOCH ... AT TIME ZONE ...) * 1000)
+  const rawTimes = [...new Set(rows.map((r) => Number(r.time)))].sort((a, b) => a - b);
+  // Convert to seconds for uPlot
+  const timestamps = rawTimes.map((t) => t / 1000);
+
+  // Build 2D grid [xi][yi] = % of peak (0-100)
+  const values2d: (number | null)[][] = timestamps.map(() => new Array(units.length).fill(null));
+  for (const r of rows) {
+    const xi = rawTimes.indexOf(Number(r.time));
+    const yi = units.indexOf(String(r.metric));
+    const raw = r.value;
+    values2d[xi][yi] = raw == null ? null : Math.round(Number(raw) * 1000) / 10;
+  }
+
+  const startTime = timestamps[0] || 0;
+  const interval = timestamps.length > 1 ? timestamps[1] - timestamps[0] : 0;
+
+  return sendUplotResponse(req, reply, {
+    chartLibrary: "uplot",
+    title: "Unit % of Peak Output",
+    heatmapMeta: {
+      timestamps,
+      unitNames: units,
+      values: values2d,
     },
-    xAxis: {
-      type: "category",
-      data: times,
-      splitArea: { show: true },
-      axisLabel: { formatter: { type: "date" } },
-    },
-    yAxis: {
-      type: "category",
-      data: units,
-      splitArea: { show: true },
-      inverse: true,
-    },
-    visualMap: {
-      min: 0,
-      max: 100,
-      calculable: true,
-      orient: "horizontal",
-      left: "center",
-      bottom: "0%",
-      inRange: {
-        color: ["#FFFFB2", "#FECC5C", "#FD8D3C", "#F03B20", "#BD0026"],
-      },
-    },
-    series: [{ name: "Peak %", type: "heatmap", data, label: { show: false } }],
-  };
+    startTime,
+    interval,
+    timezone: ctx.timezone,
+  }, await unitMeta(ctx.areaIds));
 }
 
 const movingCapSql = `WITH cap AS (SELECT unit_id,LAST(value,time) AS value FROM generation_unit_capacities WHERE time BETWEEN $1 AND $2 AND unit_id=ANY($3::int[]) GROUP BY unit_id), g AS (SELECT time_bucket_gapfill('1h', time) AS time, unit_id, COALESCE(AVG(value),0) AS value FROM generation_unit WHERE time BETWEEN $1 AND $2 AND unit_id=ANY($3::int[]) GROUP BY 1,2) SELECT EXTRACT(EPOCH FROM time_bucket($4::interval,time)) AS time, CONCAT_WS(' - ',u.internal_id,u.name) AS metric, AVG(AVG(g.value)) OVER w / NULLIF(AVG(cap.value),0) AS moving_capacity FROM g INNER JOIN cap USING(unit_id) INNER JOIN units u ON(unit_id=u.id) WHERE time BETWEEN $1 AND $2 GROUP BY unit_id,time_bucket($4::interval,time),2 WINDOW w AS (PARTITION BY unit_id ORDER BY time_bucket($4::interval,time) RANGE '12 month' PRECEDING) ORDER BY 2,1`;
