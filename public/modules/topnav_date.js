@@ -3,7 +3,7 @@ import { closeAllDropdowns, toggleMenu } from "../dropdown_utils.js"
 
 export function initTopnavDate() {
   const root = document.getElementById('topnav-date')
-  if (!root) return
+  if (!root) return null
 
   const fromInput = document.getElementById('date-from')
   const toInput = document.getElementById('date-to')
@@ -170,8 +170,6 @@ export function initTopnavDate() {
   fromInput.addEventListener('keydown', onDateInputKeydown)
   toInput.addEventListener('keydown', onDateInputKeydown)
 
-  document.addEventListener('timezone-loaded', event => updateTimezone(event.detail.timezone))
-
   function syncFromUrl() {
     initializeFromUrl()
     updateResolutionSelectedState()
@@ -182,4 +180,5 @@ export function initTopnavDate() {
   syncFromUrl()
   router.onChange(syncFromUrl)
 
+  return { updateTimezone }
 }

@@ -16,11 +16,11 @@ const DRAG_ZOOM_GRAPHIC_ID = 'drag-zoom-rect'
 const DRAG_ZOOM_MIN_PIXELS = 8
 const DRAG_ZOOM_MIN_MS = 60_000
 
-export function initChart() {
+export function initChart({ onDataLoaded } = {}) {
   const chartTarget = document.getElementById('main-chart')
   if (!chartTarget) return
 
-  new ChartModule(chartTarget, document.getElementById('chart-error')).connect()
+  new ChartModule(chartTarget, document.getElementById('chart-error')).init(onDataLoaded)
 }
 
 class ChartModule {
@@ -40,10 +40,11 @@ class ChartModule {
     return dashboardChartLibrary(pathParams.dashboard) || 'echarts'
   }
 
-  connect() {
+  init(onDataLoaded) {
     this.abortController = null
     this.chart = null
     this.chartLibrary = this.getChartLibrary()
+    this.onDataLoaded = onDataLoaded
 
     // For uPlot, defer initialization; for ECharts, init immediately
     if (this.chartLibrary === 'echarts') {
@@ -134,17 +135,8 @@ class ChartModule {
     .then(data => {
       if (currentAbortController.signal.aborted || this.abortController !== currentAbortController) return
       this.renderChart(data)
-      if (data.timezone) {
-        document.dispatchEvent(new CustomEvent('timezone-loaded', { detail: { timezone: data.timezone } }))
-      }
-      if (data.production_types) {
-        document.dispatchEvent(new CustomEvent('production-types-loaded', { detail: { production_types: data.production_types } }))
-      }
-      if (data.units) {
-        document.dispatchEvent(new CustomEvent('units-loaded', { detail: { units: data.units } }))
-      }
-      if (data.transmission_lines) {
-        document.dispatchEvent(new CustomEvent('transmission-lines-loaded', { detail: { transmission_lines: data.transmission_lines } }))
+      if (this.onDataLoaded) {
+        this.onDataLoaded(data)
       }
     })
     .catch(error => {
@@ -343,6 +335,12 @@ class ChartModule {
         }
         return axis
       }),
+      // Disable built-in drag-zoom; we use custom that reloads via router
+      select: { show: false },
+      cursor: {
+        ...(opts.cursor || {}),
+        drag: { x: false, y: false },
+      },
       ...(data.timezone ? { tzDate: (ts) => uplot.tzDate(new Date(ts * 1e3), data.timezone) } : {}),
       hooks: {
         setCursor: [
@@ -442,6 +440,9 @@ class ChartModule {
     try {
       const plot = new uplot(uplotOpts, plotDataWithX, this.chartTarget)
       this.chartTarget._uplot = plot
+
+      // ── Custom drag-zoom (replaces uPlot's built-in select/zoom) ──
+      this.connectUplotDragZoom(plot)
 
       // Build custom legend that merges entries with the same label
       this.buildUplotLegend(plot, opts.series)
@@ -763,6 +764,74 @@ class ChartModule {
     zr.on('mousemove', event => this.updateZoomDrag(event))
     zr.on('mouseup', () => this.finishZoomDrag())
     zr.on('globalout', () => this.finishZoomDrag())
+  }
+
+  connectUplotDragZoom(plot) {
+    // Selection overlay shown during drag
+    const overlay = document.createElement('div')
+    overlay.className = 'uplot-drag-overlay'
+    overlay.style.cssText = `
+      position: absolute;
+      top: 0;
+      height: 100%;
+      pointer-events: none;
+      z-index: 999;
+      background: rgba(0, 119, 255, 0.18);
+      display: none;
+    `
+    this.chartTarget.appendChild(overlay)
+
+    let dragState = null
+
+    function onMouseDown(e) {
+      if (e.button !== 0) return
+      const rect = plot.over.getBoundingClientRect()
+      const startX = e.clientX - rect.left
+      dragState = { startX, currentX: startX }
+      overlay.style.left = startX + 'px'
+      overlay.style.width = '0px'
+      overlay.style.display = 'block'
+      document.addEventListener('mousemove', onMouseMove)
+      document.addEventListener('mouseup', onMouseUp)
+    }
+
+    function onMouseMove(e) {
+      if (!dragState) return
+      const rect = plot.over.getBoundingClientRect()
+      dragState.currentX = e.clientX - rect.left
+      const left = Math.min(dragState.startX, dragState.currentX)
+      const right = Math.max(dragState.startX, dragState.currentX)
+      overlay.style.left = left + 'px'
+      overlay.style.width = (right - left) + 'px'
+    }
+
+    const onMouseUp = () => {
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+      if (!dragState) return
+      overlay.style.display = 'none'
+
+      const { startX, currentX } = dragState
+      dragState = null
+
+      const dx = Math.abs(currentX - startX)
+      if (dx < DRAG_ZOOM_MIN_PIXELS) return
+
+      // uPlot x values are in seconds; convert to ms for applyZoomDateRange
+      const fromSec = plot.posToVal(Math.min(startX, currentX), 'x')
+      const toSec = plot.posToVal(Math.max(startX, currentX), 'x')
+
+      if (!Number.isFinite(fromSec) || !Number.isFinite(toSec)) return
+
+      const fromMs = fromSec * 1000
+      const toMs = toSec * 1000
+
+      if (Math.abs(toMs - fromMs) < DRAG_ZOOM_MIN_MS) return
+
+      this.applyZoomDateRange(fromMs, toMs)
+    }
+
+    plot.over.addEventListener('mousedown', onMouseDown)
   }
 
   startZoomDrag(event) {

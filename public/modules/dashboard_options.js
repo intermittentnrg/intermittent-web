@@ -76,8 +76,10 @@ function titleize(value) {
 
 export function initDashboardOptions() {
   const root = document.getElementById('topnav-content')
-  if (!root) return
-  new DashboardOptions(root).connect()
+  if (!root) return null
+  const instance = new DashboardOptions(root)
+  instance.init()
+  return instance
 }
 
 class DashboardOptions {
@@ -93,23 +95,9 @@ class DashboardOptions {
     }
   }
 
-  connect() {
+  init() {
     this.updateVisibility()
     router.onChange(() => this.updateVisibilityFromRouter())
-
-    document.addEventListener('production-types-loaded', (event) => {
-      this.renderProductionTypes(event.detail.production_types || [])
-    })
-
-    document.addEventListener('units-loaded', (event) => {
-      this.units = event.detail.units || []
-      this.filterUnitsByProductionType(this.getSelectedProductionTypes())
-    })
-
-    document.addEventListener('transmission-lines-loaded', (event) => {
-      this.transmissionLines = event.detail.transmission_lines || []
-      this.renderTransmissionLines(this.transmissionLines)
-    })
 
     this.element.addEventListener('click', (event) => this.handleClick(event))
     this.element.addEventListener('change', (event) => this.handleChange(event))
@@ -354,6 +342,16 @@ class DashboardOptions {
 
   toggleTransmissionMenu(event) {
     toggleMenu(this.transmissionMenuTarget, event.target.closest('#dashboard-options-transmission-section > .dropdown__trigger'))
+  }
+
+  loadUnits(units) {
+    this.units = units || []
+    this.filterUnitsByProductionType(this.getSelectedProductionTypes())
+  }
+
+  loadTransmissionLines(lines) {
+    this.transmissionLines = lines || []
+    this.renderTransmissionLines(this.transmissionLines)
   }
 
   applyProductionType() {
