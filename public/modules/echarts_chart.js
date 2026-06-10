@@ -232,6 +232,13 @@ export function renderEcharts(chartTarget, data, { applyZoomDateRange }) {
     chartTarget._uplot = null
   }
 
+  // Ensure ECharts instance exists before doing anything
+  if (!chartTarget._echarts) {
+    initEcharts(chartTarget, { applyZoomDateRange })
+    // If init failed, bail out
+    if (!chartTarget._echarts) return
+  }
+
   // Handle choropleth animation
   if (data.frames) {
     renderChoroplethAnimation(chartTarget._echarts, chartTarget, data)
@@ -239,11 +246,6 @@ export function renderEcharts(chartTarget, data, { applyZoomDateRange }) {
   }
 
   if (!data.options) return
-
-  // Ensure ECharts instance exists (may have been destroyed by uPlot)
-  if (!chartTarget._echarts) {
-    initEcharts(chartTarget, { applyZoomDateRange })
-  }
 
   const chart = chartTarget._echarts
 

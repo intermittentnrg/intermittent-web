@@ -24,6 +24,7 @@ class ChartModule {
 
   async init(onDataLoaded) {
     this.abortController = null
+    this._renderToken = 0
     this.chartLibrary = this.getChartLibrary()
     this.onDataLoaded = onDataLoaded
 
@@ -126,6 +127,7 @@ class ChartModule {
 
     this.abortController = new AbortController()
     const currentAbortController = this.abortController
+    const renderToken = ++this._renderToken
 
     const resolution = this.chartResolution()
     const params = {}
@@ -154,6 +156,7 @@ class ChartModule {
       })
       .then(data => {
         if (currentAbortController.signal.aborted || this.abortController !== currentAbortController) return
+        if (renderToken !== this._renderToken) return
         this.renderChart(data)
         if (this.onDataLoaded) {
           this.onDataLoaded(data)
