@@ -56,27 +56,7 @@ class ChartModule {
   }
 
   showLoading() {
-    if (this.chartTarget._echarts) {
-      this.chartTarget._echarts.showLoading({
-        text: '', color: '#0077FF', textColor: '#0077FF',
-        maskColor: 'rgba(255, 255, 255, 0.7)', zlevel: 100,
-      })
-      return
-    }
     this.chartTarget.style.opacity = '0.5'
-    this._showSpinner()
-  }
-
-  hideLoading() {
-    if (this.chartTarget._echarts) {
-      this.chartTarget._echarts.hideLoading({ zlevel: 100 })
-      return
-    }
-    this.chartTarget.style.opacity = '1'
-    this._hideSpinner()
-  }
-
-  _showSpinner() {
     let spinner = this.chartTarget.querySelector('.chart-loading-spinner')
     if (!spinner) {
       spinner = document.createElement('div')
@@ -102,7 +82,6 @@ class ChartModule {
       `
       this.chartTarget.appendChild(spinner)
 
-      // Inject the keyframe animation once
       if (!document.getElementById('chart-spinner-style')) {
         const style = document.createElement('style')
         style.id = 'chart-spinner-style'
@@ -113,7 +92,8 @@ class ChartModule {
     spinner.style.display = 'flex'
   }
 
-  _hideSpinner() {
+  hideLoading() {
+    this.chartTarget.style.opacity = '1'
     const spinner = this.chartTarget.querySelector('.chart-loading-spinner')
     if (spinner) spinner.style.display = 'none'
   }
