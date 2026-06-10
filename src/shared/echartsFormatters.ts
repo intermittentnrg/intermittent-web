@@ -43,7 +43,7 @@ export function processEchartsFormatters<T>(options: T): T {
   return processed as T;
 }
 
-function processSeriesLabelFormatter(label: Record<string, any> | undefined) {
+export function processSeriesLabelFormatter(label: Record<string, any> | undefined) {
   const formatter = label?.formatter as CustomSeriesLabelFormatter | undefined;
   const type = formatter?.type;
   if (!label || !type) return;

@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { isMainThread } from "node:worker_threads";
 import type { MapSeriesOption } from "echarts/types/dist/echarts";
+import { processSeriesLabelFormatter } from "../shared/echartsFormatters.ts";
 import {
   fetchEchartsPayload,
   renderEchartsVideo,
@@ -145,7 +146,45 @@ function priceLabelMapSeries<T extends MapSeriesOption>(series: T[]) {
 
 export const createFrameGenerator: CreateFrameGenerator = (payload) => {
   const frames = (payload.options as any).options as Record<string, any>[];
-  return (i: number) => frames[i];
+
+  // Build full series configs from the original baseOption, applying the
+  // same profile/label processing that main() applies to baseOpt.
+  // The render loop uses replaceMerge: ["series"], so we must include series
+  // in every frame payload — otherwise replaceMerge deletes them, leaving
+  // a blank chart.
+  const baseSeries = (payload.options as any).baseOption?.series as Record<string, any>[] | undefined;
+  const seriesConfigs: Record<string, any>[] = [];
+  if (Array.isArray(baseSeries)) {
+    const processed = priceLabelMapSeries(baseSeries as MapSeriesOption[]).map((item) => item.type === "map" ? {
+      ...item,
+      data: undefined as undefined,
+      aspectScale: profile.aspectScale,
+      center: profile.mapCenter,
+      zoom: profile.mapZoom,
+    } : item);
+    for (const s of processed) {
+      if (s.type === "map") {
+        const { data: _d, ...rest } = s;
+        processSeriesLabelFormatter(rest.label);
+        seriesConfigs.push(rest);
+      } else {
+        seriesConfigs.push(s);
+      }
+    }
+  }
+
+  return (i: number) => {
+    const frame = frames[i];
+    const frameSeries = Array.isArray(frame.series) ? frame.series : [];
+    const mergedSeries = seriesConfigs.map((s, idx) => ({
+      ...s,
+      data: frameSeries[idx]?.data ?? s.data,
+    }));
+    return {
+      ...frame,
+      series: mergedSeries,
+    };
+  };
 };
 
 // === Entry point (main thread only) ===
