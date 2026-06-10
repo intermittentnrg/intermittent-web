@@ -11,6 +11,10 @@ const supportBundles = [
     outfile: "public/vendor/echarts_client.bundle.js",
   },
   {
+    entryPoints: ["public/uplot_client.js"],
+    outfile: "public/vendor/uplot_client.bundle.js",
+  },
+  {
     entryPoints: ["src/shared/echartsFormatters.ts"],
     outfile: "public/vendor/echarts_formatters.js",
   },
@@ -57,7 +61,7 @@ const clientOptions = {
   entryNames: production ? "assets/[name]-[hash]" : "[dir]/[name]",
   chunkNames: production ? "chunks/[name]-[hash]" : "chunks/[name]",
   assetNames: production ? "assets/[name]-[hash]" : "assets/[name]",
-  external: ["../vendor/echarts_client.bundle.js"],
+  external: ["../vendor/echarts_client.bundle.js", "../vendor/uplot_client.bundle.js"],
   metafile: true,
   write: true,
 };

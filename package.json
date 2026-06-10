@@ -40,7 +40,8 @@
     "fastify": "^5.8.5",
     "pg": "^8.20.0",
     "pngjs": "^7.0.0",
-    "skia-canvas": "^3.0.8"
+    "skia-canvas": "^3.0.8",
+    "uplot": "^1.6.32"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.161",
