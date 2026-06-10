@@ -3,7 +3,7 @@ import { querySmall } from "../lib/db.ts";
 import { chartQuery } from "./shared/chartQuery.ts";
 import { getContext } from "./shared/context.ts";
 import { buildXAxisTimestamps } from "./shared/chartOptions.ts";
-import { buildBasicSeries, buildFieldSeries, divergentSeries, rowsToSeries } from "./shared/series.ts";
+import { buildBasicSeries, buildFieldSeries, rowsToSeries } from "./shared/series.ts";
 import { getProductionTypeOptions } from "./shared/productionTypes.ts";
 import { sendChartResponse, sendUplotResponse } from "./shared/chartResponse.ts";
 import { buildUplotPayload } from "./shared/uplotOptions.ts";
@@ -75,25 +75,29 @@ export async function perUnit(
   ]);
   const startTime = rows[0]?.time as number | undefined;
   const interval = ctx.interval;
-  const series = divergentSeries(buildBasicSeries(rows, "line", true, "power", {
+  const mainSeries = buildBasicSeries(rows, "line", true, "power", {
     stackForMetric: (metric) =>
       metric.endsWith("_negative") ? "negative" : "total",
-  }));
+  });
 
-  if (startTime == null || series.length === 0) {
+  if (startTime == null || mainSeries.length === 0) {
     return sendUplotResponse(req, reply, {
       chartLibrary: "uplot",
-      opts: { title: "Per Unit", series: [], axes: [] },
-      data: [],
-      rawData: [],
+      title: "Per Unit",
+      mainSeries: [],
       startTime: 0,
       interval: 0,
+      timezone: ctx.timezone,
     });
   }
-  const maxLen = series.reduce((max, s) => Math.max(max, s.data?.length ?? 0), 0);
-  const timestamps = buildXAxisTimestamps(startTime, interval, maxLen);
-  const payload = buildUplotPayload("Per Unit", timestamps, series, ctx.timezone);
-  return sendUplotResponse(req, reply, payload, await unitMeta(ctx.areaIds));
+  return sendUplotResponse(req, reply, {
+    chartLibrary: "uplot",
+    title: "Per Unit",
+    mainSeries,
+    startTime,
+    interval,
+    timezone: ctx.timezone,
+  }, await unitMeta(ctx.areaIds));
 }
 
 const DAILY = 86400;

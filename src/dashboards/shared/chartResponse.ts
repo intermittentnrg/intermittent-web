@@ -49,7 +49,7 @@ export async function sendChartResponse(
 export async function sendUplotResponse(
   request: FastifyRequest,
   reply: FastifyReply,
-  payload: UplotPayload,
+  payload: Record<string, unknown>,
   extra: Record<string, unknown> = {},
 ) {
   // For .png requests, render via ECharts SSR (fallback for social previews)

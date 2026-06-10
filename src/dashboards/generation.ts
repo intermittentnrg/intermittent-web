@@ -7,7 +7,6 @@ import {
   buildMinMaxSeries,
   buildPowerLineSeries,
   buildYoySeries,
-  divergentSeries,
 } from "./shared/series.ts";
 import {
   getProductionTypeIds,
@@ -68,29 +67,32 @@ export async function generation(
     ptIds,
   ]);
   const colorFn = colorsFromQuery(request.query.colors);
-  const series = divergentSeries(buildPowerLineSeries(rows, colorFn));
-  if (request.query.load) {
-    series.push(...(await getLoadSeries(request, priceArgs)));
-  }
-  if (request.query.prices) series.push(...(await getPriceSeries(request, priceArgs, { scale: "%" })));
+  const mainSeries = buildPowerLineSeries(rows, colorFn);
+  const loadSeries = request.query.load ? await getLoadSeries(request, priceArgs) : [];
+  const priceSeries = request.query.prices ? await getPriceSeries(request, priceArgs, { scale: "%" }) : [];
   const startTime = rows[0]?.time as number | undefined;
   const interval = ctx.interval;
 
-  if (startTime == null || series.length === 0) {
+  if (startTime == null || (mainSeries.length === 0 && loadSeries.length === 0 && priceSeries.length === 0)) {
     return sendUplotResponse(request, reply, {
       chartLibrary: "uplot",
-      opts: { title: "Generation", series: [], axes: [] },
-      data: [],
-      rawData: [],
+      title: "Generation",
+      mainSeries: [],
       startTime: 0,
       interval: 0,
+      timezone: ctx.timezone,
     });
   }
-  const maxLen = series.reduce((max, s) => Math.max(max, s.data?.length ?? 0), 0);
-  const timestamps = buildXAxisTimestamps(startTime, interval, maxLen);
-  const payload = buildUplotPayload("Generation", timestamps, series, ctx.timezone);
   const productionTypes = await getProductionTypeOptions(ctx.areaIds);
-  return sendUplotResponse(request, reply, payload, { production_types: productionTypes });
+  return sendUplotResponse(request, reply, {
+    chartLibrary: "uplot",
+    title: "Generation",
+    mainSeries,
+    extraSeries: [...loadSeries, ...priceSeries],
+    startTime,
+    interval,
+    timezone: ctx.timezone,
+  }, { production_types: productionTypes });
 }
 
 const DAILY = 86400;

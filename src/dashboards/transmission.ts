@@ -2,10 +2,8 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { querySmall } from "../lib/db.ts";
 import { chartQuery } from "./shared/chartQuery.ts";
 import { getContext } from "./shared/context.ts";
-import { buildXAxisTimestamps } from "./shared/chartOptions.ts";
-import { divergentSeries } from "./shared/series.ts";
 import { sendUplotResponse } from "./shared/chartResponse.ts";
-import { buildUplotPayload, type UplotSeriesDesc } from "./shared/uplotOptions.ts";
+import type { UplotSeriesDesc } from "./shared/uplotOptions.ts";
 import type { AnyRow, DashboardParams, DashboardQuery } from "./shared/types.ts";
 
 const transmissionSql = (filtered: boolean) => {
@@ -77,22 +75,26 @@ export async function transmission(
   );
   const startTime = rows[0]?.time as number | undefined;
   const interval = ctx.interval;
-  const series = divergentSeries(buildTransmissionSeries(rows));
+  const mainSeries = buildTransmissionSeries(rows);
 
-  if (startTime == null || series.length === 0) {
+  if (startTime == null || mainSeries.length === 0) {
     return sendUplotResponse(req, reply, {
       chartLibrary: "uplot",
-      opts: { title: "Transmission", series: [], axes: [] },
-      data: [],
-      rawData: [],
+      title: "Transmission",
+      mainSeries: [],
       startTime: 0,
       interval: 0,
+      timezone: ctx.timezone,
     });
   }
-  const maxLen = series.reduce((max, s) => Math.max(max, s.data?.length ?? 0), 0);
-  const timestamps = buildXAxisTimestamps(startTime, interval, maxLen);
-  const payload = buildUplotPayload("Transmission", timestamps, series, ctx.timezone);
-  return sendUplotResponse(req, reply, payload, {
+  return sendUplotResponse(req, reply, {
+    chartLibrary: "uplot",
+    title: "Transmission",
+    mainSeries,
+    startTime,
+    interval,
+    timezone: ctx.timezone,
+  }, {
     transmission_lines: lines.map((l) => ({
       id: `${l.from_area_id}-${l.to_area_id}`,
       label: `${l.from_code} → ${l.to_code}`,

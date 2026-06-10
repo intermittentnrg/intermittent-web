@@ -9,6 +9,8 @@ import {
 import { router, parsePath } from "../router.js"
 import { calculateResolution, parseDateRange } from "../../src/shared/dateParsing.js"
 import { dashboardChartLibrary } from "../../src/shared/dashboardCatalog.js"
+import { divergentSeries } from "../../src/shared/series.js"
+import { buildUplotPayload } from "../../src/shared/uplotPayload.js"
 
 const DRAG_ZOOM_GRAPHIC_ID = 'drag-zoom-rect'
 const DRAG_ZOOM_MIN_PIXELS = 8
@@ -243,6 +245,22 @@ class ChartModule {
     this.chartTarget.style.width = '100%'
     this.chartTarget.style.minWidth = '0'
     this.chartTarget.style.position = 'relative'
+
+    // ── Handle new client-side payload format (raw series) ──
+    if (data.mainSeries) {
+      const timestamps = this._rebuildTimestamps(data.startTime, data.interval, data.mainSeries)
+      const allSeries = [
+        ...divergentSeries(data.mainSeries),
+        ...(data.extraSeries || []),
+      ]
+      const processed = buildUplotPayload(data.title, timestamps, allSeries)
+      data.opts = processed.opts
+      data.data = processed.data
+      data.rawData = processed.rawData
+      data.seriesMeta = processed.seriesMeta
+      data.startTime = processed.startTime
+      data.interval = processed.interval
+    }
 
     const { opts, data: plotData, rawData, seriesMeta, startTime, interval } = data
 
@@ -712,6 +730,22 @@ class ChartModule {
     }
 
     this.chartTarget.appendChild(legend)
+  }
+
+  /**
+   * Rebuild timestamps array from startTime + interval * index,
+   * determining count from the longest series data array.
+   */
+  _rebuildTimestamps(startTime, interval, seriesList) {
+    const count = seriesList.reduce(
+      (max, s) => Math.max(max, s.data?.length ?? 0),
+      0,
+    )
+    const timestamps = new Array(count)
+    for (let i = 0; i < count; i++) {
+      timestamps[i] = startTime + i * interval
+    }
+    return timestamps
   }
   
 }

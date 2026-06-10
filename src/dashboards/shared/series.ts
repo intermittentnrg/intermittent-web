@@ -53,43 +53,9 @@ function valueFor<Row extends AnyRow, Value>(
   return typeof field === "function" ? field(row) : row[field];
 }
 
-/**
- * Split series into positive and negative stacks for divergent (import/export) charts.
- * Works with `UplotSeriesDesc`, ECharts `Series`, or any object with a `data` array.
- */
-export function divergentSeries<T extends Record<string, any>>(input: T[]): T[] {
-  const output: T[] = [];
-  for (const series of input) {
-    let hasPositive = false;
-    let hasNegative = false;
-
-    for (const value of series.data) {
-      if (value > 0) hasPositive = true;
-      if (value < 0) hasNegative = true;
-      if (hasPositive && hasNegative) break;
-    }
-
-    if (hasPositive && hasNegative) {
-      output.push({
-        ...series,
-        stack: "pos",
-        data: series.data.map((value: number) => Math.max(value, 0)),
-      });
-      output.push({
-        ...series,
-        stack: "neg",
-        data: series.data.map((value: number) => Math.min(value, 0)),
-      });
-    } else {
-      output.push({
-        ...series,
-        stack: hasNegative ? "neg" : "pos",
-      });
-    }
-  }
-
-  return output;
-}
+// Re-export divergentSeries from the shared .js module so it works in both
+// backend (TypeScript via Node.js) and browser (esbuild bundle).
+export { divergentSeries } from "../../shared/series.js";
 
 // ── Min / Max / Average (confidence band) ──
 
