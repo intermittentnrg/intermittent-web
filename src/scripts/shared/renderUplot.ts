@@ -1,4 +1,4 @@
-import { Canvas } from "skia-canvas";
+import { Canvas, Path2D } from "skia-canvas";
 import type { ChartRenderer, TimelineRendererOptions, FrameGenerator, RendererFactory } from "./renderVideo.ts";
 import { renderVideo, type VideoProfile } from "./renderVideo.ts";
 
@@ -15,10 +15,18 @@ function setupDomShim(width: number, height: number): Canvas {
 
   const canvas = new Canvas(Math.ceil(width), Math.ceil(height));
 
+  const classListMock = {
+    add: () => {},
+    remove: () => {},
+    contains: () => false,
+    toggle: () => false,
+  };
+
   const mockElement = (tag: string) => {
     if (tag === "canvas") {
       return Object.assign(canvas, {
         style: {},
+        classList: classListMock,
         getBoundingClientRect: () => ({
           left: 0, top: 0, width, height, right: width, bottom: height,
         }),
@@ -26,10 +34,12 @@ function setupDomShim(width: number, height: number): Canvas {
         removeEventListener: () => {},
         parentNode: null,
         dispatchEvent: () => true,
+        remove: () => {},
       }) as any;
     }
     return {
       style: {},
+      classList: classListMock,
       appendChild: () => {},
       removeChild: () => {},
       insertBefore: () => {},
@@ -44,10 +54,40 @@ function setupDomShim(width: number, height: number): Canvas {
       childNodes: [],
       firstChild: null,
       append: () => {},
+      remove: () => {},
     };
   };
 
-  // Stub out browser globals that uPlot might touch during init
+  // Stub out browser globals that uPlot might touch during init.
+  // uPlot checks typeof window at import time and uses window.addEventListener,
+  // window.dispatchEvent, devicePixelRatio (global), and matchMedia (global).
+  //
+  // Instead of setting window = globalThis (which lacks DOM methods), we create
+  // a minimal mock window object. Globals like devicePixelRatio and matchMedia
+  // are also set on globalThis because uPlot accesses them as bare names.
+
+  const mockMatchMedia = (query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => true,
+  });
+
+  // @ts-ignore
+  globalThis.window = {
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => {},
+    devicePixelRatio: 1,
+    matchMedia: mockMatchMedia,
+    document: undefined as any,
+    navigator: undefined as any,
+  };
+
   // @ts-ignore
   globalThis.document = {
     createElement: mockElement,
@@ -59,12 +99,18 @@ function setupDomShim(width: number, height: number): Canvas {
     addEventListener: () => {},
     removeEventListener: () => {},
   };
-
-  // @ts-ignore
-  globalThis.window = globalThis;
   // @ts-ignore
   globalThis.DOMRect = class DOMRect {
-    constructor(public x = 0, public y = 0, public width = 0, public height = 0) {}
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    constructor(x = 0, y = 0, width = 0, height = 0) {
+      this.x = x;
+      this.y = y;
+      this.width = width;
+      this.height = height;
+    }
     toJSON() { return { x: this.x, y: this.y, width: this.width, height: this.height }; }
   } as any;
   // @ts-ignore
@@ -90,9 +136,21 @@ function setupDomShim(width: number, height: number): Canvas {
     constructor(type: string, _init?: Record<string, any>) { super(type); }
   };
   // @ts-ignore
+  globalThis.Path2D = Path2D;
+  // @ts-ignore
+  globalThis.HTMLElement = class HTMLElement {
+    style: Record<string, string> = {};
+    classList = classListMock;
+    appendChild() {}
+    addEventListener() {}
+    removeEventListener() {}
+  } as any;
+  // @ts-ignore
   globalThis.KeyboardEvent = class KeyboardEvent extends Event {
     constructor(type: string, _init?: Record<string, any>) { super(type); }
   };
+  // @ts-ignore
+  globalThis.matchMedia = mockMatchMedia;
   // @ts-ignore
   globalThis.devicePixelRatio = 1;
 
@@ -120,7 +178,13 @@ function teardownDomShim() {
   // @ts-ignore
   delete globalThis.TouchEvent;
   // @ts-ignore
+  delete globalThis.Path2D;
+  // @ts-ignore
+  delete globalThis.HTMLElement;
+  // @ts-ignore
   delete globalThis.KeyboardEvent;
+  // @ts-ignore
+  delete globalThis.matchMedia;
   // @ts-ignore
   delete globalThis.devicePixelRatio;
   shimActive = false;
@@ -133,13 +197,15 @@ export async function createUplotRenderer(
   options: TimelineRendererOptions,
   getFramePayload?: FrameGenerator,
 ): Promise<ChartRenderer> {
-  const { default: uPlot } = await import("uplot");
-
   const width = options.width;
   const height = options.height;
 
-  // Set up DOM shim so uPlot renders to our skia canvas
+  // Set up DOM shim BEFORE importing uPlot, because uPlot checks
+  // typeof window at import time and caches doc = null if window is
+  // not yet defined (see dist/uPlot.cjs.js lines 74-76).
   const canvas = setupDomShim(width, height);
+
+  const { default: uPlot } = await import("uplot");
 
   const uplotPayload = options.payload;
   const { opts, data, rawData } = uplotPayload;
@@ -157,8 +223,10 @@ export async function createUplotRenderer(
     plugins: [],
   };
 
-  // Create the uPlot instance — the DOM shim provides document
-  const chart = new uPlot(uplotOpts as any, data, (globalThis as any).document.body);
+  // Create the uPlot instance — the DOM shim provides document.
+  // Instead of passing a DOM element (which requires HTMLElement to be defined),
+  // pass a function that just calls _init() to kickstart the chart.
+  const chart = new uPlot(uplotOpts as any, data, (_self: any, _init: Function) => { _init(); });
 
   // Load the frame generator
   const fg = getFramePayload ?? await loadFrameGenerator(options);

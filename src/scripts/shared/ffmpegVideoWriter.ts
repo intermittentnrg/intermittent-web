@@ -82,14 +82,20 @@ function ffmpegArgsForVideo(profile: VideoProfile, fifoPath: string, renderMode:
     case "fast":
     case "single": {
       const drmNode = drmRenderNode();
+      const whiteBg = [
+        `color=c=white:s=${profile.width}x${profile.height}:r=${profile.fps}[bg]`,
+        "[bg][0:v]overlay=shortest=1",
+        "pad=ceil(iw/2)*2:ceil(ih/2)*2",
+      ];
       if (drmNode) {
         console.log(`RENDER_MODE=${renderMode} → HW encoder: VAAPI via ${drmNode}`);
         return [
           "-hide_banner", "-loglevel", "error", "-stats",
           ...base,
+          "-filter_complex", [...whiteBg, "format=nv12,hwupload[out]"].join(","),
+          "-map", "[out]",
           "-c:v", "h264_vaapi",
           "-vaapi_device", drmNode,
-          "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2,format=nv12,hwupload",
           "-rc_mode", "CQP",
           "-qp", "35",
           "-profile:v", "high",
@@ -100,12 +106,13 @@ function ffmpegArgsForVideo(profile: VideoProfile, fifoPath: string, renderMode:
       return [
         "-hide_banner", "-loglevel", "warning", "-stats",
         ...base,
+        "-filter_complex", [...whiteBg, "format=yuv420p[out]"].join(","),
+        "-map", "[out]",
         "-c:v", "libx264",
         "-preset", "ultrafast",
         "-crf", "28",
         "-profile:v", "baseline",
         "-tune", "zerolatency",
-        "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2,format=yuv420p",
         profile.output, "-y",
       ];
     }
@@ -125,8 +132,9 @@ function ffmpegArgsForVideo(profile: VideoProfile, fifoPath: string, renderMode:
           "[bg][0:v]overlay=shortest=1",
           "pad=ceil(iw/2)*2:ceil(ih/2)*2",
           `fps=${profile.fps}`,
-          "format=yuv420p",
+          "format=yuv420p[out]",
         ].join(","),
+        "-map", "[out]",
         profile.output, "-y",
       ];
     }

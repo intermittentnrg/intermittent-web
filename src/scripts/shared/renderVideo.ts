@@ -138,15 +138,23 @@ async function runFifoFrameWorker(
   const renderer = await createRenderer();
   const counter = new Int32Array(writeToken);
 
+  // Non-blocking wait: poll the counter each event-loop iteration
+  // via setImmediate. This avoids the cross-agent waitAsync bug in
+  // Node 22.22.3 (Atomics.notify returns 0 for async waiters) and
+  // the thread-blocking cost of synchronous Atomics.wait.
+  const waitForTurn = (i: number) => new Promise<void>((resolve) => {
+    const poll = () => {
+      if (Atomics.load(counter, 0) === i) resolve();
+      else setImmediate(poll);
+    };
+    poll();
+  });
+
   try {
     for (let i = workerIndex; i < frameCount; i += workerCount) {
       renderer.renderFrame(i);
 
-      while (Atomics.load(counter, 0) !== i) {
-        const cur = Atomics.load(counter, 0);
-        const r = Atomics.waitAsync(counter, 0, cur);
-        if (r.async) await r.value;
-      }
+      await waitForTurn(i);
 
       await renderer.flushFrame(fifoPath);
 
