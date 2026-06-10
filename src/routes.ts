@@ -57,9 +57,14 @@ export async function registerRoutes(app: FastifyInstance) {
 
   for (const [endpoint, handler] of Object.entries(dataHandlers)) {
     app.get(
-      `/:region/:area_type/:area/:date_range/${endpoint}/echarts.json`,
+      `/:region/:area_type/:area/:date_range/${endpoint}.json`,
       handler as never,
     );
+    app.get(
+      `/:region/:area_type/:area/:date_range/${endpoint}.png`,
+      handler as never,
+    );
+    // Keep old /echarts.png as an alias for backward compatibility
     app.get(
       `/:region/:area_type/:area/:date_range/${endpoint}/echarts.png`,
       handler as never,

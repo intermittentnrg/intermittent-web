@@ -63,7 +63,7 @@ class ChartModule {
     delete params.min_resolution
     if (resolution) params.resolution = resolution
     const query = Object.entries(params).map(([k, v]) => `${k}=${v}`).join('&')
-    const url = window.location.pathname + '/echarts.json' + (query ? '?' + query : '')
+    const url = window.location.pathname + '.json' + (query ? '?' + query : '')
     const responsePromise = fetch(url, { headers: { Accept: 'application/json' }, signal: currentAbortController.signal })
 
     responsePromise

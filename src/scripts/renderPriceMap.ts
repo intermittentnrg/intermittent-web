@@ -32,7 +32,7 @@ type PriceMapPayload = {
 
 const profiles: Record<string, PriceMapProfile> = {
   europe: {
-    url: "/europe/country/all/tomorrow_to_tomorrow/price_map/echarts.json?resolution=15m",
+    url: "/europe/country/all/tomorrow_to_tomorrow/price_map.json?resolution=15m",
     output: "render/price-map.mp4",
     framerate: "10",
     fps: "10",
@@ -43,7 +43,7 @@ const profiles: Record<string, PriceMapProfile> = {
     geoJsonUrl: "/europe.geojson",
   },
   australia: {
-    url: "/australia/region/all/tomorrow_to_tomorrow/price_map/echarts.json?resolution=5m",
+    url: "/australia/region/all/tomorrow_to_tomorrow/price_map.json?resolution=5m",
     output: "render/price-map-australia.mp4",
     framerate: "15",
     fps: "15",
@@ -53,7 +53,7 @@ const profiles: Record<string, PriceMapProfile> = {
     labelFormatter: "${c}",
   },
   nukemap: {
-    url: "/all/all/all/previous_month_to_previous_month/generation_of_peak_map/echarts.json?resolution=1h&production_type=nuclear",
+    url: "/all/all/all/previous_month_to_previous_month/generation_of_peak_map.json?resolution=1h&production_type=nuclear",
     output: "render/nukemap.mp4",
     framerate: "30",
     fps: "30",
@@ -93,7 +93,7 @@ async function main() {
     throw new Error(
       `No map frames returned for ${url}. ` +
         "Check that data has been imported for the requested date range, or pass an explicit URL: " +
-        "npm run render:price-map -- render/output.mp4 /europe/all/all/2026-05-25_to_2026-05-25/price_map/echarts.json?resolution=15m",
+        "npm run render:price-map -- render/output.mp4 /europe/all/all/2026-05-25_to_2026-05-25/price_map.json?resolution=15m",
     );
   }
 

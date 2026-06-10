@@ -60,7 +60,7 @@ export async function getContext(
       ? resolutionToSeconds(req.query.resolution, "15m")
       // For direct requests without an explicit resolution (e.g. social preview
       // cards), calculate the optimal resolution from the rendering width.
-      : req.url.includes("/echarts.png")
+      : req.url.split("?", 1)[0].endsWith(".png")
         ? resolutionToSeconds(
             calculateResolution(from, to, 1200, req.query.min_resolution || "15m"),
             "15m",

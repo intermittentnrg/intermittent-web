@@ -125,7 +125,7 @@ async function unitLabel(units?: string) {
 }
 
 function echartsPngPath(params: DashboardParams, dashboardType: string, query: Record<string, string | undefined>) {
-  const path = `/${params.region}/${params.area_type}/${params.area}/${params.date_range}/${dashboardType}/echarts.png`;
+  const path = `/${params.region}/${params.area_type}/${params.area}/${params.date_range}/${dashboardType}.png`;
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) {
     if (value != null && value !== "") search.set(key, value);

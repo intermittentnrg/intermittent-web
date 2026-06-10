@@ -19,7 +19,7 @@ type ElectricityMixProfile = {
 
 const profiles: Record<string, ElectricityMixProfile> = {
   de: {
-    url: "/europe/country/DE/2025-10-01_to_2026-06-01/electricity_mix/echarts.json?production_type_groups=08_wind_offshore,09_wind_onshore,11_solar&transmission=0&load=1",
+    url: "/europe/country/DE/2025-10-01_to_2026-06-01/electricity_mix.json?production_type_groups=08_wind_offshore,09_wind_onshore,11_solar&transmission=0&load=1",
     output: "render/electricity-mix-de.mp4",
     framerate: "30",
     fps: "30",
@@ -30,7 +30,7 @@ const profiles: Record<string, ElectricityMixProfile> = {
     title: "🇩🇪 Germany Wind🌪️ and ☀️Solar - https://intermittent.energy powered by TimescaleDB",
   },
   gb: {
-    url: "/europe/country/GB/7_days_ago_to_now/electricity_mix/echarts.json",
+    url: "/europe/country/GB/7_days_ago_to_now/electricity_mix.json",
     output: "render/electricity-mix-gb.mp4",
     framerate: "30",
     fps: "30",
