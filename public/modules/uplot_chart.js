@@ -162,7 +162,7 @@ function normalizePanel(panel, data) {
 
   if (panel.mainSeries) {
     const timestamps = rebuildTimestamps(data.startTime, data.interval, panel.mainSeries)
-    const series = panel.noStack ? panel.mainSeries : divergentSeries(panel.mainSeries)
+    const series = panel.mainSeries.some(s => s.fill) ? divergentSeries(panel.mainSeries) : panel.mainSeries
     const allSeries = [
       ...series,
       ...(panel.extraSeries || []),

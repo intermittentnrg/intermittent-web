@@ -49,7 +49,6 @@ export async function prices(
     interval,
     timezone: ctx.timezone,
     currencySymbol,
-    noStack: true,
   });
 }
 
@@ -220,7 +219,6 @@ export async function capturePrice(
         mainSeries: rowsToPanelSeries(priceRows, "price"),
         layout: { gridRow: "1", gridColumn: "1" },
         axisSide: 3,
-        noStack: true,
         currencySymbol,
       },
       {
@@ -228,14 +226,12 @@ export async function capturePrice(
         mainSeries: rowsToPanelSeries(rateRows, "percent"),
         layout: { gridRow: "1", gridColumn: "2" },
         axisSide: 3,
-        noStack: true,
       },
       {
         title: "Rolling Capture Price (12M)",
         mainSeries: rowsToPanelSeries(rollingPrice, "price"),
         layout: { gridRow: "2", gridColumn: "1" },
         axisSide: 3,
-        noStack: true,
         currencySymbol,
       },
       {
@@ -243,7 +239,6 @@ export async function capturePrice(
         mainSeries: rowsToPanelSeries(rollingRate, "percent"),
         layout: { gridRow: "2", gridColumn: "2" },
         axisSide: 3,
-        noStack: true,
       },
       {
         title: "Summary Capture Price",
@@ -255,7 +250,6 @@ export async function capturePrice(
         }),
         layout: { gridRow: "3", gridColumn: "1" },
         xAxisSize: 0,
-        noStack: true,
         scales: { "price-l": { range: [0, null] } },
         currencySymbol,
       },
@@ -270,7 +264,6 @@ export async function capturePrice(
         }),
         layout: { gridRow: "3", gridColumn: "2" },
         xAxisSize: 0,
-        noStack: true,
         scales: { percent: { range: [0, null] } },
       },
     ],
