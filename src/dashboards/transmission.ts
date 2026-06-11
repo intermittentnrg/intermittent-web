@@ -2,6 +2,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { querySmall } from "../lib/db.ts";
 import { chartQuery } from "./shared/chartQuery.ts";
 import { getContext } from "./shared/context.ts";
+import { cyclePalette } from "./shared/colors.ts";
 import { sendUplotResponse } from "./shared/chartResponse.ts";
 import type { UplotSeriesDesc } from "./shared/uplotOptions.ts";
 import type { AnyRow, DashboardParams, DashboardQuery } from "./shared/types.ts";
@@ -101,14 +102,17 @@ export async function transmission(
 }
 
 function buildTransmissionSeries(rows: AnyRow[]): UplotSeriesDesc[] {
+  const colorFn = cyclePalette();
   const m = new Map<string, UplotSeriesDesc>();
   for (const r of rows) {
     const k = `${r.from_area}-${r.to_area}`;
     if (!m.has(k)) {
+      const color = colorFn(k);
       m.set(k, {
         label: `${r.from_area} → ${r.to_area}`,
         width: 0,
-        fill: "rgba(124, 46, 163, 0.75)",
+        stroke: color,
+        fill: color,
         data: [],
       });
     }
