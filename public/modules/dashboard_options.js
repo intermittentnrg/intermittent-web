@@ -2,10 +2,10 @@ import { router } from "../router.js"
 import { closeAllDropdowns, toggleMenu } from "../dropdown_utils.js"
 import { dashboardHasFeature } from "../../src/shared/dashboardCatalog.js"
 
-const targetNames = ["menu", "selectedText", "productionTypeSection", "simulationSection", "electricityMixSection", "tempsSection", "loadSection", "transmissionCheckboxSection", "productionTypeOptions", "perUnitSection", "unitOptions", "unitSelectedText", "unitMenu", "transmissionSection", "transmissionOptions", "transmissionSelectedText", "transmissionMenu", "multiplierMenu", "multiplierSelectedText", "nuclearInput", "windInput", "solarInput", "demandInput"]
+const targetNames = ["productionTypeMenu", "productionTypeSelectedText", "productionTypeSection", "simulationSection", "electricityMixSection", "tempsSection", "loadSection", "transmissionCheckboxSection", "productionTypeOptions", "perUnitSection", "unitOptions", "unitSelectedText", "unitMenu", "transmissionSection", "transmissionOptions", "transmissionSelectedText", "transmissionMenu", "multiplierMenu", "multiplierSelectedText", "nuclearInput", "windInput", "solarInput", "demandInput"]
 
 function targetSelector(target) {
-  return `#dashboard-options-${kebab(target)}`
+  return `.dashboard-options-${kebab(target)}`
 }
 
 function targetListSelector(target) {
@@ -114,14 +114,14 @@ class DashboardOptions {
   }
 
   handleClick(event) {
-    if (event.target.closest('.production-type-selector > .dropdown__trigger')) return this.toggleMenu(event)
+    if (event.target.closest('.production-type-selector > .dropdown__trigger')) return this.toggleSectionMenu(event, this.productionTypeMenuTarget)
     if (event.target.closest('.production-type-selector .dropdown__apply')) return this.applyProductionType(event)
-    if (event.target.closest('.multiplier-selector > .dropdown__trigger')) return this.toggleMultiplierMenu(event)
+    if (event.target.closest('.multiplier-selector > .dropdown__trigger')) return this.toggleSectionMenu(event, this.multiplierMenuTarget)
     if (event.target.closest('.multiplier-selector .dropdown__apply')) return this.applyMultipliers(event)
-    if (event.target.closest('#dashboard-options-transmission-section > .dropdown__trigger')) return this.toggleTransmissionMenu(event)
-    if (event.target.closest('#dashboard-options-transmission-section .dropdown__apply')) return this.applyTransmission(event)
-    if (event.target.closest('#dashboard-options-unit-section > .dropdown__trigger')) return this.toggleUnitMenu(event)
-    if (event.target.closest('#dashboard-options-unit-section .dropdown__apply')) return this.applyUnits(event)
+    if (event.target.closest('.transmission-selector > .dropdown__trigger')) return this.toggleSectionMenu(event, this.transmissionMenuTarget)
+    if (event.target.closest('.transmission-selector .dropdown__apply')) return this.applyTransmission(event)
+    if (event.target.closest('.unit-selector > .dropdown__trigger')) return this.toggleSectionMenu(event, this.unitMenuTarget)
+    if (event.target.closest('.unit-selector .dropdown__apply')) return this.applyUnits(event)
   }
 
   populateMultipliersFromUrl() {
@@ -342,10 +342,6 @@ class DashboardOptions {
     return checkedValues(this.transmissionOptionsTarget)
   }
 
-  toggleTransmissionMenu(event) {
-    toggleMenu(this.transmissionMenuTarget, event.target.closest('#dashboard-options-transmission-section > .dropdown__trigger'))
-  }
-
   loadUnits(units) {
     this.units = units || []
     this.filterUnitsByProductionType(this.getSelectedProductionTypes())
@@ -370,31 +366,21 @@ class DashboardOptions {
     updateMultiSelectQuery(this.unitOptionsTarget, 'units', '.unit-checkbox:checked')
   }
 
-
-
-  toggleUnitMenu(event) {
-    toggleMenu(this.unitMenuTarget, event.target.closest('#dashboard-options-unit-section > .dropdown__trigger'))
-  }
-
   updateUI() {
-    if (!this.hasSelectedTextTarget) return
+    if (!this.hasProductionTypeSelectedTextTarget) return
     const types = this.getSelectedProductionTypes()
     
     if (types.length === 0 || types.includes('all')) {
-      this.selectedTextTarget.textContent = 'All'
+      this.productionTypeSelectedTextTarget.textContent = 'All'
     } else if (types.length === 1) {
-      this.selectedTextTarget.textContent = titleize(types[0])
+      this.productionTypeSelectedTextTarget.textContent = titleize(types[0])
     } else {
-      this.selectedTextTarget.textContent = `${types.length} types`
+      this.productionTypeSelectedTextTarget.textContent = `${types.length} types`
     }
   }
 
-  toggleMenu(event) {
-    toggleMenu(this.menuTarget, event.target.closest('.production-type-selector > .dropdown__trigger'))
-  }
-
-  toggleMultiplierMenu(event) {
-    toggleMenu(this.multiplierMenuTarget, event.target.closest('.multiplier-selector > .dropdown__trigger'))
+  toggleSectionMenu(event, menuTarget) {
+    toggleMenu(menuTarget, event.target.closest('.dropdown__trigger'))
   }
 
   applyMultipliers() {

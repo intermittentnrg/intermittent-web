@@ -14,15 +14,15 @@
     <%- include('topnav_date') %>
     <%- include('topnav_dashboard') %>
 
-    <div class="topnav-item production-type-selector" id="dashboard-options-production-type-section"
+    <div class="topnav-item production-type-selector dashboard-options-production-type-section" id="dashboard-options-production-type-section"
      style="display: <%= dashboardHasFeature(dashboardType, 'production_type_selector') ? 'flex' : 'none' %>;">
       <label>Production Type</label>
       <button type="button" class="dropdown__trigger">
-        <span class="dropdown__value" id="dashboard-options-selected-text"><%= productionType || 'All' %></span>
+        <span class="dropdown__value dashboard-options-production-type-selected-text" id="dashboard-options-selected-text"><%= productionType || 'All' %></span>
         <span class="dropdown__arrow">▼</span>
       </button>
-      <div class="dropdown__panel" id="dashboard-options-menu">
-        <div class="dropdown__content" id="dashboard-options-production-type-options"></div>
+      <div class="dropdown__panel dashboard-options-production-type-menu" id="dashboard-options-menu">
+        <div class="dropdown__content dashboard-options-production-type-options" id="dashboard-options-production-type-options"></div>
         <div class="dropdown__actions">
           <button type="button" class="dropdown__apply">Apply</button>
         </div>
@@ -33,66 +33,66 @@
          style="display: <%= dashboardHasFeature(dashboardType, 'simulation_multipliers') ? 'flex' : 'none' %>;">
       <label>Multipliers</label>
       <button type="button" class="dropdown__trigger">
-        <span class="dropdown__value" id="dashboard-options-multiplier-selected-text">Edit</span>
+        <span class="dropdown__value dashboard-options-multiplier-selected-text" id="dashboard-options-multiplier-selected-text">Edit</span>
         <span class="dropdown__arrow">▼</span>
       </button>
-      <div class="dropdown__panel" id="dashboard-options-multiplier-menu">
+      <div class="dropdown__panel dashboard-options-multiplier-menu" id="dashboard-options-multiplier-menu">
         <div class="multiplier-options">
-          <div class="multiplier-row"><label>Demand</label><input type="number" class="multiplier-input" value="1.0" step="0.1" min="0" max="10" id="dashboard-options-demand-input"></div>
-          <div class="multiplier-row"><label>Nuclear</label><input type="number" class="multiplier-input" value="1.0" step="0.1" min="0" max="10" id="dashboard-options-nuclear-input"></div>
-          <div class="multiplier-row"><label>Wind</label><input type="number" class="multiplier-input" value="1.0" step="0.1" min="0" max="10" id="dashboard-options-wind-input"></div>
-          <div class="multiplier-row"><label>Solar</label><input type="number" class="multiplier-input" value="1.0" step="0.1" min="0" max="10" id="dashboard-options-solar-input"></div>
+          <div class="multiplier-row"><label>Demand</label><input type="number" class="multiplier-input dashboard-options-demand-input" value="1.0" step="0.1" min="0" max="10" id="dashboard-options-demand-input"></div>
+          <div class="multiplier-row"><label>Nuclear</label><input type="number" class="multiplier-input dashboard-options-nuclear-input" value="1.0" step="0.1" min="0" max="10" id="dashboard-options-nuclear-input"></div>
+          <div class="multiplier-row"><label>Wind</label><input type="number" class="multiplier-input dashboard-options-wind-input" value="1.0" step="0.1" min="0" max="10" id="dashboard-options-wind-input"></div>
+          <div class="multiplier-row"><label>Solar</label><input type="number" class="multiplier-input dashboard-options-solar-input" value="1.0" step="0.1" min="0" max="10" id="dashboard-options-solar-input"></div>
         </div>
         <div class="dropdown__actions"><button type="button" class="dropdown__apply">Apply</button></div>
       </div>
     </div>
 
-    <div id="dashboard-options-electricity-mix-section" class="topnav-item"
+    <div id="dashboard-options-electricity-mix-section" class="topnav-item dashboard-options-electricity-mix-section"
          style="display: <%= dashboardHasFeature(dashboardType, 'prices_checkbox') ? 'flex' : 'none' %>;">
       <label for="topnav-prices-checkbox">Prices</label>
       <div class="checkbox-wrapper"><input id="topnav-prices-checkbox" type="checkbox" <%= prices ? 'checked' : '' %>></div>
     </div>
 
-    <div id="dashboard-options-temps-section" class="topnav-item"
+    <div id="dashboard-options-temps-section" class="topnav-item dashboard-options-temps-section"
          style="display: <%= dashboardHasFeature(dashboardType, 'temps_checkbox') ? 'flex' : 'none' %>;">
       <label for="topnav-temps-checkbox">Temps</label>
       <div class="checkbox-wrapper"><input id="topnav-temps-checkbox" type="checkbox" <%= temps ? 'checked' : '' %>></div>
     </div>
 
-    <div id="dashboard-options-load-section" class="topnav-item"
+    <div id="dashboard-options-load-section" class="topnav-item dashboard-options-load-section"
          style="display: <%= dashboardHasFeature(dashboardType, 'load_checkbox') ? 'flex' : 'none' %>;">
       <label for="topnav-load-checkbox">Load</label>
       <div class="checkbox-wrapper"><input id="topnav-load-checkbox" type="checkbox" <%= load ? 'checked' : '' %>></div>
     </div>
 
-    <div id="dashboard-options-transmission-checkbox-section" class="topnav-item"
+    <div id="dashboard-options-transmission-checkbox-section" class="topnav-item dashboard-options-transmission-checkbox-section"
          style="display: <%= dashboardHasFeature(dashboardType, 'transmission_checkbox') ? 'flex' : 'none' %>;">
       <label for="topnav-transmission-checkbox">Transmission</label>
       <div class="checkbox-wrapper"><input id="topnav-transmission-checkbox" type="checkbox" <%= transmission ? 'checked' : '' %>></div>
     </div>
 
-    <div id="dashboard-options-transmission-section" class="topnav-item transmission-selector"
+    <div id="dashboard-options-transmission-section" class="topnav-item transmission-selector dashboard-options-transmission-section"
          style="display: <%= dashboardHasFeature(dashboardType, 'transmission_selector') ? 'flex' : 'none' %>;">
       <label>Transmission Line</label>
       <button type="button" class="dropdown__trigger">
-        <span class="dropdown__value" id="dashboard-options-transmission-selected-text">Select line</span>
+        <span class="dropdown__value dashboard-options-transmission-selected-text" id="dashboard-options-transmission-selected-text">Select line</span>
         <span class="dropdown__arrow">▼</span>
       </button>
-      <div class="dropdown__panel" id="dashboard-options-transmission-menu">
-        <div class="dropdown__content" id="dashboard-options-transmission-options"></div>
+      <div class="dropdown__panel dashboard-options-transmission-menu" id="dashboard-options-transmission-menu">
+        <div class="dropdown__content dashboard-options-transmission-options" id="dashboard-options-transmission-options"></div>
         <div class="dropdown__actions"><button type="button" class="dropdown__apply">Apply</button></div>
       </div>
     </div>
 
-    <div id="dashboard-options-unit-section" class="topnav-item unit-selector dashboard-options-per-unit-section"
+    <div class="topnav-item unit-selector dashboard-options-per-unit-section" id="dashboard-options-unit-section"
          style="display: <%= dashboardHasFeature(dashboardType, 'per_unit_selector') ? 'flex' : 'none' %>;">
       <label>Units</label>
       <button type="button" class="dropdown__trigger">
-        <span class="dropdown__value" id="dashboard-options-unit-selected-text"><%= unitLabel || 'All' %></span>
+        <span class="dropdown__value dashboard-options-unit-selected-text" id="dashboard-options-unit-selected-text"><%= unitLabel || 'All' %></span>
         <span class="dropdown__arrow">▼</span>
       </button>
-      <div class="dropdown__panel" id="dashboard-options-unit-menu">
-        <div class="dropdown__content" id="dashboard-options-unit-options"></div>
+      <div class="dropdown__panel dashboard-options-unit-menu" id="dashboard-options-unit-menu">
+        <div class="dropdown__content dashboard-options-unit-options" id="dashboard-options-unit-options"></div>
         <div class="dropdown__actions"><button type="button" class="dropdown__apply">Apply</button></div>
       </div>
     </div>
