@@ -54,6 +54,13 @@ export function buildUplotPayload(title, timestamps, series, currencySymbol = "â
 
   // Process each stack group
   for (const [_groupName, groupSeries] of stackGroups) {
+    // If the first series in the group has negative values, the band
+    // clip direction must extend downward from the reference series
+    // instead of upward (uPlot default). See clipBandLine in the bundle.
+    // Check ALL series in the group, not just the first â€” the first
+    // series may have zeros (from divergentSeries split) while later
+    // ones carry the actual negative values.
+    const isNegGroup = groupSeries.some(s => s.data?.some(v => v != null && v < 0)) ?? false;
     const accum = new Array(length).fill(0);
 
     for (let gi = 0; gi < groupSeries.length; gi++) {
@@ -98,10 +105,14 @@ export function buildUplotPayload(title, timestamps, series, currencySymbol = "â
 
       // Bands for stacked series: areas fill between cumulative paths;
       // the bars path builder also reads bands to determine per-bar baseline.
+      //
+      // For negative-value groups the band clip must extend downward
+      // from the reference series (dir: 1) instead of upward (default).
       if (!isFirstInGroup && s.fill) {
         bands.push({
           series: [colIdx + 1, colIdx],
           fill: s.fill,
+          ...(isNegGroup ? { dir: 1 } : {}),
         });
       }
     }

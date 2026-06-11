@@ -56,6 +56,18 @@ function restack(rawData, uSeries, meta) {
 
     if (isStacked) {
       // ── Stacked group: accumulate only visible series ──
+      // Determine if group values are negative (band clip direction).
+      // Check the first member's raw data for the first non-null value.
+      let isNegGroup = false
+      outer: for (const m of members) {
+        const raw = rawData[m.si]
+        for (const v of raw) {
+          if (v != null && v !== 0) {
+            isNegGroup = v < 0
+            break outer
+          }
+        }
+      }
       const accum = new Array(count).fill(0)
       let firstVisible = true
       let prevVisibleSi = null
@@ -91,6 +103,7 @@ function restack(rawData, uSeries, meta) {
               bands.push({
                 series: [m.si, prevVisibleSi],
                 fill: fillColor,
+                ...(isNegGroup ? { dir: 1 } : {}),
               })
             }
           }
