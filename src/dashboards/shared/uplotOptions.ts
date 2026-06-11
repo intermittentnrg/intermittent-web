@@ -37,7 +37,7 @@ export type UplotSeriesDesc = {
   stroke?: string;
   width?: number;
   fill?: string;
-  /** Scale key: "y" (primary, power) or "%" (secondary, prices). Defaults to "y". */
+  /** Scale key: "y" (power), "price-l", "price-r", "percent", "energy". Defaults to "y" (power). */
   scale?: string;
   /** Stack group name. Series in the same group are cumulatively stacked. */
   stack?: string;

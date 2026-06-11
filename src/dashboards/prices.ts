@@ -24,10 +24,11 @@ export async function prices(
   const series = await getPriceSeries(
     request,
     [`${ctx.interval} seconds`, ctx.from, ctx.to, ctx.areaIds],
-    { colorForMetric: colorFn },
+    { colorForMetric: colorFn, scale: "price-l" },
   );
   const startTime = ctx.from.getTime() / 1000;
   const interval = ctx.interval;
+  const currencySymbol = request.params.region === "australia" ? "$" : "€";
 
   if (startTime == null || series.length === 0) {
     return sendUplotResponse(request, reply, {
@@ -44,6 +45,8 @@ export async function prices(
     startTime,
     interval,
     timezone: ctx.timezone,
+    currencySymbol,
+    noStack: true,
   });
 }
 
@@ -148,7 +151,8 @@ function rowsToPanelSeries(rows: AnyRow[], scale: string): UplotSeriesDesc[] {
       const color = PANEL_PALETTE[idx % PANEL_PALETTE.length];
       idx++;
       const s: UplotSeriesDesc = { label: name, data: [], stroke: color, width: 2 };
-      if (scale === "price" || scale === "percent" || scale === "rate") s.scale = "%";
+      if (scale === "price") s.scale = "price-r";
+      if (scale === "percent" || scale === "rate") s.scale = "percent";
       byName.set(name, s);
     }
     const s = byName.get(name)!;
@@ -204,6 +208,7 @@ export async function capturePrice(
   const interval = ctx.interval;
 
   const productionTypes = await getProductionTypeOptions(ctx.areaIds);
+  const currencySymbol = req.params.region === "australia" ? "$" : "€";
 
   return sendUplotResponse(req, reply, {
     panels: [
@@ -213,12 +218,12 @@ export async function capturePrice(
         layout: { gridRow: "1", gridColumn: "1" },
         axisSide: 3,
         noStack: true,
+        currencySymbol,
       },
       {
         title: "Capture Rate",
         mainSeries: rowsToPanelSeries(rateRows, "percent"),
         layout: { gridRow: "1", gridColumn: "2" },
-        axisFormat: "percent",
         axisSide: 3,
         noStack: true,
       },
@@ -228,12 +233,12 @@ export async function capturePrice(
         layout: { gridRow: "2", gridColumn: "1" },
         axisSide: 3,
         noStack: true,
+        currencySymbol,
       },
       {
         title: "Rolling Capture Rate (12M)",
         mainSeries: rowsToPanelSeries(rollingRate, "percent"),
         layout: { gridRow: "2", gridColumn: "2" },
-        axisFormat: "percent",
         axisSide: 3,
         noStack: true,
       },
@@ -246,10 +251,10 @@ export async function capturePrice(
           return { label: String(r.name), data, stroke: PANEL_PALETTE[i % PANEL_PALETTE.length], fill: PANEL_PALETTE[i % PANEL_PALETTE.length], width: 0, type: "bar" };
         }),
         layout: { gridRow: "3", gridColumn: "1" },
-        axisFormat: "price",
         xAxisSize: 0,
         noStack: true,
-        scales: { y: { range: [0, null] } },
+        scales: { "price-l": { range: [0, null] } },
+        currencySymbol,
       },
       {
         title: "Summary Capture Rate",
@@ -261,11 +266,9 @@ export async function capturePrice(
           return { label: String(r.name), data, stroke: PANEL_PALETTE[i % PANEL_PALETTE.length], fill: PANEL_PALETTE[i % PANEL_PALETTE.length], width: 0, type: "bar", scale: "%" };
         }),
         layout: { gridRow: "3", gridColumn: "2" },
-        axisFormat: "percent",
-        axisSide: 3,
         xAxisSize: 0,
         noStack: true,
-        scales: { '%': { range: [0, null] } },
+        scales: { percent: { range: [0, null] } },
       },
     ],
     startTime,

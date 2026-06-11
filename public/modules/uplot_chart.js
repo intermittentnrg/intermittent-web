@@ -66,7 +66,7 @@ function drawStackedBarLabels(u, labels) {
 }
 
 /** Draw name+value labels on top of each bar for single-series or multi-series bar charts. */
-function drawBarValueLabels(u, axisFormat) {
+function drawBarValueLabels(u) {
   const { ctx } = u
   const n = u.data[0]?.length || 0
   if (n < 2) return
@@ -82,15 +82,15 @@ function drawBarValueLabels(u, axisFormat) {
       if (yVal == null) continue
 
       const xPos = u.valToPos(u.data[0][di], 'x', true)
-      // Use the series' actual scale ("%" for rate, "y" for price)
+      // Use the series' actual scale to determine formatting
       const scaleKey = u.series[si]?.scale || 'y'
       const yPos = u.valToPos(yVal, scaleKey, true)
       if (xPos == null || yPos == null) continue
 
       const name = u.series[si]?.label || ''
       let val
-      if (axisFormat === 'percent') val = Number(yVal).toFixed(0) + '%'
-      else if (axisFormat === 'price') val = Number(yVal).toFixed(0)
+      if (scaleKey === 'percent') val = Number(yVal).toFixed(0) + '%'
+      else if (scaleKey === 'price-l' || scaleKey === 'price-r') val = Number(yVal).toFixed(0)
       else val = formatEnergy(yVal)
 
       ctx.fillStyle = '#111827'
@@ -121,19 +121,7 @@ function applyPanelOverrides(panel, result) {
   }
 
   // Axis value formatting and labels
-  if (panel.axisFormat === 'price') {
-    const ax = result.opts.axes?.[1]
-    if (ax) { ax.values = (u, ticks) => ticks.map(v => formatPrice(v)); ax.label = '€/MWh' }
-  } else if (panel.axisFormat === 'percent') {
-    let found = false
-    for (const ax of result.opts.axes || []) {
-      if (ax.scale === '%') { ax.values = (u, ticks) => ticks.map(v => Number(v).toFixed(0) + '%'); ax.label = ''; found = true }
-    }
-    if (!found && result.opts.axes?.[1]) {
-      result.opts.axes[1].values = (u, ticks) => ticks.map(v => Number(v).toFixed(0) + '%')
-      result.opts.axes[1].label = ''
-    }
-  } else if (panel.axisScale === 'energy' && result.opts.axes?.[1]) {
+  if (panel.axisScale === 'energy' && result.opts.axes?.[1]) {
     result.opts.axes[1].values = (u, ticks) => ticks.map(v => formatEnergy(v))
   }
 
@@ -164,7 +152,7 @@ function applyPanelOverrides(panel, result) {
     result._noTooltip = true
     if (!result.opts.hooks) result.opts.hooks = {}
     if (!result.opts.hooks.draw) result.opts.hooks.draw = []
-    result.opts.hooks.draw.push((u) => drawBarValueLabels(u, panel.axisFormat))
+    result.opts.hooks.draw.push((u) => drawBarValueLabels(u))
   }
 }
 
@@ -179,14 +167,14 @@ function normalizePanel(panel, data) {
       ...series,
       ...(panel.extraSeries || []),
     ]
-    result = buildUplotPayload(panel.title || data.title, timestamps, allSeries)
+    result = buildUplotPayload(panel.title || data.title, timestamps, allSeries, panel.currencySymbol)
   } else {
     // Already server-built (opts/data)
     result = { ...panel }
   }
 
-  // Apply all per-panel overrides
   applyPanelOverrides(panel, result)
+  if (panel.currencySymbol) result.currencySymbol = panel.currencySymbol
   return result
 }
 
@@ -353,7 +341,7 @@ function positionTooltip(tooltipEl, u, width) {
   tooltipEl.style.display = 'block'
 }
 
-function makeTooltip(tooltipEl, rawData, timezone) {
+function makeTooltip(tooltipEl, rawData, timezone, currencySymbol) {
   return (u) => {
     const idx = u.cursor.idx
     if (idx == null) { tooltipEl.style.display = 'none'; return }
@@ -375,18 +363,25 @@ function makeTooltip(tooltipEl, rawData, timezone) {
       groups.get(s.label).rawTotal += raw
     }
 
+    const sym = currencySymbol
     for (const [label, g] of Array.from(groups.entries()).reverse()) {
-      let val
-      if (g.scale === '%' || g.scale === 'percent') val = u._axisFormat === 'percent' ? Number(g.rawTotal).toFixed(0) + '%' : formatPrice(g.rawTotal)
-      else if (g.scale === 'energy') val = formatEnergy(g.rawTotal)
-      else val = formatPower(g.rawTotal)
-      html += `<div style="display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border-radius:2px;background:${g.color};flex-shrink:0;"></span><span>${label}</span><span style="margin-left:auto;font-weight:500;">${val}</span></div>`
+      let display
+      if (g.scale === 'price-l' || g.scale === 'price-r') {
+        display = `${formatPrice(g.rawTotal)} ${sym}/MWh`
+      } else if (g.scale === 'percent') {
+        display = Number(g.rawTotal).toFixed(0) + '%'
+      } else if (g.scale === 'energy') {
+        display = formatEnergy(g.rawTotal)
+      } else {
+        display = formatPower(g.rawTotal)
+      }
+      html += `<div style="display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border-radius:2px;background:${g.color};flex-shrink:0;"></span><span>${label}</span><span style="margin-left:auto;font-weight:500;">${display}</span></div>`
     }
 
     let total = 0
     let hasTotal = false
     for (const [, g] of groups) {
-      if (g.scale === '%' || g.scale === 'percent' || g.scale === 'energy') continue
+      if (g.scale === 'price-l' || g.scale === 'price-r' || g.scale === 'percent' || g.scale === 'energy') continue
       total += g.rawTotal; hasTotal = true
     }
     if (hasTotal) {
@@ -457,14 +452,12 @@ function renderSinglePanel(chartTarget, panel, data, { applyZoomDateRange }) {
       show: false,
     },
     axes: (opts.axes || []).map((axis) => {
-      if (axis.scale === 'y' || axis.scale === 'energy') {
-        // If a custom values callback is already set, keep it (e.g. energy formatting)
-        if (axis.values) return axis
+      if (axis.values) return axis
+      if (axis.scale === 'y' || axis.scale === 'power' || axis.scale === 'energy') {
         const fmt = axis.scale === 'energy' ? formatEnergy : formatPower
         return { ...axis, values: (u, ticks) => ticks.map(v => fmt(v)) }
       }
-      if (axis.scale === '%' || axis.scale === 'percent') {
-        if (axis.values) return axis
+      if (axis.scale === 'price-l' || axis.scale === 'price-r' || axis.scale === 'percent') {
         return { ...axis, values: (u, ticks) => ticks.map(v => formatPrice(v)) }
       }
       return axis
@@ -477,7 +470,7 @@ function renderSinglePanel(chartTarget, panel, data, { applyZoomDateRange }) {
     ...(data.timezone ? { tzDate: (ts) => uplot.tzDate(new Date(ts * 1e3), data.timezone) } : {}),
     hooks: {
       ...opts.hooks,
-      setCursor: [makeTooltip(tooltip, lastRawData, data.timezone)],
+      setCursor: [makeTooltip(tooltip, lastRawData, data.timezone, processed.currencySymbol)],
     },
   }
 
@@ -648,13 +641,12 @@ function renderMultiPanel(chartTarget, panels, data, { applyZoomDateRange }) {
       height: cellHeight,
       legend: { show: false },
       axes: (opts.axes || []).map((axis) => {
-        if (axis.scale === 'y' || axis.scale === 'energy') {
-          if (axis.values) return axis
+        if (axis.values) return axis
+        if (axis.scale === 'y' || axis.scale === 'power' || axis.scale === 'energy') {
           const fmt = axis.scale === 'energy' ? formatEnergy : formatPower
           return { ...axis, values: (u, ticks) => ticks.map(v => fmt(v)) }
         }
-        if (axis.scale === '%' || axis.scale === 'percent') {
-          if (axis.values) return axis
+        if (axis.scale === 'price-l' || axis.scale === 'price-r' || axis.scale === 'percent') {
           return { ...axis, values: (u, ticks) => ticks.map(v => formatPrice(v)) }
         }
         return axis
@@ -667,13 +659,12 @@ function renderMultiPanel(chartTarget, panels, data, { applyZoomDateRange }) {
       ...(data.timezone ? { tzDate: (ts) => uplot.tzDate(new Date(ts * 1e3), data.timezone) } : {}),
       hooks: {
         ...opts.hooks,
-        ...(processed._noTooltip ? {} : { setCursor: [makeTooltip(tooltip, rawDataWithX, data.timezone)] }),
+        ...(processed._noTooltip ? {} : { setCursor: [makeTooltip(tooltip, rawDataWithX, data.timezone, processed.currencySymbol)] }),
       },
     }
 
     try {
       const plot = new uplot(uplotOpts, plotDataWithX, cell)
-      if (panel.axisFormat) plot._axisFormat = panel.axisFormat
       plots.push(plot)
       connectUplotDragZoom(plot, cell, { applyZoomDateRange })
 

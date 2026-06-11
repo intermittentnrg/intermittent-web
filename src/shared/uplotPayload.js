@@ -27,7 +27,7 @@ function padTo(values, length) {
  * @param series - Array of series descriptors, each with label, data, stroke, fill, stack, etc.
  * @returns uPlot-compatible options and data
  */
-export function buildUplotPayload(title, timestamps, series) {
+export function buildUplotPayload(title, timestamps, series, currencySymbol = "€") {
   const length = timestamps.length;
   const startTime = length > 0 ? timestamps[0] : 0;
   const interval = length > 1 ? timestamps[1] - timestamps[0] : 0;
@@ -74,15 +74,14 @@ export function buildUplotPayload(title, timestamps, series) {
 
       const colIdx = data.length - 1;
       const isFirstInGroup = gi === 0;
-      const usePrimaryScale = s.scale !== "%";
-
       const uS = {
         label: s.label,
         stroke: s.stroke,
         width: s.width ?? 1,
       };
 
-      if (!usePrimaryScale) uS.scale = "%";
+      // Map scale names: % → percent, others pass through
+      if (s.scale) uS.scale = s.scale;
 
       if (s.type === "bar") {
         // For bars, every series needs fill — the frontend bars paths builder
@@ -98,7 +97,7 @@ export function buildUplotPayload(title, timestamps, series) {
 
       // Bands for stacked series: areas fill between cumulative paths;
       // the bars path builder also reads bands to determine per-bar baseline.
-      if (!isFirstInGroup && usePrimaryScale && s.fill) {
+      if (!isFirstInGroup && s.fill) {
         bands.push({
           series: [colIdx + 1, colIdx],
           fill: s.fill,
@@ -119,15 +118,19 @@ export function buildUplotPayload(title, timestamps, series) {
       width: s.width ?? 1,
     };
 
-    if (s.scale === "%") uS.scale = "%";
+    if (s.scale) uS.scale = s.scale;
     if (s.fill) uS.fill = s.fill;
 
     uplotSeries.push(uS);
     seriesMeta.push({ type: s.type });
   }
 
-  // Axes
-  const hasSecondary = series.some((s) => s.scale === "%");
+  // Determine which axes are needed
+  const hasPower = series.some((s) => !s.scale || s.scale === "y" || s.scale === "power");
+  const hasPriceL = series.some((s) => s.scale === "price-l");
+  const hasPriceR = series.some((s) => s.scale === "price-r");
+  const hasPercent = series.some((s) => s.scale === "percent");
+  const hasEnergy = series.some((s) => s.scale === "energy");
 
   const axes = [
     {
@@ -135,22 +138,40 @@ export function buildUplotPayload(title, timestamps, series) {
       grid: { stroke: "rgba(0,0,0,0.06)" },
       font: "12px system-ui, sans-serif",
     },
-    {
+  ];
+
+  // Primary left axis
+  if (hasPower || hasEnergy || hasPriceL) {
+    const scale = hasPower ? "y" : (hasEnergy ? "energy" : "price-l");
+    axes.push({
       stroke: "#888",
       grid: { stroke: "rgba(0,0,0,0.06)" },
       font: "12px system-ui, sans-serif",
-      scale: "y",
-    },
-  ];
+      scale,
+      ...(hasPriceL && !hasPower ? { label: `${currencySymbol}/MWh` } : {}),
+    });
+  }
 
-  if (hasSecondary) {
+  // Secondary right axes
+  if (hasPriceR) {
     axes.push({
       stroke: "#888",
       grid: { show: false },
       font: "12px system-ui, sans-serif",
       side: 1,
-      scale: "%",
-      label: "€/MWh",
+      scale: "price-r",
+      label: `${currencySymbol}/MWh`,
+    });
+  }
+
+  if (hasPercent) {
+    axes.push({
+      stroke: "#888",
+      grid: { show: false },
+      font: "12px system-ui, sans-serif",
+      side: 1,
+      scale: "percent",
+      label: "%",
     });
   }
 

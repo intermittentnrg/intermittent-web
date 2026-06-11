@@ -67,7 +67,7 @@ export async function generation(
   const colorFn = colorsFromQuery(request.query.colors);
   const mainSeries = buildPowerLineSeries(rows, colorFn);
   const loadSeries = request.query.load ? await getLoadSeries(request, priceArgs) : [];
-  const priceSeries = request.query.prices ? await getPriceSeries(request, priceArgs, { scale: "%" }) : [];
+  const priceSeries = request.query.prices ? await getPriceSeries(request, priceArgs, { scale: "price-r" }) : [];
   const startTime = rows[0]?.time as number | undefined;
   const interval = ctx.interval;
 
@@ -81,6 +81,7 @@ export async function generation(
     });
   }
   const productionTypes = await getProductionTypeOptions(ctx.areaIds);
+  const currencySymbol = request.params.region === "australia" ? "$" : "€";
   return sendUplotResponse(request, reply, {
     title: "Generation",
     mainSeries,
@@ -88,6 +89,7 @@ export async function generation(
     startTime,
     interval,
     timezone: ctx.timezone,
+    currencySymbol,
   }, { production_types: productionTypes });
 }
 

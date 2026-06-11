@@ -220,7 +220,7 @@ export async function perUnitMovingCapacity(
     }),
     ...buildFieldSeries(out, "value", "power", {
       nameField: "metric",
-      scale: "%",
+      scale: "percent",
       lineStyle: { width: 2, type: "dashed" },
     }),
   ];

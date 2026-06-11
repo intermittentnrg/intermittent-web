@@ -131,9 +131,10 @@ export async function electricityMix(
 
   const mainSeries = buildSeriesFromData(allData, colorFn);
   const loadSeries = request.query.load ? await getLoadSeries(request, baseArgs) : [];
-  const priceSeries = request.query.prices ? await getPriceSeries(request, baseArgs, { scale: "%" }) : [];
+  const priceSeries = request.query.prices ? await getPriceSeries(request, baseArgs, { scale: "price-r" }) : [];
 
   const ptgOptions = await getProductionTypeGroupOptions(ctx.areaIds);
+  const currencySymbol = request.params.region === "australia" ? "$" : "€";
 
   // Build uPlot-compatible data and options
   if (startTime == null || (mainSeries.length === 0 && loadSeries.length === 0 && priceSeries.length === 0)) {
@@ -153,6 +154,7 @@ export async function electricityMix(
     startTime,
     interval,
     timezone: ctx.timezone,
+    currencySymbol,
   }, { production_type_group: ptgOptions });
 }
 

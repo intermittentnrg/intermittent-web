@@ -641,7 +641,7 @@ export async function sweden(
     if (areaIdx === -1) continue;
     pushSeries(`price_${areaIdx}`, () => ({
       label: "Price", data: [], _areaIdx: areaIdx,
-      stroke: "green", width: 2, scale: "%",
+      stroke: "green", width: 2, scale: "price-r",
     }), row, row.value as number, priceSeries);
   }
 
@@ -657,7 +657,7 @@ export async function sweden(
       if (s._areaIdx !== i) continue;
       const uS: UplotSeriesDesc = { label: s.label, data: s.data, stroke: s.stroke, width: s.width, fill: s.fill };
       if (s.stack) uS.stack = `${s.stack}_${i}`;
-      if (s.scale === "%") { extra.push(uS); } else { main.push(uS); }
+      if (s.scale === "price-r") { extra.push(uS); } else { main.push(uS); }
     }
     panelSeries.push({ areaCode: areaCodes[i], mainSeries: main, extraSeries: extra });
   }
@@ -676,6 +676,7 @@ export async function sweden(
 
   const startTime = genRows[0]?.time as number | undefined;
   const interval = ctx.interval;
+  const currencySymbol = req.params.region === "australia" ? "$" : "€";
 
   return sendUplotResponse(req, reply, {
     panels: panelSeries.map((ps, i) => ({
@@ -686,6 +687,7 @@ export async function sweden(
       xAxisSize: i < numAreas - 1 ? 0 : undefined,
       // Remove default canvas padding so panels stack tightly
       padding: [0, 0, 0, 0],
+      currencySymbol,
     })),
     sharedLegend: { groups: legendGroups },
     startTime,

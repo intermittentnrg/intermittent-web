@@ -249,13 +249,12 @@ export async function createUplotRenderer(
   };
 
   // Apply axis value formatters matching the web frontend
-  // (see chart.js renderUplot: axes with scale "y" get formatPower, scale "%" get formatPrice).
   if (Array.isArray(uplotOpts.axes)) {
     uplotOpts.axes = uplotOpts.axes.map((axis) => {
-      if (axis.scale === "y") {
+      if (axis.scale === "y" || axis.scale === "power") {
         return { ...axis, values: (_u: uPlot, ticks: number[]) => ticks.map((v) => formatPower(v)) };
       }
-      if (axis.scale === "%") {
+      if (axis.scale === "price-l" || axis.scale === "price-r" || axis.scale === "percent") {
         return { ...axis, values: (_u: uPlot, ticks: number[]) => ticks.map((v) => formatPrice(v)) };
       }
       return axis;

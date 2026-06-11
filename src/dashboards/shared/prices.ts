@@ -4,7 +4,7 @@ import type { TimeMetricValueRow } from "./types.ts";
 import type { UplotSeriesDesc } from "./uplotOptions.ts";
 
 type PriceSeriesOptions = {
-  /** Scale key: "%" for secondary axis (prices), defaults to primary "y". */
+  /** Scale key: "price-l" (left axis) or "price-r" (right axis). Defaults to primary "y". */
   scale?: string;
   colorForMetric?: (metric: string) => string | undefined;
 };
