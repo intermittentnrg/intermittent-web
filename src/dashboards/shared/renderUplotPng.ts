@@ -9,7 +9,7 @@
 
 import { Canvas } from "skia-canvas";
 import { initDomShim, setShimCanvas } from "../../shared/uplotDomShim.ts";
-import { buildUplotPayload } from "../../shared/uplotPayload.js";
+import { buildUplotOpts, stackGroup } from "../../shared/uplotPayload.js";
 import { divergentSeries } from "../../shared/series.js";
 import { formatPower, formatPrice, formatEnergy } from "../../shared/echartsFormatters.ts";
 import { HEATMAP_COLORS, heatmapPlugin } from "../../shared/uplotHeatmap.ts";
@@ -94,12 +94,66 @@ async function renderStandardChart(
   const processedMain = needsDivergent ? divergentSeries(mainSeries) : mainSeries;
   const mergedSeries = [...processedMain, ...(extraSeries || [])];
 
-  const uplotResult = buildUplotPayload(title, timestamps, mergedSeries, currencySymbol);
-  const { opts, data, seriesMeta } = uplotResult as {
-    opts: Record<string, any>;
-    data: (number | null)[][];
-    seriesMeta?: Array<{ type?: string }>;
-  };
+  // Separate into stack groups and non-stacked, then accumulate
+  const length = timestamps.length;
+  const stackGroups = new Map<string, any[]>();
+  const nonStacked: any[] = [];
+  for (const s of mergedSeries) {
+    if (s.stack) {
+      if (!stackGroups.has(s.stack)) stackGroups.set(s.stack, []);
+      stackGroups.get(s.stack)!.push(s);
+    } else {
+      nonStacked.push(s);
+    }
+  }
+
+  const data: (number | null)[][] = [];
+  const bands: any[] = [];
+  const uplotSeries: any[] = [{ label: "Time" }];
+
+  // Stack each group
+  for (const group of stackGroups.values()) {
+    const startUplotIdx = uplotSeries.length;
+    const stacked = stackGroup(group, length, startUplotIdx);
+    data.push(...stacked.cols);
+    bands.push(...stacked.bands);
+
+    for (let gi = 0; gi < group.length; gi++) {
+      const s = group[gi];
+      const uS: any = {
+        label: s.label,
+        stroke: s.stroke,
+        width: s.width ?? 1,
+        points: { show: false },
+      };
+      if (s.scale) uS.scale = s.scale;
+      if (s.type === "bar" ? s.fill : (gi === 0 && s.fill)) uS.fill = s.fill;
+      uplotSeries.push(uS);
+    }
+  }
+
+  // Non-stacked series
+  for (const s of nonStacked) {
+    const vals: (number | null)[] = [];
+    for (let i = 0; i < length; i++) {
+      vals.push(i < (s.data as any[])?.length ? (s.data[i] ?? null) : null);
+    }
+    data.push(vals);
+
+    const uS: any = {
+      label: s.label,
+      stroke: s.stroke,
+      width: s.width ?? 1,
+      points: { show: false },
+    };
+    if (s.scale) uS.scale = s.scale;
+    if (s.fill) uS.fill = s.fill;
+    uplotSeries.push(uS);
+  }
+
+  const built = buildUplotOpts(title, timestamps, uplotSeries, bands, currencySymbol);
+  const { opts } = built;
+  const seriesMeta = uplotSeries.slice(1).map((s: any) => ({ type: s.type }));
 
   const canvas = new Canvas(Math.ceil(width), Math.ceil(height));
   setShimCanvas(canvas);

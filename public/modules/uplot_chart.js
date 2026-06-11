@@ -1,7 +1,7 @@
 import uplot from "../vendor/uplot_client.bundle.js"
 import { formatPower, formatPrice, formatEnergy } from "../vendor/echarts_formatters.js"
 import { divergentSeries } from "../../src/shared/series.js"
-import { buildUplotPayload } from "../../src/shared/uplotPayload.js"
+import { buildUplotOpts, stackGroup } from "../../src/shared/uplotPayload.js"
 import { HEATMAP_COLORS, heatmapPlugin } from "../../src/shared/uplotHeatmap.js"
 
 const DRAG_ZOOM_MIN_PIXELS = 8
@@ -55,64 +55,42 @@ function restack(rawData, uSeries, meta) {
     const isStacked = !key.startsWith('__ns_')
 
     if (isStacked) {
-      // ── Stacked group: accumulate only visible series ──
-      // Determine if group values are negative (band clip direction).
-      // Check the first member's raw data for the first non-null value.
-      let isNegGroup = false
-      outer: for (const m of members) {
-        const raw = rawData[m.si]
-        for (const v of raw) {
-          if (v != null && v !== 0) {
-            isNegGroup = v < 0
-            break outer
-          }
-        }
-      }
-      const accum = new Array(count).fill(0)
-      let firstVisible = true
-      let prevVisibleSi = null
+      // ── Stacked group: accumulate only visible series via shared stackGroup ──
+      const visibleMembers = members.filter(m => m.visible)
 
-      for (const m of members) {
-        const raw = rawData[m.si]
+      if (visibleMembers.length > 0) {
+        // Build the group for the shared stackGroup function
+        const group = visibleMembers.map(m => ({
+          data: rawData[m.si],
+          fill: meta[m.si]?.fill,
+        }))
+        const firstSi = visibleMembers[0].si
+        const result = stackGroup(group, count, firstSi)
+        bands.push(...result.bands)
 
-        if (m.visible) {
-          const fillColor = meta[m.si] && meta[m.si].fill
-          const isBar = meta[m.si] && meta[m.si].type === 'bar'
-
-          // Accumulate this series into the running total
-          const stacked = new Array(count)
-          for (let j = 0; j < count; j++) {
-            const v = raw[j]
-            stacked[j] = v != null ? accum[j] + v : accum[j]
-            accum[j] = stacked[j]
-          }
-          data2.push(stacked)
-
-          // Fill: first visible in group gets fill on series (fills to 0);
-          // subsequent visible get fill via bands.
-          // Bars need fill on series always (bars path builder requirement).
-          if (firstVisible || isBar) {
-            fillUpdates.set(m.si, () => fillColor ?? null)
+        // Interleave cumulative columns (visible) with raw slices (hidden)
+        let vi = 0
+        for (const m of members) {
+          if (m.visible) {
+            data2.push(result.cols[vi])
+            const isFirst = vi === 0
+            const isBar = meta[m.si]?.type === 'bar'
+            const fillColor = meta[m.si]?.fill
+            if (isFirst || isBar) {
+              fillUpdates.set(m.si, () => fillColor ?? null)
+            } else {
+              fillUpdates.set(m.si, () => null)
+            }
+            vi++
           } else {
+            data2.push(rawData[m.si].slice())
             fillUpdates.set(m.si, () => null)
           }
-
-          // Band to previous visible series
-          if (prevVisibleSi != null) {
-            if (fillColor) {
-              bands.push({
-                series: [m.si, prevVisibleSi],
-                fill: fillColor,
-                ...(isNegGroup ? { dir: 1 } : {}),
-              })
-            }
-          }
-
-          prevVisibleSi = m.si
-          firstVisible = false
-        } else {
-          // Hidden: pass through raw values, remove fill
-          data2.push(raw.slice())
+        }
+      } else {
+        // All members hidden — pass through raw
+        for (const m of members) {
+          data2.push(rawData[m.si].slice())
           fillUpdates.set(m.si, () => null)
         }
       }
@@ -267,6 +245,15 @@ function applyPanelOverrides(panel, result) {
   }
 }
 
+/** Pad a values array to a given length with nulls. */
+function padTo(values, length) {
+  const out = []
+  for (let i = 0; i < length; i++) {
+    out.push(i < values.length ? (values[i] ?? null) : null)
+  }
+  return out
+}
+
 /** Normalize a panel entry from client-build (mainSeries) to server-build (opts/data). */
 function normalizePanel(panel, data) {
   let result
@@ -278,37 +265,83 @@ function normalizePanel(panel, data) {
       ...series,
       ...(panel.extraSeries || []),
     ]
+    const length = timestamps.length
 
-    result = buildUplotPayload(panel.title || data.title, timestamps, allSeries, panel.currencySymbol)
-
-    // Build per-series metadata in output order.
-    // buildUplotPayload reorders: stacked groups first (by group/insertion order,
-    // then within each group by original order), then non-stacked (by original order).
-    // We replicate that ordering using index positions into allSeries to handle
-    // duplicate labels (e.g. divergentSeries produces pos+neg with same label).
-    const stackedOrder = new Map()
-    const nonStackedOrder = []
-    for (let idx = 0; idx < allSeries.length; idx++) {
-      const s = allSeries[idx]
+    // Separate into stack groups and non-stacked
+    const stackGroups = new Map()
+    const nonStacked = []
+    for (const s of allSeries) {
       if (s.stack) {
-        if (!stackedOrder.has(s.stack)) stackedOrder.set(s.stack, [])
-        stackedOrder.get(s.stack).push(idx)
+        if (!stackGroups.has(s.stack)) stackGroups.set(s.stack, [])
+        stackGroups.get(s.stack).push(s)
       } else {
-        nonStackedOrder.push(idx)
+        nonStacked.push(s)
       }
     }
+
+    // Build cumulative data, raw data, and uPlot series descriptors
+    const dataCols = []
+    const rawData = []
+    const bands = []
+    const uplotSeries = [{ label: "Time" }]
     const _meta = [null]
-    for (const [, indices] of stackedOrder) {
-      for (const idx of indices) {
-        const s = allSeries[idx]
+
+    // Process each stack group
+    for (const group of stackGroups.values()) {
+      const startUplotIdx = uplotSeries.length
+      const stacked = stackGroup(group, length, startUplotIdx)
+      dataCols.push(...stacked.cols)
+      rawData.push(...stacked.rawCols)
+      bands.push(...stacked.bands)
+
+      for (let gi = 0; gi < group.length; gi++) {
+        const s = group[gi]
+        const uS = {
+          label: s.label,
+          stroke: s.stroke,
+          width: s.width ?? 1,
+          points: { show: false },
+        }
+        if (s.scale) uS.scale = s.scale
+        if (s.type === "bar" ? s.fill : (gi === 0 && s.fill)) uS.fill = s.fill
+        uplotSeries.push(uS)
         _meta.push({ stack: s.stack, fill: s.fill, type: s.type })
       }
     }
-    for (const idx of nonStackedOrder) {
-      const s = allSeries[idx]
+
+    // Non-stacked series
+    for (const s of nonStacked) {
+      const vals = padTo(s.data, length)
+      dataCols.push(vals)
+      rawData.push(vals)
+
+      const uS = {
+        label: s.label,
+        stroke: s.stroke,
+        width: s.width ?? 1,
+        points: { show: false },
+      }
+      if (s.scale) uS.scale = s.scale
+      if (s.fill) uS.fill = s.fill
+      uplotSeries.push(uS)
       _meta.push({ stack: s.stack, fill: s.fill, type: s.type })
     }
-    result._meta = _meta
+
+    const built = buildUplotOpts(
+      panel.title || data.title,
+      timestamps,
+      uplotSeries,
+      bands,
+      panel.currencySymbol,
+    )
+
+    result = {
+      ...built,
+      data: dataCols,
+      rawData,
+      seriesMeta: _meta.slice(1).map(m => ({ type: m.type })),
+      _meta,
+    }
   } else {
     // Already server-built (opts/data)
     result = { ...panel }

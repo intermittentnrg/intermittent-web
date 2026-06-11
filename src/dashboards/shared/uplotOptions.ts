@@ -47,4 +47,4 @@ export type UplotSeriesDesc = {
 };
 
 // Re-export the runtime implementation from the shared .js module.
-export { buildUplotPayload } from "../../shared/uplotPayload.js";
+export { buildUplotOpts, stackGroup } from "../../shared/uplotPayload.js";
