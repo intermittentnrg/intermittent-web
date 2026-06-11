@@ -146,5 +146,6 @@ export async function demandYoy(
     startTime,
     interval,
     timezone: ctx.timezone,
+    scales: { y: { range: [0, null] } },
   });
 }

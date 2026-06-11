@@ -262,6 +262,7 @@ export async function generationYoy(
     startTime,
     interval,
     timezone: ctx.timezone,
+    scales: { y: { range: [0, null] } },
   }, { production_types: productionTypes });
 }
 
