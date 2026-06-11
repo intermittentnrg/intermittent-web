@@ -14,13 +14,10 @@ const transmissionSql = (filtered: boolean) => {
   const reverseWhere = filtered
     ? "concat_ws('-', to_area_id, from_area_id) = ANY($1::text[])"
     : "to_area_id = ANY($1::int[])";
-  const fromParam = "$2";
-  const toParam = "$3";
-
   return `
   WITH _transmission AS (
     SELECT
-      time_bucket_gapfill('1h', time) AS time,
+      time_bucket_gapfill($4::interval, time) AS time,
       from_area_id,
       to_area_id,
       INTERPOLATE(AVG(value)) AS value
@@ -28,11 +25,11 @@ const transmissionSql = (filtered: boolean) => {
     INNER JOIN areas_areas aa ON(areas_area_id=aa.id)
     WHERE
       ${forwardWhere} AND
-      time BETWEEN ${fromParam} AND ${toParam}
+      time BETWEEN $2 AND $3
     GROUP BY 1,2,3
   UNION
     SELECT
-      time_bucket_gapfill('1h', time) AS time,
+      time_bucket_gapfill($4::interval, time) AS time,
       to_area_id AS from_area_id,
       from_area_id AS to_area_id,
       INTERPOLATE(-AVG(value)) AS value
@@ -40,7 +37,7 @@ const transmissionSql = (filtered: boolean) => {
     INNER JOIN areas_areas aa ON(areas_area_id=aa.id)
     WHERE
       ${reverseWhere} AND
-      time BETWEEN ${fromParam} AND ${toParam}
+      time BETWEEN $2 AND $3
     GROUP BY 1,2,3
   )
   SELECT EXTRACT(EPOCH FROM time) AS time, fa.code AS from_area, ta.code AS to_area, SUM(value) AS value
@@ -56,9 +53,10 @@ export async function transmission(
   const ctx = await getContext(req);
   const selectedLines = req.query.transmission_lines?.split(",").filter(Boolean) || [];
   const filtered = selectedLines.length > 0;
+  const intervalStr = `${ctx.interval} seconds`;
   const args: any[] = filtered
-    ? [selectedLines, ctx.from, ctx.to]
-    : [ctx.areaIds, ctx.from, ctx.to];
+    ? [selectedLines, ctx.from, ctx.to, intervalStr]
+    : [ctx.areaIds, ctx.from, ctx.to, intervalStr];
   const rows = await chartQuery<AnyRow>(req, transmissionSql(filtered), args);
   const lines = await querySmall<AnyRow>(`
     SELECT DISTINCT
