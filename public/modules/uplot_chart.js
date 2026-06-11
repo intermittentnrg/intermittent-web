@@ -21,6 +21,103 @@ function rebuildTimestamps(startTime, interval, seriesList) {
   return timestamps
 }
 
+/**
+ * Re-stack raw data based on series visibility, for client-side legend toggle.
+ *
+ * When a stacked series is hidden via the legend, this function re-accumulates
+ * the raw data using only the visible series, preventing empty gaps in the stack.
+ *
+ * @param rawData - [timestamps, rawSeries1, rawSeries2, ...] — non-cumulative values
+ * @param uSeries - uPlot series options array (u.series)
+ * @param meta - per-series metadata [{stack, fill, type}] (1-indexed, meta[0] = null)
+ * @returns {{ data, bands, fillUpdates }} new cumulative data, bands, and
+ *   Map<seriesIdx, () => color|null> for uPlot series.fill (must be a function
+ *   because uPlot wraps fill via fnOrSelf during init; direct mutation must
+ *   also be a function to avoid "s.fill is not a function" errors).
+ */
+function restack(rawData, uSeries, meta) {
+  const count = rawData[0].length
+  const data2 = []
+  const bands = []
+  const fillUpdates = new Map() // si -> () => color | () => null
+
+  // Build stack groups from original series descriptors
+  const groups = new Map()
+  for (let si = 1; si < meta.length; si++) {
+    const m = meta[si]
+    if (!m) continue
+    const key = m.stack !== undefined ? m.stack : `__ns_${si}`
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key).push({ si, visible: uSeries[si].show !== false })
+  }
+
+  for (const [key, members] of groups) {
+    const isStacked = !key.startsWith('__ns_')
+
+    if (isStacked) {
+      // ── Stacked group: accumulate only visible series ──
+      const accum = new Array(count).fill(0)
+      let firstVisible = true
+      let prevVisibleSi = null
+
+      for (const m of members) {
+        const raw = rawData[m.si]
+
+        if (m.visible) {
+          const fillColor = meta[m.si] && meta[m.si].fill
+          const isBar = meta[m.si] && meta[m.si].type === 'bar'
+
+          // Accumulate this series into the running total
+          const stacked = new Array(count)
+          for (let j = 0; j < count; j++) {
+            const v = raw[j]
+            stacked[j] = v != null ? accum[j] + v : accum[j]
+            accum[j] = stacked[j]
+          }
+          data2.push(stacked)
+
+          // Fill: first visible in group gets fill on series (fills to 0);
+          // subsequent visible get fill via bands.
+          // Bars need fill on series always (bars path builder requirement).
+          if (firstVisible || isBar) {
+            fillUpdates.set(m.si, () => fillColor ?? null)
+          } else {
+            fillUpdates.set(m.si, () => null)
+          }
+
+          // Band to previous visible series
+          if (prevVisibleSi != null) {
+            if (fillColor) {
+              bands.push({
+                series: [m.si, prevVisibleSi],
+                fill: fillColor,
+              })
+            }
+          }
+
+          prevVisibleSi = m.si
+          firstVisible = false
+        } else {
+          // Hidden: pass through raw values, remove fill
+          data2.push(raw.slice())
+          fillUpdates.set(m.si, () => null)
+        }
+      }
+    } else {
+      // ── Non-stacked series: pass through raw, keep existing fill ──
+      for (const m of members) {
+        data2.push(rawData[m.si].slice())
+      }
+    }
+  }
+
+  return {
+    data: [rawData[0]].concat(data2),
+    bands,
+    fillUpdates,
+  }
+}
+
 /** Draw labels inside each segment of a vertical stacked bar. */
 function drawStackedBarLabels(u, labels) {
   const { ctx } = u
@@ -168,7 +265,37 @@ function normalizePanel(panel, data) {
       ...series,
       ...(panel.extraSeries || []),
     ]
+
     result = buildUplotPayload(panel.title || data.title, timestamps, allSeries, panel.currencySymbol)
+
+    // Build per-series metadata in output order.
+    // buildUplotPayload reorders: stacked groups first (by group/insertion order,
+    // then within each group by original order), then non-stacked (by original order).
+    // We replicate that ordering using index positions into allSeries to handle
+    // duplicate labels (e.g. divergentSeries produces pos+neg with same label).
+    const stackedOrder = new Map()
+    const nonStackedOrder = []
+    for (let idx = 0; idx < allSeries.length; idx++) {
+      const s = allSeries[idx]
+      if (s.stack) {
+        if (!stackedOrder.has(s.stack)) stackedOrder.set(s.stack, [])
+        stackedOrder.get(s.stack).push(idx)
+      } else {
+        nonStackedOrder.push(idx)
+      }
+    }
+    const _meta = [null]
+    for (const [, indices] of stackedOrder) {
+      for (const idx of indices) {
+        const s = allSeries[idx]
+        _meta.push({ stack: s.stack, fill: s.fill, type: s.type })
+      }
+    }
+    for (const idx of nonStackedOrder) {
+      const s = allSeries[idx]
+      _meta.push({ stack: s.stack, fill: s.fill, type: s.type })
+    }
+    result._meta = _meta
   } else {
     // Already server-built (opts/data)
     result = { ...panel }
@@ -440,6 +567,11 @@ function renderSinglePanel(chartTarget, panel, data, { applyZoomDateRange }) {
   const chartHeight = parseInt(chartTarget.style.height) || 400
   const heightPx = chartTarget.clientHeight || chartHeight
 
+  // Capture raw data and per-series metadata for client-side re-stacking
+  // via closure (avoids storing custom properties on uPlot series objects).
+  const rawDataForRestack = lastRawData
+  const metaForRestack = processed._meta || []
+
   const uplotOpts = {
     ...opts,
     width,
@@ -468,6 +600,18 @@ function renderSinglePanel(chartTarget, panel, data, { applyZoomDateRange }) {
     hooks: {
       ...opts.hooks,
       setCursor: [makeTooltip(tooltip, lastRawData, data.timezone, processed.currencySymbol)],
+      setSeries: [(u) => {
+        const result = restack(rawDataForRestack, u.series, metaForRestack)
+        // Apply fill updates as functions (uPlot wraps fill via fnOrSelf)
+        for (const [si, fn] of result.fillUpdates) {
+          u.series[si].fill = fn
+        }
+        u.delBand(null)
+        for (const band of result.bands) {
+          u.addBand(band)
+        }
+        u.setData(result.data)
+      }],
     },
   }
 
@@ -632,6 +776,11 @@ function renderMultiPanel(chartTarget, panels, data, { applyZoomDateRange }) {
     })()
     const cellHeight = cell.clientHeight || Math.max(100, (chartTarget.clientHeight || 567) / panels.length * rowSpan)
 
+    // Capture raw data and per-series metadata for client-side re-stacking
+    // via closure (avoids storing custom properties on uPlot series objects).
+    const rawDataForRestack = rawDataWithX
+    const metaForRestack = processed._meta || []
+
     const uplotOpts = {
       ...opts,
       width: cellWidth,
@@ -657,6 +806,17 @@ function renderMultiPanel(chartTarget, panels, data, { applyZoomDateRange }) {
       hooks: {
         ...opts.hooks,
         ...(processed._noTooltip ? {} : { setCursor: [makeTooltip(tooltip, rawDataWithX, data.timezone, processed.currencySymbol)] }),
+        setSeries: [(u) => {
+          const result = restack(rawDataForRestack, u.series, metaForRestack)
+          for (const [si, fn] of result.fillUpdates) {
+            u.series[si].fill = fn
+          }
+          u.delBand(null)
+          for (const band of result.bands) {
+            u.addBand(band)
+          }
+          u.setData(result.data)
+        }],
       },
     }
 
