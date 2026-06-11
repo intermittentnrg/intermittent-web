@@ -5,7 +5,7 @@ import {
   getProductionTypeIds,
   getProductionTypeOptions,
 } from "./shared/productionTypes.ts";
-import { colorsFromQuery, PANEL_PALETTE } from "./shared/colors.ts";
+import { colorsFromQuery, cyclePalette, PANEL_PALETTE } from "./shared/colors.ts";
 import { getPriceSeries } from "./shared/prices.ts";
 import { sendUplotResponse } from "./shared/chartResponse.ts";
 import type {
@@ -20,7 +20,10 @@ export async function prices(
   reply: FastifyReply,
 ) {
   const ctx = await getContext(request);
-  const colorFn = colorsFromQuery(request.query.colors);
+  // Use cycling palette by default; respect explicit ?colors= override
+  const colorFn = request.query.colors
+    ? colorsFromQuery(request.query.colors)
+    : cyclePalette();
   const series = await getPriceSeries(
     request,
     [`${ctx.interval} seconds`, ctx.from, ctx.to, ctx.areaIds],
@@ -248,7 +251,7 @@ export async function capturePrice(
           const val = r.capture_price == null ? null : Number(r.capture_price);
           const data = new Array(summaryRows.length).fill(null);
           data[i] = val;
-          return { label: String(r.name), data, stroke: PANEL_PALETTE[i % PANEL_PALETTE.length], fill: PANEL_PALETTE[i % PANEL_PALETTE.length], width: 0, type: "bar" };
+          return { label: String(r.name), data, stroke: PANEL_PALETTE[i % PANEL_PALETTE.length], fill: PANEL_PALETTE[i % PANEL_PALETTE.length], width: 0, type: "bar", scale: "price-l" };
         }),
         layout: { gridRow: "3", gridColumn: "1" },
         xAxisSize: 0,
@@ -263,7 +266,7 @@ export async function capturePrice(
           const val = raw == null ? null : Number(raw) * 100;
           const data = new Array(summaryRows.length).fill(null);
           data[i] = val;
-          return { label: String(r.name), data, stroke: PANEL_PALETTE[i % PANEL_PALETTE.length], fill: PANEL_PALETTE[i % PANEL_PALETTE.length], width: 0, type: "bar", scale: "%" };
+          return { label: String(r.name), data, stroke: PANEL_PALETTE[i % PANEL_PALETTE.length], fill: PANEL_PALETTE[i % PANEL_PALETTE.length], width: 0, type: "bar", scale: "percent" };
         }),
         layout: { gridRow: "3", gridColumn: "2" },
         xAxisSize: 0,

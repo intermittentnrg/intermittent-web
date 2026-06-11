@@ -94,6 +94,18 @@ export const PANEL_PALETTE = [
   "#3ba272", "#fc8452", "#9a60b4", "#ea7ccc", "#00a8ff",
 ];
 
+export function cyclePalette(): (metric: string) => string {
+  const assigned = new Map<string, string>();
+  let next = 0;
+  return (metric: string) => {
+    if (!assigned.has(metric)) {
+      assigned.set(metric, PANEL_PALETTE[next % PANEL_PALETTE.length]);
+      next++;
+    }
+    return assigned.get(metric)!;
+  };
+}
+
 export function areaColor(area: string) {
   return (
     (

@@ -1,4 +1,4 @@
-import { yoyColor } from "./colors.ts";
+import { cyclePalette, yoyColor } from "./colors.ts";
 import type { AnyRow, TimeMetricValueRow } from "./types.ts";
 import type { UplotSeriesDesc } from "./uplotOptions.ts";
 
@@ -16,6 +16,7 @@ type RowsToSeriesOptions<Row extends AnyRow> = {
   x?: keyof Row | ((row: Row) => number);
   y?: keyof Row | ((row: Row) => number);
   type?: "line" | "bar" | "scatter";
+  colorForMetric?: (metric: string) => string | undefined;
 };
 
 export function rowsToSeries<Row extends AnyRow>(
@@ -25,6 +26,7 @@ export function rowsToSeries<Row extends AnyRow>(
   const name = options.name ?? "metric";
   const x = options.x ?? "time";
   const y = options.y ?? "value";
+  const colorFn = options.colorForMetric ?? cyclePalette();
   const byName = new Map<string, UplotSeriesDesc>();
 
   for (const row of rows) {
@@ -32,9 +34,11 @@ export function rowsToSeries<Row extends AnyRow>(
     const yValue = Number(valueFor(row, y));
 
     if (!byName.has(seriesName)) {
+      const color = colorFn(seriesName);
       const s: UplotSeriesDesc = {
         label: seriesName,
         data: [],
+        stroke: color,
       };
       if (options.type && options.type !== "line") s.type = options.type;
       byName.set(seriesName, s);
@@ -141,6 +145,7 @@ export function buildBasicSeries(
     ) => string | undefined;
   } = {},
 ): UplotSeriesDesc[] {
+  const colorFn = options.colorForMetric ?? cyclePalette();
   const byKey = new Map<string, UplotSeriesDesc>();
 
   for (const row of rows) {
@@ -148,7 +153,7 @@ export function buildBasicSeries(
 
     const key = row.metric || "";
     if (!byKey.has(key)) {
-      const color = options.colorForMetric?.(key);
+      const color = colorFn(key);
       byKey.set(key, {
         label: key,
         data: [],
@@ -194,20 +199,23 @@ export function buildFieldSeries(
     suffix?: string;
     scale?: string;
     lineStyle?: { width?: number; type?: string };
+    colorForMetric?: (metric: string) => string | undefined;
   } = {},
 ): UplotSeriesDesc[] {
   const nameField = options.nameField || "name";
   const suffix = options.suffix || "";
+  const colorFn = options.colorForMetric ?? cyclePalette();
   const seriesByName = new Map<string, UplotSeriesDesc>();
 
   for (const row of rows) {
     const name = String(row[nameField]) + suffix;
     if (!seriesByName.has(name)) {
+      const color = colorFn(name);
       const ls = options.lineStyle ?? { width: 2 };
       seriesByName.set(name, {
         label: name,
         data: [],
-        stroke: undefined,
+        stroke: color,
         width: ls.width ?? 2,
         scale: options.scale,
         dash: ls.type === "dashed" ? [6, 3] : undefined,
