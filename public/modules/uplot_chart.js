@@ -2,6 +2,7 @@ import uplot from "../vendor/uplot_client.bundle.js"
 import { formatPower, formatPrice, formatEnergy } from "../vendor/echarts_formatters.js"
 import { divergentSeries } from "../../src/shared/series.js"
 import { buildUplotPayload } from "../../src/shared/uplotPayload.js"
+import { HEATMAP_COLORS, heatmapPlugin } from "../../src/shared/uplotHeatmap.js"
 
 const DRAG_ZOOM_MIN_PIXELS = 8
 const DRAG_ZOOM_MIN_MS = 60_000
@@ -178,9 +179,7 @@ function normalizePanel(panel, data) {
   return result
 }
 
-/** Build a shared legend that toggles series across multiple plots. */
 function buildSharedLegend(plots, data, chartTarget) {
-  // Remove any previous shared legend
   const oldLegend = document.querySelector('.uplot-shared-legend')
   if (oldLegend) oldLegend.remove()
 
@@ -326,8 +325,6 @@ function connectUplotDragZoom(plot, chartTarget, { applyZoomDateRange }) {
 
   plot.over.addEventListener('mousedown', onMouseDown)
 }
-
-// ── Tooltip shared across panels ──
 
 function positionTooltip(tooltipEl, u, width) {
   const cx = u.cursor.left
@@ -675,7 +672,6 @@ function renderMultiPanel(chartTarget, panels, data, { applyZoomDateRange }) {
     }
   }
 
-  // Build shared legend
   if (plots.length > 0) {
     buildSharedLegend(plots, data, chartTarget)
   }
@@ -720,61 +716,6 @@ function renderHeatmap(chartTarget, data) {
     max-width: 260px;
   `
   chartTarget.appendChild(tooltip)
-
-  const colors = ['#FFFFB2', '#FECC5C', '#FD8D3C', '#F03B20', '#BD0026']
-
-  function heatmapPlugin() {
-    return {
-      hooks: {
-        draw: (u) => {
-          const { ctx } = u
-          const interval = timestamps.length > 1 ? timestamps[1] - timestamps[0] : 0
-          if (interval === 0) return
-
-          const rawCellH = Math.floor(u.bbox.height / unitCount)
-          const minCellH = 16
-          const cellH = Math.max(minCellH, rawCellH)
-          const gap = rawCellH >= minCellH + 2 ? 2 : (rawCellH >= minCellH + 1 ? 1 : 0)
-          const drawH = cellH - gap
-
-          ctx.save()
-          ctx.beginPath()
-          ctx.rect(u.bbox.left, u.bbox.top, u.bbox.width, u.bbox.height)
-          ctx.clip()
-
-          for (let xi = 0; xi < count; xi++) {
-            const colStart = u.valToPos(timestamps[xi], 'x', true)
-            const colEnd = xi < count - 1
-              ? u.valToPos(timestamps[xi + 1], 'x', true)
-              : colStart + (timestamps.length > 1 ? timestamps[1] - timestamps[0] : 0)
-
-            const xPos = Math.round(colStart)
-            const xEnd = Math.round(colEnd)
-            const drawW = Math.max(1, xEnd - xPos)
-
-            const row = values[xi]
-            if (!row) continue
-
-            if (xPos + drawW < u.bbox.left || xPos > u.bbox.left + u.bbox.width) continue
-
-            for (let yi = 0; yi < unitCount; yi++) {
-              const val = row[yi]
-              if (val == null) continue
-              const yPos = Math.round(u.valToPos(yi, 'y', true) - cellH / 2)
-
-              if (yPos + drawH < u.bbox.top || yPos > u.bbox.top + u.bbox.height) continue
-
-              const ci = Math.min(colors.length - 1, Math.floor(val / 100 * colors.length))
-              ctx.fillStyle = colors[ci]
-              ctx.fillRect(xPos, yPos, drawW, drawH)
-            }
-          }
-
-          ctx.restore()
-        }
-      }
-    }
-  }
 
   function makeHeatmapTooltip() {
     return (u) => {
@@ -866,7 +807,7 @@ function renderHeatmap(chartTarget, data) {
         splits: () => ySplits,
       },
     ],
-    plugins: [heatmapPlugin()],
+    plugins: [heatmapPlugin(timestamps, unitNames, values)],
     ...(timezone ? { tzDate: (ts) => uplot.tzDate(new Date(ts * 1e3), timezone) } : {}),
     hooks: {
       setCursor: [makeHeatmapTooltip()],

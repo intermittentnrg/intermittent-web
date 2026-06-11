@@ -1,11 +1,11 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { PNG } from "pngjs";
 import { processEchartsFormatters } from "../../shared/echartsFormatters.ts";
 import { buildDualAxisOptions, applyTimeAxis } from "./chartOptions.ts";
 import { getEchartsForSsr } from "./echartsSsr.ts";
 import type { UplotPayload } from "./uplotOptions.ts";
+import { renderUplotPng } from "./renderUplotPng.ts";
 
 type ChartPayload = {
   options: unknown;
@@ -52,14 +52,6 @@ export async function sendUplotResponse(
   payload: Record<string, unknown> | Record<string, unknown>[],
   extra: Record<string, unknown> = {},
 ) {
-  // For .png requests, return a placeholder — uPlot doesn't have SSR rendering
-  if (request.url.split("?", 1)[0].endsWith(".png")) {
-    return reply
-      .header("Content-Type", "image/png")
-      .header("Cache-Control", "public, max-age=3600")
-      .send(Buffer.alloc(0));
-  }
-
   // Build unified response with panels array
   const response: Record<string, unknown> = {
     chartLibrary: "uplot",
@@ -84,6 +76,17 @@ export async function sendUplotResponse(
       }
     }
     response.panels = [panelEntry];
+  }
+
+  // For .png requests, render server-side with uPlot + skia-canvas
+  if (request.url.split("?", 1)[0].endsWith(".png")) {
+    const width = 1200;
+    const imageHeight = 630;
+    const png = await renderUplotPng(response, width, imageHeight);
+    return reply
+      .header("Content-Type", "image/png")
+      .header("Cache-Control", "public, max-age=3600")
+      .send(png);
   }
 
   return reply
@@ -167,10 +170,7 @@ async function renderEchartsPng(options: unknown, width: number, height: number)
       yAxis: scaleAxisText(chartOptions.yAxis, 18),
     } as never);
 
-    const rawRgba = await chart.renderToCanvas().toBuffer("raw", { matte: "#ffffff" });
-    const png = new PNG({ width, height });
-    png.data = Buffer.from(rawRgba);
-    return PNG.sync.write(png, { colorType: 2 });
+    return chart.renderToCanvas().toBuffer("png");
   } finally {
     chart.dispose();
   }
