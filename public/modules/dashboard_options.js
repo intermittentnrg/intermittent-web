@@ -100,7 +100,15 @@ class DashboardOptions {
     router.onChange(() => this.updateVisibilityFromRouter())
 
     this.element.addEventListener('click', (event) => this.handleClick(event))
-    this.element.addEventListener('change', (event) => this.handleChange(event))
+
+    ;['productionTypeOptions', 'unitOptions', 'transmissionOptions'].forEach(key => {
+      this[`${key}Target`]?.addEventListener('change', (event) => this.toggleMultiSelectCheckbox(event))
+    })
+
+    document.getElementById('topnav-prices-checkbox')?.addEventListener('change', (event) => this.togglePrices(event))
+    document.getElementById('topnav-temps-checkbox')?.addEventListener('change', (event) => this.toggleTemps(event))
+    document.getElementById('topnav-load-checkbox')?.addEventListener('change', (event) => this.toggleLoad(event))
+    document.getElementById('topnav-transmission-checkbox')?.addEventListener('change', (event) => this.toggleTransmission(event))
 
     this.populateMultipliersFromUrl()
   }
@@ -114,15 +122,6 @@ class DashboardOptions {
     if (event.target.closest('#dashboard-options-transmission-section .dropdown__apply')) return this.applyTransmission(event)
     if (event.target.closest('#dashboard-options-unit-section > .dropdown__trigger')) return this.toggleUnitMenu(event)
     if (event.target.closest('#dashboard-options-unit-section .dropdown__apply')) return this.applyUnits(event)
-  }
-
-  handleChange(event) {
-    const checkbox = event.target.closest('.dropdown__checkbox')
-    if (checkbox) return this.toggleMultiSelectCheckbox(checkbox)
-    if (event.target.id === 'topnav-prices-checkbox') return this.togglePrices(event)
-    if (event.target.id === 'topnav-temps-checkbox') return this.toggleTemps(event)
-    if (event.target.id === 'topnav-load-checkbox') return this.toggleLoad(event)
-    if (event.target.id === 'topnav-transmission-checkbox') return this.toggleTransmission(event)
   }
 
   populateMultipliersFromUrl() {
@@ -301,8 +300,11 @@ class DashboardOptions {
     this.updateTransmissionUI()
   }
 
-  toggleMultiSelectCheckbox(checkbox) {
+  toggleMultiSelectCheckbox(event) {
+    const checkbox = event.target.closest('.dropdown__checkbox')
+    if (!checkbox) return
     const container = checkbox.closest('.dropdown__content')
+
     updateAllCheckboxSelection(container, checkbox, checkbox.classList.contains('unit-checkbox') ? '.unit-checkbox' : '.dropdown__checkbox')
 
     // Sync .selected class on parent rows

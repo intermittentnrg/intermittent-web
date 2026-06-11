@@ -5,7 +5,7 @@ export function initTopnavArea() {
   const root = document.getElementById('topnav-area')
   if (!root) return
 
-  const menu = root.querySelector('.area-menu')
+  const panel = root.querySelector('.area-selector__panel')
   const selectorButton = root.querySelector('.location-selector-btn')
   const selectionText = root.querySelector('.location-selector-btn .dropdown__value')
   const tree = root.querySelector('[data-area-tree]')
@@ -19,12 +19,12 @@ export function initTopnavArea() {
   }
 
   function topLevelRegionNodes() {
-    return directChildNodes(tree, '.area-node[data-node-type="region"]')
+    return directChildNodes(tree, '.area-selector__node[data-node-type="region"]')
   }
 
   function areaTypeNodesForRegion(regionNode) {
-    const childTree = regionNode?.querySelector(':scope > .child-tree')
-    return childTree ? directChildNodes(childTree, '.area-node[data-node-type="area-type"]') : []
+    const childTree = regionNode?.querySelector(':scope > .area-selector__child-tree')
+    return childTree ? directChildNodes(childTree, '.area-selector__node[data-node-type="area-type"]') : []
   }
 
   function findRegionNode(regionName = region) {
@@ -39,7 +39,7 @@ export function initTopnavArea() {
   function setNodeOpen(node, open) {
     if (!node) return
     node.classList.toggle('is-open', open)
-    const button = node.querySelector(':scope > .area-node-button')
+    const button = node.querySelector(':scope > .area-selector__node-button')
     if (button) button.setAttribute('aria-expanded', open ? 'true' : 'false')
   }
 
@@ -79,13 +79,13 @@ export function initTopnavArea() {
   }
 
   function toggleArea(checkbox) {
-    const areaTypeNode = checkbox.closest('.area-node[data-node-type="area-type"]')
+    const areaTypeNode = checkbox.closest('.area-selector__node[data-node-type="area-type"]')
     if (!areaTypeNode) return
 
-    const allCheckbox = areaTypeNode.querySelector('.dropdown__checkbox[value="all"]')
+    const allCheckbox = areaTypeNode.querySelector('.area-selector__checkbox[value="all"]')
     if (checkbox.value === 'all') {
       if (checkbox.checked) {
-        areaTypeNode.querySelectorAll('.dropdown__checkbox').forEach(cb => {
+        areaTypeNode.querySelectorAll('.area-selector__checkbox').forEach(cb => {
           if (cb !== checkbox) cb.checked = false
         })
       }
@@ -95,7 +95,7 @@ export function initTopnavArea() {
 
     // Sync .selected class on parent rows
     areaTypeNode.querySelectorAll('.dropdown__option').forEach(option => {
-      const cb = option.querySelector('.dropdown__checkbox')
+      const cb = option.querySelector('.area-selector__checkbox')
       if (cb) option.classList.toggle('selected', cb.checked)
     })
   }
@@ -104,33 +104,33 @@ export function initTopnavArea() {
     const areaTypeNode = findAreaTypeNode()
     if (!areaTypeNode) return ['all']
 
-    const allCheckbox = areaTypeNode.querySelector('.dropdown__checkbox[value="all"]')
+    const allCheckbox = areaTypeNode.querySelector('.area-selector__checkbox[value="all"]')
     if (allCheckbox?.checked) return ['all']
 
-    return Array.from(areaTypeNode.querySelectorAll('.dropdown__checkbox:checked'))
+    return Array.from(areaTypeNode.querySelectorAll('.area-selector__checkbox:checked'))
       .map(cb => cb.value)
       .filter(Boolean)
   }
 
   function setCheckedAreas(areas = urlAreas) {
-    root.querySelectorAll('.dropdown__checkbox').forEach(cb => { cb.checked = false })
+    root.querySelectorAll('.area-selector__checkbox').forEach(cb => { cb.checked = false })
 
     const areaTypeNode = findAreaTypeNode()
     if (!areaTypeNode) return
 
     const selected = areas.length ? areas : ['all']
     if (selected.includes('all')) {
-      const allCheckbox = areaTypeNode.querySelector('.dropdown__checkbox[value="all"]')
+      const allCheckbox = areaTypeNode.querySelector('.area-selector__checkbox[value="all"]')
       if (allCheckbox) allCheckbox.checked = true
       // Sync .selected class
       areaTypeNode.querySelectorAll('.dropdown__option').forEach(option => {
-        const cb = option.querySelector('.dropdown__checkbox')
+        const cb = option.querySelector('.area-selector__checkbox')
         if (cb) option.classList.toggle('selected', cb.checked)
       })
       return
     }
 
-    areaTypeNode.querySelectorAll('.dropdown__checkbox').forEach(cb => {
+    areaTypeNode.querySelectorAll('.area-selector__checkbox').forEach(cb => {
       cb.checked = selected.includes(cb.value)
       const option = cb.closest('.dropdown__option')
       if (option) option.classList.toggle('selected', cb.checked)
@@ -166,27 +166,27 @@ export function initTopnavArea() {
   }
 
   function updateSelectionText() {
-    const regionLabel = findRegionNode()?.querySelector(':scope > .area-node-button .option-text')?.textContent?.trim() || region || ''
+    const regionLabel = findRegionNode()?.querySelector(':scope > .area-selector__node-button .option-text')?.textContent?.trim() || region || ''
     const selected = urlAreas.length ? urlAreas : ['all']
     const areasText = selected.includes('all') ? 'All areas' : selected.join(', ')
     selectionText.textContent = `${regionLabel} • ${areasText}`
   }
 
   root.addEventListener('click', event => {
-    if (event.target.closest('.location-selector-btn')) return toggleMenu(menu, selectorButton)
-    if (event.target.closest('.step-close')) return closeAllDropdowns()
+    if (event.target.closest('.location-selector-btn')) return toggleMenu(panel, selectorButton)
+    if (event.target.closest('.area-selector__close')) return closeAllDropdowns()
 
-    const regionButton = event.target.closest('.area-node[data-node-type="region"] > .area-node-button')
-    if (regionButton) return selectRegion(regionButton.closest('.area-node').dataset.region)
+    const regionButton = event.target.closest('.area-selector__node[data-node-type="region"] > .area-selector__node-button')
+    if (regionButton) return selectRegion(regionButton.closest('.area-selector__node').dataset.region)
 
-    const areaTypeButton = event.target.closest('.area-node[data-node-type="area-type"] > .area-node-button')
-    if (areaTypeButton) return selectAreaType(areaTypeButton.closest('.area-node').dataset.areaType)
+    const areaTypeButton = event.target.closest('.area-selector__node[data-node-type="area-type"] > .area-selector__node-button')
+    if (areaTypeButton) return selectAreaType(areaTypeButton.closest('.area-selector__node').dataset.areaType)
 
     if (event.target.closest('.dropdown__apply')) return applySelection()
   })
 
   root.addEventListener('change', event => {
-    const checkbox = event.target.closest('.dropdown__checkbox')
+    const checkbox = event.target.closest('.area-selector__checkbox')
     if (checkbox) toggleArea(checkbox)
   })
 

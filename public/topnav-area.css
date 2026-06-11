@@ -1,36 +1,26 @@
-/* Area Menu */
-.area-menu {
-  position: fixed;
-  top: 74px;
-  display: none;
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-  z-index: 1201;
-  overflow: hidden;
+/* Area Selector — a tree-based multi-select dropdown inside dropdown__panel */
+
+.area-selector__content {
+  max-height: none;
+  padding: 0;
 }
 
-.area-menu.open {
-  display: flex;
-}
-
-.area-menu-header {
+.area-selector__header {
   display: none;
 }
 
-.area-tree {
+.area-selector__tree {
   list-style: none;
   margin: 0;
   padding: 8px;
 }
 
-.area-node {
+.area-selector__node {
   margin: 0 0 4px;
   padding: 0;
 }
 
-.area-node-button {
+.area-selector__node-button {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -44,16 +34,16 @@
   text-align: left;
 }
 
-.area-node-button:hover {
+.area-selector__node-button:hover {
   background: #f3f4f6;
 }
 
-.area-node.is-selected > .area-node-button {
+.area-selector__node.is-selected > .area-selector__node-button {
   background: #3b82f6;
   color: white;
 }
 
-.area-node.is-selected > .area-node-button .option-arrow {
+.area-selector__node.is-selected > .area-selector__node-button .area-selector__node-arrow {
   color: white;
 }
 
@@ -62,7 +52,7 @@
   font-size: 13px;
 }
 
-.option-arrow {
+.area-selector__node-arrow {
   color: #9ca3af;
   font-size: 16px;
   line-height: 1;
@@ -76,7 +66,7 @@
   color: white;
 }
 
-.dropdown__checkbox {
+.area-selector__checkbox {
   flex-shrink: 0;
 }
 
@@ -87,7 +77,7 @@
   cursor: pointer;
 }
 
-.step-close {
+.area-selector__close {
   background: #f3f4f6;
   border: 1px solid #d1d5db;
   font-size: 14px;
@@ -100,7 +90,7 @@
   text-align: center;
 }
 
-.step-close:hover {
+.area-selector__close:hover {
   background: #e5e7eb;
   color: #1f2937;
 }
@@ -132,17 +122,16 @@
   border-color: #2563eb;
 }
 
-/* Desktop: render the same nested DOM as three adjacent columns. */
+/* Desktop: three-column layout */
 @media (min-width: 769px) {
-  .area-menu.open {
+  .area-selector__panel.open {
     display: block;
-    position: fixed;
     width: 600px;
     height: 550px;
     overflow: visible;
   }
 
-  .area-menu > .area-tree {
+  .area-selector__panel > .area-selector__tree {
     position: relative;
     width: 200px;
     height: calc(100% - 57px);
@@ -151,7 +140,7 @@
     overflow: visible;
   }
 
-  .area-node > .child-tree {
+  .area-selector__node > .area-selector__child-tree {
     display: none;
     position: absolute;
     top: 0;
@@ -163,28 +152,27 @@
     border-right: 1px solid #e5e7eb;
   }
 
-  .area-node[data-node-type="region"] > .child-tree {
+  .area-selector__node[data-node-type="region"] > .area-selector__child-tree {
     left: 200px;
   }
 
-  .area-node[data-node-type="area-type"] > .child-tree {
+  .area-selector__node[data-node-type="area-type"] > .area-selector__child-tree {
     left: 200px;
   }
 
-  .area-node.is-open > .child-tree {
+  .area-selector__node.is-open > .area-selector__child-tree {
     display: block;
   }
 
-  .area-node[data-node-type="area-type"].is-open > .child-tree {
+  .area-selector__node[data-node-type="area-type"].is-open > .area-selector__child-tree {
     overflow-y: auto;
   }
 
-
-  .area-node[data-node-type="area-type"].is-open > .child-tree {
+  .area-selector__node[data-node-type="area-type"].is-open > .area-selector__child-tree {
     border-right: none;
   }
 
-  .area-menu > .dropdown__actions {
+  .area-selector__panel > .dropdown__actions {
     position: absolute;
     right: 0;
     bottom: 0;
@@ -193,9 +181,9 @@
   }
 }
 
-/* Mobile: render the same nested DOM as an accordion. */
+/* Mobile: accordion layout */
 @media (max-width: 768px) {
-  .area-menu {
+  .area-selector__panel {
     position: fixed;
     top: 74px !important;
     left: 16px !important;
@@ -214,11 +202,11 @@
     overflow: hidden;
   }
 
-  .area-menu.open {
+  .area-selector__panel.open {
     display: flex;
   }
 
-  .area-menu-header {
+  .area-selector__header {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -228,14 +216,14 @@
     background: #f9fafb;
   }
 
-  .area-menu-header h3 {
+  .area-selector__title {
     margin: 0;
     font-size: 14px;
     font-weight: 600;
     color: #1f2937;
   }
 
-  .area-menu > .area-tree {
+  .area-selector__panel > .area-selector__tree {
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
@@ -243,26 +231,26 @@
     -webkit-overflow-scrolling: touch;
   }
 
-  .area-node > .child-tree {
+  .area-selector__node > .area-selector__child-tree {
     display: none;
     padding: 4px 0 4px 14px;
     margin-left: 10px;
     border-left: 1px solid #e5e7eb;
   }
 
-  .area-node.is-open > .child-tree {
+  .area-selector__node.is-open > .area-selector__child-tree {
     display: block;
   }
 
-  .area-node.is-open > .area-node-button .option-arrow {
+  .area-selector__node.is-open > .area-selector__node-button .area-selector__node-arrow {
     transform: rotate(90deg);
   }
 
-  .area-node.is-leaf {
+  .area-selector__node--leaf {
     margin-bottom: 0;
   }
 
-  .area-menu > .dropdown__actions {
+  .area-selector__panel > .dropdown__actions {
     flex-shrink: 0;
   }
 
