@@ -96,6 +96,19 @@ export function buildUplotOpts(title, timestamps, uplotSeries, bands, currencySy
       grid: { stroke: "rgba(0,0,0,0.06)" },
       font: "12px system-ui, sans-serif",
       scale,
+      /** Dynamically size the axis to fit the widest label, +14px padding. */
+      size: (self, values) => {
+        if (!values || !values.length) return 65;
+        self.ctx.save();
+        self.ctx.font = "12px system-ui, sans-serif";
+        let maxW = 0;
+        for (let i = 0; i < values.length; i++) {
+          const w = self.ctx.measureText(String(values[i])).width;
+          if (w > maxW) maxW = w;
+        }
+        self.ctx.restore();
+        return Math.ceil(maxW) + 20;
+      },
       ...(hasPriceL && !hasPower ? { label: `${currencySymbol}/MWh` } : {}),
     });
   }
@@ -125,6 +138,7 @@ export function buildUplotOpts(title, timestamps, uplotSeries, bands, currencySy
 
   const opts = {
     title,
+    padding: [null, 0, null, null],
     scales: {
       x: { time: true },
     },

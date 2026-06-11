@@ -1,7 +1,7 @@
 import { Canvas } from "skia-canvas";
 import type { ChartRenderer, TimelineRendererOptions, FrameGenerator, RendererFactory } from "./renderVideo.ts";
 import { renderVideo, type VideoProfile } from "./renderVideo.ts";
-import { formatPower, formatPrice } from "../../shared/echartsFormatters.ts";
+import { formatPower, formatPrice } from "../../shared/chart_formatters.ts";
 import { initDomShim, setShimCanvas, destroyDomShim } from "../../shared/uplotDomShim.ts";
 import type uPlot from "uplot";
 

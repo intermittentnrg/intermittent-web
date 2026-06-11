@@ -9,9 +9,9 @@
 
 import { Canvas } from "skia-canvas";
 import { initDomShim, setShimCanvas } from "../../shared/uplotDomShim.ts";
-import { buildUplotOpts, stackGroup } from "../../shared/uplotPayload.js";
+import { buildUplotOpts, stackGroup } from "../../shared/uplotOpts.js";
 import { divergentSeries } from "../../shared/series.js";
-import { formatPower, formatPrice, formatEnergy } from "../../shared/echartsFormatters.ts";
+import { formatPower, formatPrice, formatEnergy } from "../../shared/chart_formatters.ts";
 import { HEATMAP_COLORS, heatmapPlugin } from "../../shared/uplotHeatmap.ts";
 
 const LEGEND_HEIGHT = 44;

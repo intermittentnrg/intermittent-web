@@ -1,7 +1,7 @@
 import uplot from "../vendor/uplot_client.bundle.js"
-import { formatPower, formatPrice, formatEnergy } from "../vendor/echarts_formatters.js"
+import { formatPower, formatPrice, formatEnergy } from "../vendor/chart_formatters.js"
 import { divergentSeries } from "../../src/shared/series.js"
-import { buildUplotOpts, stackGroup } from "../../src/shared/uplotPayload.js"
+import { buildUplotOpts, stackGroup } from "../../src/shared/uplotOpts.js"
 import { HEATMAP_COLORS, heatmapPlugin } from "../../src/shared/uplotHeatmap.js"
 
 const DRAG_ZOOM_MIN_PIXELS = 8

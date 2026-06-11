@@ -15,6 +15,10 @@ const supportBundles = [
     outfile: "public/vendor/uplot_client.bundle.js",
   },
   {
+    entryPoints: ["src/shared/chart_formatters.ts"],
+    outfile: "public/vendor/chart_formatters.js",
+  },
+  {
     entryPoints: ["src/shared/echartsFormatters.ts"],
     outfile: "public/vendor/echarts_formatters.js",
   },
