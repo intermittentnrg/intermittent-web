@@ -14,20 +14,13 @@
     <%- include('topnav_date') %>
     <%- include('topnav_dashboard') %>
 
-    <div class="topnav-item production-type-selector dashboard-options-production-type-section" id="dashboard-options-production-type-section"
-     style="display: <%= dashboardHasFeature(dashboardType, 'production_type_selector') ? 'flex' : 'none' %>;">
-      <label>Production Type</label>
-      <button type="button" class="dropdown__trigger">
-        <span class="dropdown__value dashboard-options-production-type-selected-text" id="dashboard-options-selected-text"><%= productionType || 'All' %></span>
-        <span class="dropdown__arrow">▼</span>
-      </button>
-      <div class="dropdown__panel dashboard-options-production-type-menu" id="dashboard-options-menu">
-        <div class="dropdown__content dashboard-options-production-type-options" id="dashboard-options-production-type-options"></div>
-        <div class="dropdown__actions">
-          <button type="button" class="dropdown__apply">Apply</button>
-        </div>
-      </div>
-    </div>
+    <%- include('topnav_multi_select', {
+      sectionClass: 'production-type-selector',
+      targetPrefix: 'production-type',
+      label: 'Production Type',
+      defaultValue: productionType || 'All',
+      displayFeature: 'production_type_selector'
+    }) %>
 
     <div class="topnav-item multiplier-selector dashboard-options-simulation-section" id="dashboard-options-simulation-section"
          style="display: <%= dashboardHasFeature(dashboardType, 'simulation_multipliers') ? 'flex' : 'none' %>;">
@@ -71,30 +64,20 @@
       <div class="checkbox-wrapper"><input id="topnav-transmission-checkbox" type="checkbox" <%= transmission ? 'checked' : '' %>></div>
     </div>
 
-    <div id="dashboard-options-transmission-section" class="topnav-item transmission-selector dashboard-options-transmission-section"
-         style="display: <%= dashboardHasFeature(dashboardType, 'transmission_selector') ? 'flex' : 'none' %>;">
-      <label>Transmission Line</label>
-      <button type="button" class="dropdown__trigger">
-        <span class="dropdown__value dashboard-options-transmission-selected-text" id="dashboard-options-transmission-selected-text">Select line</span>
-        <span class="dropdown__arrow">▼</span>
-      </button>
-      <div class="dropdown__panel dashboard-options-transmission-menu" id="dashboard-options-transmission-menu">
-        <div class="dropdown__content dashboard-options-transmission-options" id="dashboard-options-transmission-options"></div>
-        <div class="dropdown__actions"><button type="button" class="dropdown__apply">Apply</button></div>
-      </div>
-    </div>
+    <%- include('topnav_multi_select', {
+      sectionClass: 'transmission-selector',
+      targetPrefix: 'transmission',
+      label: 'Transmission Line',
+      defaultValue: 'Select line',
+      displayFeature: 'transmission_selector'
+    }) %>
 
-    <div class="topnav-item unit-selector dashboard-options-per-unit-section" id="dashboard-options-unit-section"
-         style="display: <%= dashboardHasFeature(dashboardType, 'per_unit_selector') ? 'flex' : 'none' %>;">
-      <label>Units</label>
-      <button type="button" class="dropdown__trigger">
-        <span class="dropdown__value dashboard-options-unit-selected-text" id="dashboard-options-unit-selected-text"><%= unitLabel || 'All' %></span>
-        <span class="dropdown__arrow">▼</span>
-      </button>
-      <div class="dropdown__panel dashboard-options-unit-menu" id="dashboard-options-unit-menu">
-        <div class="dropdown__content dashboard-options-unit-options" id="dashboard-options-unit-options"></div>
-        <div class="dropdown__actions"><button type="button" class="dropdown__apply">Apply</button></div>
-      </div>
-    </div>
+    <%- include('topnav_multi_select', {
+      sectionClass: 'unit-selector',
+      targetPrefix: 'unit',
+      label: 'Units',
+      defaultValue: unitLabel || 'All',
+      displayFeature: 'per_unit_selector'
+    }) %>
   </div>
 </nav>

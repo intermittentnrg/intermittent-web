@@ -2,7 +2,7 @@ import { router } from "../router.js"
 import { closeAllDropdowns, toggleMenu } from "../dropdown_utils.js"
 import { dashboardHasFeature } from "../../src/shared/dashboardCatalog.js"
 
-const targetNames = ["productionTypeMenu", "productionTypeSelectedText", "productionTypeSection", "simulationSection", "electricityMixSection", "tempsSection", "loadSection", "transmissionCheckboxSection", "productionTypeOptions", "perUnitSection", "unitOptions", "unitSelectedText", "unitMenu", "transmissionSection", "transmissionOptions", "transmissionSelectedText", "transmissionMenu", "multiplierMenu", "multiplierSelectedText", "nuclearInput", "windInput", "solarInput", "demandInput"]
+const targetNames = ["productionTypeMenu", "productionTypeSelectedText", "productionTypeSection", "simulationSection", "electricityMixSection", "tempsSection", "loadSection", "transmissionCheckboxSection", "productionTypeOptions", "unitSection", "unitOptions", "unitSelectedText", "unitMenu", "transmissionSection", "transmissionOptions", "transmissionSelectedText", "transmissionMenu", "multiplierMenu", "multiplierSelectedText", "nuclearInput", "windInput", "solarInput", "demandInput"]
 
 function targetSelector(target) {
   return `.dashboard-options-${kebab(target)}`
@@ -220,8 +220,8 @@ class DashboardOptions {
       this.transmissionCheckboxSectionTarget.style.display = dashboardHasFeature(dashboard, 'transmission_checkbox') ? 'flex' : 'none'
     }
 
-    if (this.hasPerUnitSectionTarget) {
-      this.perUnitSectionTargets.forEach(el => {
+    if (this.hasUnitSectionTarget) {
+      this.unitSectionTargets.forEach(el => {
         el.style.display = dashboardHasFeature(dashboard, 'per_unit_selector') ? 'flex' : 'none'
       })
     }

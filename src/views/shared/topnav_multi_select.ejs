@@ -1,0 +1,14 @@
+<div class="topnav-item <%= sectionClass %> dashboard-options-<%= targetPrefix %>-section"
+     style="display: <%= dashboardHasFeature(dashboardType, displayFeature) ? 'flex' : 'none' %>;">
+  <label><%= label %></label>
+  <button type="button" class="dropdown__trigger">
+    <span class="dropdown__value dashboard-options-<%= targetPrefix %>-selected-text"><%= defaultValue %></span>
+    <span class="dropdown__arrow">▼</span>
+  </button>
+  <div class="dropdown__panel dashboard-options-<%= targetPrefix %>-menu">
+    <div class="dropdown__content dashboard-options-<%= targetPrefix %>-options"></div>
+    <div class="dropdown__actions">
+      <button type="button" class="dropdown__apply">Apply</button>
+    </div>
+  </div>
+</div>
