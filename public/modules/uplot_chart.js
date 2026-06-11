@@ -425,11 +425,11 @@ function buildLegend(plots, data, chartTarget) {
     legend.appendChild(entry)
   }
 
-  // Insert legend before the chart container
-  if (chartTarget && chartTarget.parentNode) {
+  // Insert legend: above chartTarget for multi-panel, below for single panel
+  if (plots.length > 1 && chartTarget.parentNode) {
     chartTarget.parentNode.insertBefore(legend, chartTarget)
-  } else {
-    plots[0].root.parentNode.appendChild(legend)
+  } else if (chartTarget.parentNode) {
+    chartTarget.parentNode.appendChild(legend)
   }
 }
 
@@ -577,7 +577,6 @@ function renderPanel(chartTarget, panels, data, { applyZoomDateRange }) {
     display: grid;
     gap: 4px;
     width: 100%;
-    height: 100%;
   `
   container.style.gridTemplateColumns = gridLayout.columns || `repeat(${cols}, 1fr)`
   container.style.gridTemplateRows = gridLayout.rows || ''
@@ -638,13 +637,8 @@ function renderPanel(chartTarget, panels, data, { applyZoomDateRange }) {
     cell.appendChild(tooltip)
 
     const cellWidth = cell.clientWidth || (chartTarget.clientWidth / Math.min(panels.length, cols))
-    const cellHeight = cell.clientHeight || (() => {
-      const r = panel.layout?.gridRow || ''
-      const m = r.match(/^(\d+)\s*\/\s*(\d+)$/)
-      const rowSpan = m ? parseInt(m[2]) - parseInt(m[1]) : 1
-      return Math.max(100, (chartTarget.clientHeight || 567) / panels.length * rowSpan)
-    })()
-    const heightPx = cell.clientHeight || cellHeight
+    const wholeHeight = data.height || 567
+    const heightPx = Math.round(wholeHeight / panels.length)
 
     const rawDataForRestack = rawDataWithX
     const metaForRestack = processed._meta || []
@@ -878,7 +872,6 @@ export function renderUplot(chartTarget, data, { applyZoomDateRange }) {
     return
   }
 
-  chartTarget.style.height = (data.height || 567) + 'px'
   renderPanel(chartTarget, panels, data, { applyZoomDateRange })
 
   // Set up resize handler (only once)
