@@ -3,7 +3,6 @@ import { querySmall } from "../lib/db.ts";
 import { chartQuery } from "./shared/chartQuery.ts";
 import { getContext } from "./shared/context.ts";
 import { sendChartResponse, sendUplotResponse } from "./shared/chartResponse.ts";
-import { divergentSeries } from "./shared/series.ts";
 import { resolutionToSeconds } from "../shared/dateParsing.ts";
 import { parseDateRangeInTimeZone } from "./shared/timezoneDateRange.ts";
 import { getProductionTypeIds } from "./shared/productionTypes.ts";
@@ -646,8 +645,7 @@ export async function sweden(
   }
 
   // Split by area into per-panel main/extra series
-  const stacked = divergentSeries(stackedSeries) as SeriesWithArea[];
-  const allSeries = [...stacked, ...loadSeries, ...priceSeries];
+  const allSeries = [...stackedSeries, ...loadSeries, ...priceSeries];
 
   const panelSeries: { areaCode: string; mainSeries: UplotSeriesDesc[]; extraSeries: UplotSeriesDesc[] }[] = [];
   for (let i = 0; i < numAreas; i++) {

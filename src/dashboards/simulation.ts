@@ -2,10 +2,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { chartQuery } from "./shared/chartQuery.ts";
 import { getContext } from "./shared/context.ts";
 import { sendUplotResponse } from "./shared/chartResponse.ts";
-import {
-  buildStackedPowerLineSeries,
-  divergentSeries,
-} from "./shared/series.ts";
+import { buildStackedPowerLineSeries } from "./shared/series.ts";
 import {
   getProductionTypeIds,
   getProductionTypeOptions,
@@ -310,7 +307,7 @@ async function buildGenPanelFromRows(
     return { label, data: s.data as number[], stroke: c, fill: c ? c.replace("rgb(", "rgba(").replace(")", ",0.75)") : undefined };
   }
 
-  const genSeries: UplotSeriesDesc[] = divergentSeries(buildStackedPowerLineSeries(genRows)).map((s: AnyRow) => applyColor(s, s.label));
+  const genSeries: UplotSeriesDesc[] = buildStackedPowerLineSeries(genRows).map((s: AnyRow) => applyColor(s, s.label));
   const demandSeries: UplotSeriesDesc[] = buildStackedPowerLineSeries(demandRows).map((s: AnyRow) => ({
     label: "demand",
     data: s.data as number[],
@@ -320,7 +317,7 @@ async function buildGenPanelFromRows(
     fill: undefined,
   }));
   const transSeries: UplotSeriesDesc[] = includeTransmission
-    ? divergentSeries(buildStackedPowerLineSeries(transRows)).map((s: AnyRow) => applyColor(s, "transmission"))
+    ? buildStackedPowerLineSeries(transRows).map((s: AnyRow) => applyColor(s, "transmission"))
     : [];
 
   const mainSeries = [...transSeries, ...genSeries, ...demandSeries];
