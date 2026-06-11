@@ -352,7 +352,7 @@ function normalizePanel(panel, data) {
   return result
 }
 
-function buildSharedLegend(plots, data, chartTarget) {
+function buildLegend(plots, data, chartTarget) {
   const oldLegend = document.querySelector('.uplot-shared-legend')
   if (oldLegend) oldLegend.remove()
 
@@ -565,211 +565,44 @@ function makeTooltip(tooltipEl, rawData, timezone, currencySymbol) {
 
 // ── Single panel renderer ──
 
-function renderSinglePanel(chartTarget, panel, data, { applyZoomDateRange }) {
-  const processed = normalizePanel(panel, data)
-  const { opts, data: plotData, rawData, seriesMeta, startTime, interval } = processed
+/** Render a single panel or multi-panel grid into chartTarget. */
+function renderPanel(chartTarget, panels, data, { applyZoomDateRange }) {
+  const isMultiPanel = panels.length > 1 || (data.layout?.columns != null)
 
-  const count = (plotData[0]?.length ?? 0)
-  const timestamps = new Array(count)
-  for (let i = 0; i < count; i++) {
-    timestamps[i] = startTime + i * interval
-  }
-  const plotDataWithX = [timestamps, ...plotData]
-  const lastRawData = [timestamps, ...(rawData || plotData)]
-
-  if (seriesMeta && opts.series) {
-    for (let i = 0; i < seriesMeta.length; i++) {
-      const meta = seriesMeta[i]
-      const s = opts.series[i + 1]
-      if (!s || !meta) continue
-      if (meta.type === 'bar' && !s.paths) {
-        s.paths = uplot.paths.bars({ gap: 4 })
-      }
-    }
-  }
-
-  const fixedHeight = data.height || 567
-  chartTarget.style.height = fixedHeight + 'px'
-
-  const tooltip = document.createElement('div')
-  tooltip.className = 'uplot-tooltip'
-  tooltip.style.cssText = `
-    position: absolute;
-    pointer-events: none;
-    z-index: 1000;
-    background: rgba(255,255,255,0.95);
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    padding: 8px 12px;
-    font: 13px system-ui, sans-serif;
-    line-height: 1.6;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    display: none;
-    max-width: 260px;
-  `
-  chartTarget.appendChild(tooltip)
-
-  const width = chartTarget.clientWidth || 800
-  const chartHeight = parseInt(chartTarget.style.height) || 400
-  const heightPx = chartTarget.clientHeight || chartHeight
-
-  // Capture raw data and per-series metadata for client-side re-stacking
-  // via closure (avoids storing custom properties on uPlot series objects).
-  const rawDataForRestack = lastRawData
-  const metaForRestack = processed._meta || []
-
-  const uplotOpts = {
-    ...opts,
-    width,
-    height: heightPx,
-    legend: {
-      ...opts.legend,
-      show: false,
-    },
-    axes: (opts.axes || []).map((axis) => {
-      if (axis.values) return axis
-      if (axis.scale === 'y' || axis.scale === 'power' || axis.scale === 'energy') {
-        const fmt = axis.scale === 'energy' ? formatEnergy : formatPower
-        return { ...axis, values: (u, ticks) => ticks.map(v => fmt(v)) }
-      }
-      if (axis.scale === 'price-l' || axis.scale === 'price-r' || axis.scale === 'percent') {
-        return { ...axis, values: (u, ticks) => ticks.map(v => formatPrice(v)) }
-      }
-      return axis
-    }),
-    select: { show: false },
-    cursor: {
-      ...(opts.cursor || {}),
-      drag: { x: false, y: false },
-    },
-    ...(data.timezone ? { tzDate: (ts) => uplot.tzDate(new Date(ts * 1e3), data.timezone) } : {}),
-    hooks: {
-      ...opts.hooks,
-      setCursor: [makeTooltip(tooltip, lastRawData, data.timezone, processed.currencySymbol)],
-      setSeries: [(u) => {
-        const result = restack(rawDataForRestack, u.series, metaForRestack)
-        // Apply fill updates as functions (uPlot wraps fill via fnOrSelf)
-        for (const [si, fn] of result.fillUpdates) {
-          u.series[si].fill = fn
-        }
-        u.delBand(null)
-        for (const band of result.bands) {
-          u.addBand(band)
-        }
-        u.setData(result.data)
-      }],
-    },
-  }
-
-  try {
-    const plot = new uplot(uplotOpts, plotDataWithX, chartTarget)
-    chartTarget._uplot = [plot]
-
-    connectUplotDragZoom(plot, chartTarget, { applyZoomDateRange })
-
-    // Build legend for single panel (or no sharedLegend)
-    if (!data.sharedLegend) {
-      buildSingleLegend(plot, opts.series, chartTarget)
-    }
-  } catch (error) {
-    console.error('uPlot: Failed to render chart', error)
-  }
-}
-
-function buildSingleLegend(plot, seriesOpts, chartTarget) {
-  const oldLegend = chartTarget.querySelector('.uplot-custom-legend')
-  if (oldLegend) oldLegend.remove()
-
-  const groups = new Map()
-  for (let si = 1; si < seriesOpts.length; si++) {
-    const s = seriesOpts[si]
-    if (!s) continue
-    const label = s.label || `Series ${si}`
-    if (!groups.has(label)) groups.set(label, [])
-    groups.get(label).push(si)
-  }
-
-  const legend = document.createElement('div')
-  legend.className = 'uplot-custom-legend'
-  legend.style.cssText = `
-    display: flex; flex-wrap: wrap; gap: 8px 16px;
-    padding: 8px 12px; font: 13px system-ui, sans-serif;
-    justify-content: center;
-  `
-
-  for (const [label, indices] of groups) {
-    const entry = document.createElement('span')
-    entry.style.cssText = `
-      display: inline-flex; align-items: center; gap: 4px;
-      cursor: pointer; user-select: none;
+  // For multi-panel, create a CSS grid container
+  let container = chartTarget
+  if (isMultiPanel) {
+    container = document.createElement('div')
+    container.className = 'uplot-grid'
+    container.style.cssText = `
+      display: grid;
+      gap: 4px;
+      width: 100%;
+      height: 100%;
     `
-
-    const firstSeries = seriesOpts[indices[0]]
-    const color = typeof firstSeries.stroke === 'function'
-      ? firstSeries.stroke(plot, indices[0])
-      : firstSeries.stroke || '#888'
-
-    const marker = document.createElement('span')
-    marker.style.cssText = `
-      display: inline-block; width: 10px; height: 10px;
-      border-radius: 2px; background: ${color}; flex-shrink: 0;
-    `
-
-    const text = document.createTextNode(label)
-    entry.appendChild(marker)
-    entry.appendChild(text)
-
-    entry.addEventListener('click', () => {
-      const visible = plot.series[indices[0]].show
-      for (const idx of indices) {
-        plot.setSeries(idx, { show: !visible })
-      }
-      entry.style.opacity = visible ? '0.4' : '1'
-    })
-
-    legend.appendChild(entry)
+    const gridLayout = data.layout || {}
+    container.style.gridTemplateColumns = gridLayout.columns || `repeat(${Math.min(panels.length, 2)}, 1fr)`
+    container.style.gridTemplateRows = gridLayout.rows || ''
+    chartTarget.appendChild(container)
   }
 
-  chartTarget.appendChild(legend)
-}
-
-/** Plugin that renders labels inside stacked vertical bar segments. */
-// ── Multi-panel renderer ──
-
-function renderMultiPanel(chartTarget, panels, data, { applyZoomDateRange }) {
-  // Create CSS grid container
-  const container = document.createElement('div')
-  container.className = 'uplot-grid'
-  container.style.cssText = `
-    display: grid;
-    gap: 4px;
-    width: 100%;
-    height: 100%;
-  `
-
-  const gridLayout = data.layout || {}
-  container.style.gridTemplateColumns = gridLayout.columns || `repeat(${Math.min(panels.length, 2)}, 1fr)`
-  container.style.gridTemplateRows = gridLayout.rows || ''
-
-  chartTarget.appendChild(container)
-
-  const tooltips = []
   const plots = []
-  const lastRawDataList = []
 
   for (let i = 0; i < panels.length; i++) {
     const panel = panels[i]
-    const cell = document.createElement('div')
-    cell.className = 'uplot-panel'
-    cell.style.cssText = `
-      position: relative;
-      min-height: 100px;
-    `
-    if (panel.layout) {
-      if (panel.layout.gridColumn) cell.style.gridColumn = panel.layout.gridColumn
-      if (panel.layout.gridRow) cell.style.gridRow = panel.layout.gridRow
-    }
-    container.appendChild(cell)
+    const cell = isMultiPanel
+      ? (() => {
+          const c = document.createElement('div')
+          c.className = 'uplot-panel'
+          c.style.cssText = `position:relative;min-height:100px`
+          if (panel.layout) {
+            if (panel.layout.gridColumn) c.style.gridColumn = panel.layout.gridColumn
+            if (panel.layout.gridRow) c.style.gridRow = panel.layout.gridRow
+          }
+          container.appendChild(c)
+          return c
+        })()
+      : chartTarget
 
     const processed = normalizePanel(panel, data)
     const { opts, data: plotData, rawData, seriesMeta, startTime, interval } = processed
@@ -781,14 +614,13 @@ function renderMultiPanel(chartTarget, panels, data, { applyZoomDateRange }) {
     }
     const plotDataWithX = [timestamps, ...plotData]
     const rawDataWithX = [timestamps, ...(rawData || plotData)]
-    lastRawDataList.push(rawDataWithX)
 
     if (seriesMeta && opts.series) {
       for (let j = 0; j < seriesMeta.length; j++) {
         const meta = seriesMeta[j]
         const s = opts.series[j + 1]
         if (!s || !meta) continue
-        if (meta.type === 'bar') {
+        if (meta.type === 'bar' && !s.paths) {
           s.paths = uplot.paths.bars({ gap: 4 })
         }
       }
@@ -811,26 +643,28 @@ function renderMultiPanel(chartTarget, panels, data, { applyZoomDateRange }) {
       max-width: 260px;
     `
     cell.appendChild(tooltip)
-    tooltips.push(tooltip)
 
-    // Estimate cell dimensions for initial uPlot size
-    const cellWidth = cell.clientWidth || (chartTarget.clientWidth / Math.min(panels.length, 2))
-    const rowSpan = (() => {
-      const r = panel.layout?.gridRow || ''
-      const m = r.match(/^(\d+)\s*\/\s*(\d+)$/)
-      return m ? parseInt(m[2]) - parseInt(m[1]) : 1
-    })()
-    const cellHeight = cell.clientHeight || Math.max(100, (chartTarget.clientHeight || 567) / panels.length * rowSpan)
+    // Estimate cell dimensions
+    const cellWidth = isMultiPanel
+      ? (cell.clientWidth || (chartTarget.clientWidth / Math.min(panels.length, 2)))
+      : (chartTarget.clientWidth || 800)
+    const cellHeight = isMultiPanel
+      ? (() => {
+          const r = panel.layout?.gridRow || ''
+          const m = r.match(/^(\d+)\s*\/\s*(\d+)$/)
+          const rowSpan = m ? parseInt(m[2]) - parseInt(m[1]) : 1
+          return cell.clientHeight || Math.max(100, (chartTarget.clientHeight || 567) / panels.length * rowSpan)
+        })()
+      : (parseInt(chartTarget.style.height) || 400)
+    const heightPx = cell.clientHeight || cellHeight
 
-    // Capture raw data and per-series metadata for client-side re-stacking
-    // via closure (avoids storing custom properties on uPlot series objects).
     const rawDataForRestack = rawDataWithX
     const metaForRestack = processed._meta || []
 
     const uplotOpts = {
       ...opts,
       width: cellWidth,
-      height: cellHeight,
+      height: heightPx,
       legend: { show: false },
       axes: (opts.axes || []).map((axis) => {
         if (axis.values) return axis
@@ -870,8 +704,6 @@ function renderMultiPanel(chartTarget, panels, data, { applyZoomDateRange }) {
       const plot = new uplot(uplotOpts, plotDataWithX, cell)
       plots.push(plot)
       connectUplotDragZoom(plot, cell, { applyZoomDateRange })
-
-      // Save per-panel reference so resize can find them
       cell._uplot = plot
     } catch (error) {
       console.error(`uPlot: Failed to render panel ${i}`, error)
@@ -879,12 +711,13 @@ function renderMultiPanel(chartTarget, panels, data, { applyZoomDateRange }) {
   }
 
   if (plots.length > 0) {
-    buildSharedLegend(plots, data, chartTarget)
+    buildLegend(plots, data, chartTarget)
   }
 
-  // Store for cleanup
   chartTarget._uplot = plots
-  chartTarget._uplotGrid = container
+  if (isMultiPanel) {
+    chartTarget._uplotGrid = container
+  }
 }
 
 // ── Heatmap renderer ──
@@ -1059,14 +892,8 @@ export function renderUplot(chartTarget, data, { applyZoomDateRange }) {
     return
   }
 
-  const isMultiPanel = panels.length > 1 || (data.layout?.columns != null)
-
-  if (isMultiPanel) {
-    chartTarget.style.height = (data.height || 567) + 'px'
-    renderMultiPanel(chartTarget, panels, data, { applyZoomDateRange })
-  } else {
-    renderSinglePanel(chartTarget, panels[0], data, { applyZoomDateRange })
-  }
+  chartTarget.style.height = (data.height || 567) + 'px'
+  renderPanel(chartTarget, panels, data, { applyZoomDateRange })
 
   // Set up resize handler (only once)
   if (!chartTarget._uplotResizeHandler) {
@@ -1098,9 +925,11 @@ function destroyUplots(chartTarget) {
     chartTarget._uplotGrid = null
   }
 
-  // Remove shared legend if present
-  const legend = document.querySelector('.uplot-shared-legend')
-  if (legend) legend.remove()
+  // Remove any old legends
+  const oldShared = document.querySelector('.uplot-shared-legend')
+  if (oldShared) oldShared.remove()
+  const oldCustom = document.querySelector('.uplot-custom-legend')
+  if (oldCustom) oldCustom.remove()
 }
 
 function resizeUplots(chartTarget) {
