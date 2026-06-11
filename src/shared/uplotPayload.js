@@ -78,6 +78,7 @@ export function buildUplotPayload(title, timestamps, series, currencySymbol = "â
         label: s.label,
         stroke: s.stroke,
         width: s.width ?? 1,
+        points: { show: false },
       };
 
       // Map scale names: % â†’ percent, others pass through
@@ -116,6 +117,7 @@ export function buildUplotPayload(title, timestamps, series, currencySymbol = "â
       label: s.label,
       stroke: s.stroke,
       width: s.width ?? 1,
+      points: { show: false },
     };
 
     if (s.scale) uS.scale = s.scale;
