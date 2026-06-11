@@ -565,44 +565,37 @@ function makeTooltip(tooltipEl, rawData, timezone, currencySymbol) {
 
 // ── Single panel renderer ──
 
-/** Render a single panel or multi-panel grid into chartTarget. */
+/** Render all panels into chartTarget (single or multi-panel grid). */
 function renderPanel(chartTarget, panels, data, { applyZoomDateRange }) {
-  const isMultiPanel = panels.length > 1 || (data.layout?.columns != null)
+  const cols = data.layout?.columns || (panels.length > 1 ? Math.min(panels.length, 2) : 1)
+  const gridLayout = data.layout || {}
 
-  // For multi-panel, create a CSS grid container
-  let container = chartTarget
-  if (isMultiPanel) {
-    container = document.createElement('div')
-    container.className = 'uplot-grid'
-    container.style.cssText = `
-      display: grid;
-      gap: 4px;
-      width: 100%;
-      height: 100%;
-    `
-    const gridLayout = data.layout || {}
-    container.style.gridTemplateColumns = gridLayout.columns || `repeat(${Math.min(panels.length, 2)}, 1fr)`
-    container.style.gridTemplateRows = gridLayout.rows || ''
-    chartTarget.appendChild(container)
-  }
+  // Always create a grid container — a single panel is just a 1-column grid.
+  const container = document.createElement('div')
+  container.className = 'uplot-grid'
+  container.style.cssText = `
+    display: grid;
+    gap: 4px;
+    width: 100%;
+    height: 100%;
+  `
+  container.style.gridTemplateColumns = gridLayout.columns || `repeat(${cols}, 1fr)`
+  container.style.gridTemplateRows = gridLayout.rows || ''
+  chartTarget.appendChild(container)
 
   const plots = []
 
   for (let i = 0; i < panels.length; i++) {
     const panel = panels[i]
-    const cell = isMultiPanel
-      ? (() => {
-          const c = document.createElement('div')
-          c.className = 'uplot-panel'
-          c.style.cssText = `position:relative;min-height:100px`
-          if (panel.layout) {
-            if (panel.layout.gridColumn) c.style.gridColumn = panel.layout.gridColumn
-            if (panel.layout.gridRow) c.style.gridRow = panel.layout.gridRow
-          }
-          container.appendChild(c)
-          return c
-        })()
-      : chartTarget
+
+    const cell = document.createElement('div')
+    cell.className = 'uplot-panel'
+    cell.style.cssText = `position:relative;min-height:100px`
+    if (panel.layout) {
+      if (panel.layout.gridColumn) cell.style.gridColumn = panel.layout.gridColumn
+      if (panel.layout.gridRow) cell.style.gridRow = panel.layout.gridRow
+    }
+    container.appendChild(cell)
 
     const processed = normalizePanel(panel, data)
     const { opts, data: plotData, rawData, seriesMeta, startTime, interval } = processed
@@ -644,18 +637,13 @@ function renderPanel(chartTarget, panels, data, { applyZoomDateRange }) {
     `
     cell.appendChild(tooltip)
 
-    // Estimate cell dimensions
-    const cellWidth = isMultiPanel
-      ? (cell.clientWidth || (chartTarget.clientWidth / Math.min(panels.length, 2)))
-      : (chartTarget.clientWidth || 800)
-    const cellHeight = isMultiPanel
-      ? (() => {
-          const r = panel.layout?.gridRow || ''
-          const m = r.match(/^(\d+)\s*\/\s*(\d+)$/)
-          const rowSpan = m ? parseInt(m[2]) - parseInt(m[1]) : 1
-          return cell.clientHeight || Math.max(100, (chartTarget.clientHeight || 567) / panels.length * rowSpan)
-        })()
-      : (parseInt(chartTarget.style.height) || 400)
+    const cellWidth = cell.clientWidth || (chartTarget.clientWidth / Math.min(panels.length, cols))
+    const cellHeight = cell.clientHeight || (() => {
+      const r = panel.layout?.gridRow || ''
+      const m = r.match(/^(\d+)\s*\/\s*(\d+)$/)
+      const rowSpan = m ? parseInt(m[2]) - parseInt(m[1]) : 1
+      return Math.max(100, (chartTarget.clientHeight || 567) / panels.length * rowSpan)
+    })()
     const heightPx = cell.clientHeight || cellHeight
 
     const rawDataForRestack = rawDataWithX
@@ -715,9 +703,7 @@ function renderPanel(chartTarget, panels, data, { applyZoomDateRange }) {
   }
 
   chartTarget._uplot = plots
-  if (isMultiPanel) {
-    chartTarget._uplotGrid = container
-  }
+  chartTarget._uplotGrid = container
 }
 
 // ── Heatmap renderer ──
@@ -908,12 +894,8 @@ function destroyUplots(chartTarget) {
   // Destroy all managed uPlot instances
   const plots = chartTarget._uplot
   if (plots) {
-    if (Array.isArray(plots)) {
-      for (const p of plots) {
-        if (p && p.destroy) try { p.destroy() } catch {}
-      }
-    } else if (plots.destroy) {
-      try { plots.destroy() } catch {}
+    for (const p of plots) {
+      if (p && p.destroy) try { p.destroy() } catch {}
     }
     chartTarget._uplot = null
   }
@@ -936,21 +918,14 @@ function resizeUplots(chartTarget) {
   const plots = chartTarget._uplot
   if (!plots) return
 
-  if (Array.isArray(plots)) {
-    for (const p of plots) {
-      if (!p || !p.root) continue
-      const parent = p.root.parentNode
-      if (parent) {
-        p.setSize({
-          width: parent.clientWidth,
-          height: parent.clientHeight,
-        })
-      }
+  for (const p of plots) {
+    if (!p || !p.root) continue
+    const parent = p.root.parentNode
+    if (parent) {
+      p.setSize({
+        width: parent.clientWidth,
+        height: parent.clientHeight,
+      })
     }
-  } else if (plots.setSize) {
-    plots.setSize({
-      width: chartTarget.clientWidth,
-      height: chartTarget.clientHeight,
-    })
   }
 }

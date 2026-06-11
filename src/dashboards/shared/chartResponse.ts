@@ -49,7 +49,7 @@ export async function sendChartResponse(
 export async function sendUplotResponse(
   request: FastifyRequest,
   reply: FastifyReply,
-  payload: Record<string, unknown> | Record<string, unknown>[],
+  payload: Record<string, unknown>,
   extra: Record<string, unknown> = {},
 ) {
   // Build unified response with panels array
@@ -58,10 +58,7 @@ export async function sendUplotResponse(
     ...extra,
   };
 
-  if (Array.isArray(payload)) {
-    // Multi-panel: raw array of panel configs
-    response.panels = payload;
-  } else if (payload.panels) {
+  if (payload.panels) {
     // Multi-panel: payload already has panels key + top-level fields
     Object.assign(response, payload);
   } else {
