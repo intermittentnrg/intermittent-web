@@ -2,7 +2,7 @@ import { router } from "../router.js"
 import { closeAllDropdowns, toggleMenu } from "../dropdown_utils.js"
 import { dashboardHasFeature } from "../../src/shared/dashboardCatalog.js"
 
-const targetNames = ["productionTypeMenu", "productionTypeSelectedText", "productionTypeSection", "simulationSection", "electricityMixSection", "tempsSection", "loadSection", "transmissionCheckboxSection", "productionTypeOptions", "unitSection", "unitOptions", "unitSelectedText", "unitMenu", "transmissionSection", "transmissionOptions", "transmissionSelectedText", "transmissionMenu", "multiplierMenu", "multiplierSelectedText", "nuclearInput", "windInput", "solarInput", "demandInput"]
+const targetNames = ["productionTypeMenu", "productionTypeSelectedText", "productionTypeSection", "productionTypeGroupSection", "productionTypeGroupOptions", "productionTypeGroupSelectedText", "productionTypeGroupMenu", "simulationSection", "electricityMixSection", "tempsSection", "loadSection", "transmissionCheckboxSection", "productionTypeOptions", "unitSection", "unitOptions", "unitSelectedText", "unitMenu", "transmissionSection", "transmissionOptions", "transmissionSelectedText", "transmissionMenu", "multiplierMenu", "multiplierSelectedText", "nuclearInput", "windInput", "solarInput", "demandInput"]
 
 function targetSelector(target) {
   return `.dashboard-options-${kebab(target)}`
@@ -101,7 +101,7 @@ class DashboardOptions {
 
     this.element.addEventListener('click', (event) => this.handleClick(event))
 
-    ;['productionTypeOptions', 'unitOptions', 'transmissionOptions'].forEach(key => {
+    ;['productionTypeOptions', 'productionTypeGroupOptions', 'unitOptions', 'transmissionOptions'].forEach(key => {
       this[`${key}Target`]?.addEventListener('change', (event) => this.toggleMultiSelectCheckbox(event))
     })
 
@@ -118,6 +118,8 @@ class DashboardOptions {
     if (event.target.closest('.production-type-selector .dropdown__apply')) return this.applyProductionType(event)
     if (event.target.closest('.multiplier-selector > .dropdown__trigger')) return this.toggleSectionMenu(event, this.multiplierMenuTarget)
     if (event.target.closest('.multiplier-selector .dropdown__apply')) return this.applyMultipliers(event)
+    if (event.target.closest('.production-type-group-selector > .dropdown__trigger')) return this.toggleSectionMenu(event, this.productionTypeGroupMenuTarget)
+    if (event.target.closest('.production-type-group-selector .dropdown__apply')) return this.applyProductionTypeGroup(event)
     if (event.target.closest('.transmission-selector > .dropdown__trigger')) return this.toggleSectionMenu(event, this.transmissionMenuTarget)
     if (event.target.closest('.transmission-selector .dropdown__apply')) return this.applyTransmission(event)
     if (event.target.closest('.unit-selector > .dropdown__trigger')) return this.toggleSectionMenu(event, this.unitMenuTarget)
@@ -182,9 +184,11 @@ class DashboardOptions {
     }
 
     syncCheckboxesFromQuery(this.productionTypeOptionsTarget, 'production_type', { defaultToAll: true })
+    syncCheckboxesFromQuery(this.productionTypeGroupOptionsTarget, 'production_type_group', { defaultToAll: true })
     syncCheckboxesFromQuery(this.transmissionOptionsTarget, 'transmission')
     syncCheckboxesFromQuery(this.unitOptionsTarget, 'units', { selector: '.unit-checkbox', defaultToAll: true })
     this.updateUI()
+    this.updateProductionTypeGroupUI()
     this.updateTransmissionUI()
     this.filterUnitsByProductionType(this.getSelectedProductionTypes())
     
@@ -196,6 +200,10 @@ class DashboardOptions {
 
     if (this.hasProductionTypeSectionTarget) {
       this.productionTypeSectionTarget.style.display = dashboardHasFeature(dashboard, 'production_type_selector') ? 'flex' : 'none'
+    }
+    
+    if (this.hasProductionTypeGroupSectionTarget) {
+      this.productionTypeGroupSectionTarget.style.display = dashboardHasFeature(dashboard, 'production_type_group_selector') ? 'flex' : 'none'
     }
     
     if (this.hasSimulationSectionTarget) {
@@ -229,6 +237,19 @@ class DashboardOptions {
     if (this.hasTransmissionSectionTarget) {
       this.transmissionSectionTarget.style.display = dashboardHasFeature(dashboard, 'transmission_selector') ? 'flex' : 'none'
     }
+  }
+
+  renderProductionTypeGroups(groups) {
+    if (!this.hasProductionTypeGroupOptionsTarget) return
+
+    const query = router.getQuery()
+    const currentGroups = query.production_type_group ? query.production_type_group.split(',') : []
+
+    renderMultiSelectOptions(this.productionTypeGroupOptionsTarget, groups, {
+      idPrefix: 'production-type-group',
+      selected: currentGroups,
+    })
+    this.updateProductionTypeGroupUI()
   }
 
   renderProductionTypes(productionTypes) {
@@ -314,6 +335,7 @@ class DashboardOptions {
     })
 
     if (container === this.productionTypeOptionsTarget) this.updateUI()
+    if (container === this.productionTypeGroupOptionsTarget) this.updateProductionTypeGroupUI()
     if (container === this.transmissionOptionsTarget) this.updateTransmissionUI()
   }
 
@@ -359,6 +381,23 @@ class DashboardOptions {
 
   getSelectedProductionTypes() {
     return this.hasProductionTypeOptionsTarget ? checkedValues(this.productionTypeOptionsTarget) : []
+  }
+
+  applyProductionTypeGroup() {
+    closeAllDropdowns()
+    updateMultiSelectQuery(this.productionTypeGroupOptionsTarget, 'production_type_group')
+  }
+
+  updateProductionTypeGroupUI() {
+    if (!this.hasProductionTypeGroupSelectedTextTarget) return
+    const selected = checkedValues(this.productionTypeGroupOptionsTarget).filter(v => v !== 'all')
+    if (selected.length === 0) {
+      this.productionTypeGroupSelectedTextTarget.textContent = 'All'
+    } else if (selected.length === 1) {
+      this.productionTypeGroupSelectedTextTarget.textContent = titleize(selected[0])
+    } else {
+      this.productionTypeGroupSelectedTextTarget.textContent = `${selected.length} groups`
+    }
   }
 
   applyUnits() {

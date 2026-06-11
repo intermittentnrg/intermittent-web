@@ -64,6 +64,7 @@ export async function dashboardSpa(request: FastifyRequest<{ Params: DashboardPa
     params: { ...params, ...query },
     dashboardType,
     productionType: productionTypeLabel(query.production_type),
+    productionTypeGroupLabel: productionTypeGroupLabel(query.production_type_group),
     unitLabel: unitLabelText,
     prices: query.prices === "true" || query.prices === "1",
     temps: query.temps === "true" || query.temps === "1",
@@ -78,6 +79,16 @@ export async function dashboardSpa(request: FastifyRequest<{ Params: DashboardPa
     resolutions: ["5m", "15m", "30m", "1h", "6h", "12h", "1d", "1w", "1M"],
     ...areas,
   });
+}
+
+function productionTypeGroupLabel(groups?: string) {
+  if (!groups || groups === "all") return "All";
+  const items = groups.split(",").filter(Boolean);
+  if (items.length === 0 || items.includes("all")) return "All";
+  if (items.length === 1) {
+    return items[0].replace(/^\d+_/, "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+  return `${items.length} groups`;
 }
 
 function productionTypeLabel(productionType?: string) {

@@ -7,6 +7,7 @@ import { getLoadSeries } from "./shared/load.ts";
 import type { DashboardParams, DashboardQuery, TimeMetricValueRow } from "./shared/types.ts";
 import type { UplotSeriesDesc } from "./shared/uplotOptions.ts";
 import { colorsFromQuery } from "./shared/colors.ts";
+import { getProductionTypeGroupOptions } from "./shared/productionTypes.ts";
 
 const SQL_GEN = `
   WITH _g AS (
@@ -101,8 +102,8 @@ export async function electricityMix(
     return reply.code(400).send({ error: "No valid areas found" });
 
   const intervalSql = `${ctx.interval} seconds`;
-  const productionTypeGroups = request.query.production_type_groups
-    ? request.query.production_type_groups.split(",").map((s) => s.trim()).filter(Boolean)
+  const productionTypeGroups = request.query.production_type_group
+    ? request.query.production_type_group.split(",").map((s) => s.trim()).filter(Boolean)
     : null;
   const baseArgs: [string, Date, Date, number[]] = [
     intervalSql,
@@ -132,6 +133,8 @@ export async function electricityMix(
   const loadSeries = request.query.load ? await getLoadSeries(request, baseArgs) : [];
   const priceSeries = request.query.prices ? await getPriceSeries(request, baseArgs, { scale: "%" }) : [];
 
+  const ptgOptions = await getProductionTypeGroupOptions(ctx.areaIds);
+
   // Build uPlot-compatible data and options
   if (startTime == null || (mainSeries.length === 0 && loadSeries.length === 0 && priceSeries.length === 0)) {
     return sendUplotResponse(request, reply, {
@@ -140,7 +143,7 @@ export async function electricityMix(
       startTime: 0,
       interval: 0,
       timezone: ctx.timezone,
-    });
+    }, { production_type_group: ptgOptions });
   }
 
   return sendUplotResponse(request, reply, {
@@ -150,7 +153,7 @@ export async function electricityMix(
     startTime,
     interval,
     timezone: ctx.timezone,
-  });
+  }, { production_type_group: ptgOptions });
 }
 
 function buildSeriesFromData(rows: TimeMetricValueRow[], colorFn: (metric: string) => string | undefined): UplotSeriesDesc[] {

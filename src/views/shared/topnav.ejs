@@ -22,6 +22,14 @@
       displayFeature: 'production_type_selector'
     }) %>
 
+    <%- include('topnav_multi_select', {
+      sectionClass: 'production-type-group-selector',
+      targetPrefix: 'production-type-group',
+      label: 'Production Type Group',
+      defaultValue: productionTypeGroupLabel || 'All',
+      displayFeature: 'production_type_group_selector'
+    }) %>
+
     <div class="topnav-item multiplier-selector dashboard-options-simulation-section" id="dashboard-options-simulation-section"
          style="display: <%= dashboardHasFeature(dashboardType, 'simulation_multipliers') ? 'flex' : 'none' %>;">
       <label>Multipliers</label>

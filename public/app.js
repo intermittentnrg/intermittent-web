@@ -11,6 +11,7 @@ initChart({
   onDataLoaded(data) {
     if (data.timezone) topnavDate?.updateTimezone(data.timezone);
     if (data.production_types) dashboardOptions?.renderProductionTypes(data.production_types);
+    if (data.production_type_group) dashboardOptions?.renderProductionTypeGroups(data.production_type_group);
     if (data.units) dashboardOptions?.loadUnits(data.units);
     if (data.transmission_lines) dashboardOptions?.loadTransmissionLines(data.transmission_lines);
   },

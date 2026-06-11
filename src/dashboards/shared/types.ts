@@ -33,7 +33,7 @@ export type DashboardQuery = {
   solar_multiplier?: string;
   demand_multiplier?: string;
   colors?: string;
-  production_type_groups?: string;
+  production_type_group?: string;
   transmission_lines?: string;
 };
 

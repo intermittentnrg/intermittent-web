@@ -15,7 +15,7 @@ type ElectricityMixProfile = {
 
 const profiles: Record<string, ElectricityMixProfile> = {
   de: {
-    url: "/europe/country/DE/2025-10-01_to_2026-06-01/electricity_mix.json?production_type_groups=08_wind_offshore,09_wind_onshore,11_solar&transmission=0&load=1",
+    url: "/europe/country/DE/2025-10-01_to_2026-06-01/electricity_mix.json?production_type_group=08_wind_offshore,09_wind_onshore,11_solar&transmission=0&load=1",
     output: "render/electricity-mix-de.mp4",
     framerate: "30",
     fps: "30",

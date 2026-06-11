@@ -8,7 +8,7 @@ export const dashboardTabGroups = [
   {
     label: "Electricity Mix",
     items: [
-      { key: "electricity_mix", label: "Electricity Mix", chartLibrary: "uplot", features: ["prices_checkbox", "load_checkbox", "transmission_checkbox"] },
+      { key: "electricity_mix", label: "Electricity Mix", chartLibrary: "uplot", features: ["prices_checkbox", "load_checkbox", "transmission_checkbox", "production_type_group_selector"] },
       { key: "simulation", label: "Simulation", chartLibrary: "uplot", features: ["production_type_selector", "transmission_checkbox", "simulation_multipliers"] },
     ],
   },
