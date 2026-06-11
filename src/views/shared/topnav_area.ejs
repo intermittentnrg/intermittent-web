@@ -1,20 +1,14 @@
 <div id="topnav-area" class="topnav-item area-selector">
-  <label for="location-selector-btn">Location</label>
-  <button type="button" id="location-selector-btn" class="dropdown__trigger location-selector-btn">
+  <label for="area-selector-btn">Area</label>
+  <button type="button" id="area-selector-btn" class="dropdown__trigger area-selector__trigger">
     <% const selectedRegionLabel = params.region.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) %>
-    <% const selectedAreasLabel = params.area === 'all' ? 'All areas' : params.area %>
+    <% const selectedAreasLabel = params.area === 'all' ? 'All areas' : params.area.replace(/,/g, ', ') %>
     <span class="dropdown__value"><%= selectedRegionLabel %> • <%= selectedAreasLabel %></span>
     <span class="dropdown__arrow">▼</span>
   </button>
 
   <div class="dropdown__panel area-selector__panel">
-    <div class="area-selector__header">
-      <h3 class="area-selector__title">Location</h3>
-      <button type="button" class="area-selector__close" aria-label="Close location menu">×</button>
-    </div>
-
-    <div class="dropdown__content area-selector__content">
-      <ul class="area-selector__tree" data-area-tree>
+    <ul class="area-selector__tree" data-area-tree>
         <% regions.forEach((region) => { %>
           <% const regionLabel = region.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) %>
           <li class="area-selector__node" data-node-type="region" data-region="<%= region %>">
@@ -54,8 +48,7 @@
             </ul>
           </li>
         <% }) %>
-      </ul>
-    </div>
+    </ul>
 
     <div class="dropdown__actions">
       <button type="button" class="dropdown__apply">Apply</button>

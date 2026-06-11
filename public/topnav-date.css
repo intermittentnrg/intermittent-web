@@ -1,12 +1,12 @@
-.date-range-menu {
-  width: 380px;
+.date-range-selector__panel {
+  width: 440px;
 }
 
-.date-range-panes {
+.date-range-selector__panes {
   display: flex;
 }
 
-.date-range-preset {
+.date-range-selector__presets {
   flex: 1;
   padding: 8px;
   overflow-y: auto;
@@ -14,13 +14,13 @@
   border-right: 1px solid #e5e7eb;
 }
 
-.date-range-fromto {
+.date-range-selector__custom {
   flex: 1;
   display: flex;
   flex-direction: column;
 }
 
-.date-range-fromto-body {
+.date-range-selector__custom-body {
   flex: 1;
   padding: 12px;
   display: flex;
@@ -28,17 +28,17 @@
   gap: 8px;
 }
 
-.date-range-fromto .dropdown__actions {
+.date-range-selector__custom .dropdown__actions {
   margin-top: auto;
 }
 
-.date-range-fromto .date-input-group {
+.date-range-selector__input-group {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.date-range-fromto .date-input-group label {
+.date-range-selector__input-group label {
   font-size: 10px;
   font-weight: 600;
   color: #6b7280;
@@ -47,7 +47,7 @@
   margin: 0;
 }
 
-.date-range-fromto .date-input {
+.date-range-selector__input {
   width: 100%;
   height: 28px;
   padding: 4px 8px;
@@ -58,49 +58,50 @@
   transition: background-color 0.2s, color 0.2s, border-color 0.2s;
 }
 
-.date-range-fromto .date-input:focus {
+.date-range-selector__input:focus {
   outline: none;
   border-color: #3b82f6;
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
-.date-range-fromto .date-input.preset-mode {
+.date-range-selector__input--preset {
   background-color: #f3f4f6;
   color: #6b7280;
   font-style: italic;
   border-color: #d1d5db;
 }
 
-.date-range-btn {
+.date-range-selector__trigger {
   width: 162px;
 }
 
-.date-range-hint {
+.date-range-selector__hint {
   font-size: 10px;
   color: #374151;
   line-height: 1.6;
   text-align: left;
 }
 
-.date-range-hint-label {
+.date-range-selector__hint-label {
   color: #6b7280;
 }
 
-.resolution-menu {
+.resolution-selector__panel {
   width: 100px;
   padding: 8px;
 }
 
 @media (max-width: 768px) {
-  .date-range-menu {
-    width: 300px;
+  .date-range-selector__panel {
+    left: 16px !important;
+    width: calc(100vw - 32px);
   }
 
-  .date-range-btn {
+  .date-range-selector__trigger {
     width: 110px;
   }
 
-  .date-range-fromto .date-input {
+  .date-range-selector__input {
     width: 100%;
   }
 }

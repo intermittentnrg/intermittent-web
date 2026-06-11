@@ -53,23 +53,23 @@ export function initTopnavDashboard() {
     const dashboard = router.parsePath()?.dashboard
 
     root.querySelectorAll(".dashboard-tab").forEach(tab => {
-      tab.classList.toggle("selected", tab.getAttribute('href') === dashboard)
+      tab.classList.toggle("dashboard-tab--selected", tab.getAttribute('href') === dashboard)
     })
 
     root.querySelectorAll(".dashboard-dropdown-item").forEach(item => {
       const isActive = item.getAttribute('href') === dashboard
-      item.classList.toggle("selected", isActive)
+      item.classList.toggle("dashboard-dropdown-item--selected", isActive)
 
       if (isActive) {
         const group = item.closest(".dashboard-tab-group")
         const parentTab = group?.querySelector(".dashboard-tab")
-        parentTab?.classList.add("selected")
+        parentTab?.classList.add("dashboard-tab--selected")
       }
     })
   }
 
   function updateWindowTitle() {
-    const selectedTab = root.querySelector(".dashboard-tab.selected")
+    const selectedTab = root.querySelector(".dashboard-tab--selected")
     const areaButton = document.querySelector("#topnav-area .dropdown__value")
     const dashboardTitle = selectedTab?.textContent.trim()
     const areaText = areaButton?.textContent.trim()

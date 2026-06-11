@@ -1,15 +1,7 @@
 /* Area Selector — a tree-based multi-select dropdown inside dropdown__panel */
 
-.area-selector__content {
-  max-height: none;
-  padding: 0;
-}
-
-.area-selector__header {
-  display: none;
-}
-
-.area-selector__tree {
+.area-selector__tree,
+.area-selector__child-tree {
   list-style: none;
   margin: 0;
   padding: 8px;
@@ -34,16 +26,7 @@
   text-align: left;
 }
 
-.area-selector__node-button:hover {
-  background: #f3f4f6;
-}
-
-.area-selector__node.is-selected > .area-selector__node-button {
-  background: #3b82f6;
-  color: white;
-}
-
-.area-selector__node.is-selected > .area-selector__node-button .area-selector__node-arrow {
+.area-selector__node--selected > .area-selector__node-button .area-selector__node-arrow {
   color: white;
 }
 
@@ -62,10 +45,6 @@
   gap: 8px;
 }
 
-.dropdown__option.selected .dropdown__label {
-  color: white;
-}
-
 .area-selector__checkbox {
   flex-shrink: 0;
 }
@@ -75,24 +54,6 @@
   font-size: 13px;
   color: #111827;
   cursor: pointer;
-}
-
-.area-selector__close {
-  background: #f3f4f6;
-  border: 1px solid #d1d5db;
-  font-size: 14px;
-  cursor: pointer;
-  color: #374151;
-  padding: 4px 8px;
-  line-height: 1;
-  border-radius: 4px;
-  min-width: 28px;
-  text-align: center;
-}
-
-.area-selector__close:hover {
-  background: #e5e7eb;
-  color: #1f2937;
 }
 
 .dropdown__actions {
@@ -122,113 +83,75 @@
   border-color: #2563eb;
 }
 
-/* Desktop: three-column layout */
+/* Desktop: two-column layout (left: inline tree, right: area.code column) */
 @media (min-width: 769px) {
   .area-selector__panel.open {
     display: block;
-    width: 600px;
+    width: 440px;
     height: 550px;
-    overflow: visible;
+    overflow: hidden;
   }
 
+  /* Left column — inline tree (region + area_type, indented like mobile) */
   .area-selector__panel > .area-selector__tree {
-    position: relative;
-    width: 200px;
-    height: calc(100% - 57px);
-    box-sizing: border-box;
-    border-right: 1px solid #e5e7eb;
-    overflow: visible;
-  }
-
-  .area-selector__node > .area-selector__child-tree {
-    display: none;
-    position: absolute;
-    top: 0;
-    width: 200px;
+    width: 220px;
     height: 100%;
     box-sizing: border-box;
-    overflow: visible;
-    background: white;
     border-right: 1px solid #e5e7eb;
-  }
-
-  .area-selector__node[data-node-type="region"] > .area-selector__child-tree {
-    left: 200px;
-  }
-
-  .area-selector__node[data-node-type="area-type"] > .area-selector__child-tree {
-    left: 200px;
-  }
-
-  .area-selector__node.is-open > .area-selector__child-tree {
-    display: block;
-  }
-
-  .area-selector__node[data-node-type="area-type"].is-open > .area-selector__child-tree {
     overflow-y: auto;
   }
 
-  .area-selector__node[data-node-type="area-type"].is-open > .area-selector__child-tree {
-    border-right: none;
+  .area-selector__node[data-node-type="region"] > .area-selector__child-tree {
+    display: none;
+    padding: 4px 0 4px 14px;
+    margin-left: 10px;
+    border-left: 1px solid #e5e7eb;
+  }
+
+  .area-selector__node[data-node-type="region"].area-selector__node--open > .area-selector__child-tree {
+    display: block;
+  }
+
+  /* Right column — area.code list, positioned relative to the panel */
+  .area-selector__node[data-node-type="area-type"] > .area-selector__child-tree {
+    display: none;
+    position: absolute;
+    left: 220px;
+    top: 0;
+    width: 220px;
+    height: calc(100% - 57px);
+    box-sizing: border-box;
+    overflow-y: auto;
+    padding: 8px;
+  }
+
+  .area-selector__node[data-node-type="area-type"].area-selector__node--open > .area-selector__child-tree {
+    display: block;
   }
 
   .area-selector__panel > .dropdown__actions {
     position: absolute;
-    right: 0;
     bottom: 0;
-    width: 200px;
+    left: 220px;
+    width: 220px;
     box-sizing: border-box;
   }
 }
 
 /* Mobile: accordion layout */
 @media (max-width: 768px) {
-  .area-selector__panel {
-    position: fixed;
-    top: 74px !important;
-    left: 16px !important;
-    right: 16px;
-    width: auto;
-    max-width: none;
-    height: calc(100vh - 90px);
-    height: calc(100dvh - 90px);
-    max-height: calc(100vh - 90px);
-    max-height: calc(100dvh - 90px);
-    flex-direction: column;
-    border-radius: 0;
-    border-left: none;
-    border-right: none;
-    box-sizing: border-box;
-    overflow: hidden;
-  }
-
   .area-selector__panel.open {
     display: flex;
-  }
-
-  .area-selector__header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-shrink: 0;
-    padding: 12px 16px;
-    border-bottom: 1px solid #e5e7eb;
-    background: #f9fafb;
-  }
-
-  .area-selector__title {
-    margin: 0;
-    font-size: 14px;
-    font-weight: 600;
-    color: #1f2937;
+    flex-direction: column;
+    left: 16px !important;
+    width: calc(100vw - 32px);
+    max-height: 80vh;
   }
 
   .area-selector__panel > .area-selector__tree {
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
   }
 
   .area-selector__node > .area-selector__child-tree {
@@ -238,11 +161,11 @@
     border-left: 1px solid #e5e7eb;
   }
 
-  .area-selector__node.is-open > .area-selector__child-tree {
+  .area-selector__node--open > .area-selector__child-tree {
     display: block;
   }
 
-  .area-selector__node.is-open > .area-selector__node-button .area-selector__node-arrow {
+  .area-selector__node--open > .area-selector__node-button .area-selector__node-arrow {
     transform: rotate(90deg);
   }
 

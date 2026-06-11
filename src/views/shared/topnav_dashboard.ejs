@@ -2,10 +2,10 @@
   <div class="dashboard-tabs">
     <% dashboardTabGroups.forEach(function(group) { %>
       <% if (group.items.length === 1) { %>
-        <a href="<%= group.items[0].key %>" class="dashboard-tab <%= dashboardType === group.items[0].key ? 'selected' : '' %>"><%= group.items[0].label %></a>
+        <a href="<%= group.items[0].key %>" class="dashboard-tab <%= dashboardType === group.items[0].key ? 'dashboard-tab--selected' : '' %>"><%= group.items[0].label %></a>
       <% } else { %>
         <div class="dashboard-tab-group">
-          <a href="<%= group.items[0].key %>" class="dashboard-tab <%= group.items.some(function(i) { return i.key === dashboardType }) ? 'selected' : '' %>"><%= group.label %></a>
+          <a href="<%= group.items[0].key %>" class="dashboard-tab <%= group.items.some(function(i) { return i.key === dashboardType }) ? 'dashboard-tab--selected' : '' %>"><%= group.label %></a>
         </div>
       <% } %>
     <% }); %>

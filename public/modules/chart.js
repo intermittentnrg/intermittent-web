@@ -202,8 +202,8 @@ class ChartModule {
     const fromInput = document.getElementById('date-from')
     const toInput = document.getElementById('date-to')
 
-    fromInput?.classList.remove('preset-mode')
-    toInput?.classList.remove('preset-mode')
+    fromInput?.classList.remove('date-range-selector__input--preset')
+    toInput?.classList.remove('date-range-selector__input--preset')
     if (fromInput) fromInput.value = from
     if (toInput) toInput.value = to
     router.updatePath({ from, to })

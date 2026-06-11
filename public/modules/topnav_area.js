@@ -6,8 +6,8 @@ export function initTopnavArea() {
   if (!root) return
 
   const panel = root.querySelector('.area-selector__panel')
-  const selectorButton = root.querySelector('.location-selector-btn')
-  const selectionText = root.querySelector('.location-selector-btn .dropdown__value')
+  const selectorButton = root.querySelector('.area-selector__trigger')
+  const selectionText = root.querySelector('.area-selector__trigger .dropdown__value')
   const tree = root.querySelector('[data-area-tree]')
 
   let region = null
@@ -38,7 +38,7 @@ export function initTopnavArea() {
 
   function setNodeOpen(node, open) {
     if (!node) return
-    node.classList.toggle('is-open', open)
+    node.classList.toggle('area-selector__node--open', open)
     const button = node.querySelector(':scope > .area-selector__node-button')
     if (button) button.setAttribute('aria-expanded', open ? 'true' : 'false')
   }
@@ -52,11 +52,11 @@ export function initTopnavArea() {
 
     topLevelRegionNodes().forEach(node => {
       const selected = node.dataset.region === region
-      node.classList.toggle('is-selected', selected)
+      node.classList.toggle('area-selector__node--selected', selected)
       setNodeOpen(node, selected)
       areaTypeNodesForRegion(node).forEach(typeNode => {
         const typeSelected = selected && typeNode.dataset.areaType === areaType
-        typeNode.classList.toggle('is-selected', typeSelected)
+        typeNode.classList.toggle('area-selector__node--selected', typeSelected)
         setNodeOpen(typeNode, typeSelected)
       })
     })
@@ -71,7 +71,7 @@ export function initTopnavArea() {
     const regionNode = findRegionNode()
     areaTypeNodesForRegion(regionNode).forEach(node => {
       const selected = node.dataset.areaType === areaType
-      node.classList.toggle('is-selected', selected)
+      node.classList.toggle('area-selector__node--selected', selected)
       setNodeOpen(node, selected)
     })
 
@@ -93,10 +93,9 @@ export function initTopnavArea() {
       allCheckbox.checked = false
     }
 
-    // Sync .selected class on parent rows
     areaTypeNode.querySelectorAll('.dropdown__option').forEach(option => {
       const cb = option.querySelector('.area-selector__checkbox')
-      if (cb) option.classList.toggle('selected', cb.checked)
+      if (cb) option.classList.toggle('dropdown__option--selected', cb.checked)
     })
   }
 
@@ -122,10 +121,9 @@ export function initTopnavArea() {
     if (selected.includes('all')) {
       const allCheckbox = areaTypeNode.querySelector('.area-selector__checkbox[value="all"]')
       if (allCheckbox) allCheckbox.checked = true
-      // Sync .selected class
       areaTypeNode.querySelectorAll('.dropdown__option').forEach(option => {
         const cb = option.querySelector('.area-selector__checkbox')
-        if (cb) option.classList.toggle('selected', cb.checked)
+        if (cb) option.classList.toggle('dropdown__option--selected', cb.checked)
       })
       return
     }
@@ -133,7 +131,7 @@ export function initTopnavArea() {
     areaTypeNode.querySelectorAll('.area-selector__checkbox').forEach(cb => {
       cb.checked = selected.includes(cb.value)
       const option = cb.closest('.dropdown__option')
-      if (option) option.classList.toggle('selected', cb.checked)
+      if (option) option.classList.toggle('dropdown__option--selected', cb.checked)
     })
   }
 
@@ -152,12 +150,12 @@ export function initTopnavArea() {
   function syncOpenState() {
     topLevelRegionNodes().forEach(regionNode => {
       const regionSelected = regionNode.dataset.region === region
-      regionNode.classList.toggle('is-selected', regionSelected)
+      regionNode.classList.toggle('area-selector__node--selected', regionSelected)
       setNodeOpen(regionNode, regionSelected)
 
       areaTypeNodesForRegion(regionNode).forEach(typeNode => {
         const typeSelected = regionSelected && typeNode.dataset.areaType === areaType
-        typeNode.classList.toggle('is-selected', typeSelected)
+        typeNode.classList.toggle('area-selector__node--selected', typeSelected)
         setNodeOpen(typeNode, typeSelected)
       })
     })
@@ -173,8 +171,7 @@ export function initTopnavArea() {
   }
 
   root.addEventListener('click', event => {
-    if (event.target.closest('.location-selector-btn')) return toggleMenu(panel, selectorButton)
-    if (event.target.closest('.area-selector__close')) return closeAllDropdowns()
+    if (event.target.closest('.area-selector__trigger')) return toggleMenu(panel, selectorButton)
 
     const regionButton = event.target.closest('.area-selector__node[data-node-type="region"] > .area-selector__node-button')
     if (regionButton) return selectRegion(regionButton.closest('.area-selector__node').dataset.region)

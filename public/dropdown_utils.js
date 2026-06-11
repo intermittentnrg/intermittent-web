@@ -2,9 +2,6 @@ function closeAllDropdowns() {
   document.querySelectorAll('.open').forEach(el => {
     el.classList.remove('open')
   })
-  document.querySelectorAll('.dropdown-open').forEach(el => {
-    el.classList.remove('dropdown-open')
-  })
 }
 
 function positionMenu(button, menu) {
@@ -32,7 +29,7 @@ function toggleMenu(menu, button) {
 
 
 document.addEventListener('click', (event) => {
-  const clickedInside = event.target.closest('.open, .dropdown__trigger, .dropdown-open')
+  const clickedInside = event.target.closest('.open, .dropdown__trigger')
   if (!clickedInside) {
     closeAllDropdowns()
   }

@@ -47,12 +47,13 @@
   text-align: left;
 }
 
-.dropdown__option:hover {
-  background: #f3f4f6;
+.dropdown__option--selected,
+.area-selector__node--selected > .area-selector__node-button {
+  background: #3b82f6;
+  color: white;
 }
 
-.dropdown__option.selected {
-  background: #3b82f6;
+.dropdown__option--selected .dropdown__label {
   color: white;
 }
 

@@ -66,7 +66,7 @@ function syncCheckboxesFromQuery(container, queryParam, { selector = '.dropdown_
   container.querySelectorAll(selector).forEach(cb => {
     cb.checked = cb.value === 'all' ? allSelected : selected.includes(cb.value)
     const option = cb.closest('.dropdown__option')
-    if (option) option.classList.toggle('selected', cb.checked)
+    if (option) option.classList.toggle('dropdown__option--selected', cb.checked)
   })
 }
 
@@ -328,10 +328,9 @@ class DashboardOptions {
 
     updateAllCheckboxSelection(container, checkbox, checkbox.classList.contains('unit-checkbox') ? '.unit-checkbox' : '.dropdown__checkbox')
 
-    // Sync .selected class on parent rows
     container.querySelectorAll('.dropdown__checkbox').forEach(cb => {
       const option = cb.closest('.dropdown__option')
-      if (option) option.classList.toggle('selected', cb.checked)
+      if (option) option.classList.toggle('dropdown__option--selected', cb.checked)
     })
 
     if (container === this.productionTypeOptionsTarget) this.updateUI()

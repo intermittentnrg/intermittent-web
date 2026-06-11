@@ -7,10 +7,10 @@ export function initTopnavDate() {
 
   const fromInput = document.getElementById('date-from')
   const toInput = document.getElementById('date-to')
-  const menu = root.querySelector('.date-range-menu')
-  const presetText = root.querySelector('.date-range-btn .dropdown__value')
-  const resolutionMenu = root.querySelector('.resolution-menu')
-  const resolutionSelectedText = root.querySelector('.resolution-btn .dropdown__value')
+  const menu = root.querySelector('.date-range-selector__panel')
+  const presetText = root.querySelector('.date-range-selector__trigger .dropdown__value')
+  const resolutionMenu = root.querySelector('.resolution-selector__panel')
+  const resolutionSelectedText = root.querySelector('.resolution-selector__trigger .dropdown__value')
   const timezone = root.querySelector('.timezone-selector')
 
   let preset = null
@@ -30,7 +30,7 @@ export function initTopnavDate() {
     if (!resolutionMenu) return
     const currentResolution = getResolution()
     resolutionMenu.querySelectorAll(".dropdown__option").forEach(option => {
-      option.classList.toggle("selected", option.dataset.resolution === currentResolution)
+      option.classList.toggle("dropdown__option--selected", option.dataset.resolution === currentResolution)
     })
   }
 
@@ -120,14 +120,14 @@ export function initTopnavDate() {
 
   function updateSelectedState() {
     menu.querySelectorAll(".dropdown__option").forEach(option => {
-      option.classList.toggle("selected", option.dataset.preset === preset)
+      option.classList.toggle("dropdown__option--selected", option.dataset.preset === preset)
     })
   }
 
   function updateUI() {
     if (presetText) presetText.textContent = preset ? getPresetDisplayName(preset) : `${fromInput.value} - ${toInput.value}`
-    fromInput.classList.toggle('preset-mode', !!preset)
-    toInput.classList.toggle('preset-mode', !!preset)
+    fromInput.classList.toggle('date-range-selector__input--preset', !!preset)
+    toInput.classList.toggle('date-range-selector__input--preset', !!preset)
   }
 
   function getPresetDisplayName(presetName) {
@@ -150,17 +150,17 @@ export function initTopnavDate() {
   }
 
   root.addEventListener('click', event => {
-    const presetButton = event.target.closest('.date-range-menu .dropdown__option')
+    const presetButton = event.target.closest('.date-range-selector__panel .dropdown__option')
     if (presetButton) return selectPreset(presetButton)
 
     const applyButton = event.target.closest('.dropdown__apply')
     if (applyButton) return applyDateRange()
 
-    const resolutionButton = event.target.closest('.resolution-menu .dropdown__option')
+    const resolutionButton = event.target.closest('.resolution-selector__panel .dropdown__option')
     if (resolutionButton) return selectResolution(resolutionButton)
 
-    if (event.target.closest('.date-range-btn')) return toggleMenu(menu, root.querySelector('.date-range-btn'))
-    if (event.target.closest('.resolution-btn')) return toggleMenu(resolutionMenu, root.querySelector('.resolution-btn'))
+    if (event.target.closest('.date-range-selector__trigger')) return toggleMenu(menu, root.querySelector('.date-range-selector__trigger'))
+    if (event.target.closest('.resolution-selector__trigger')) return toggleMenu(resolutionMenu, root.querySelector('.resolution-selector__trigger'))
   })
 
   fromInput.addEventListener('focus', onDateInputFocus)

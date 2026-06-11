@@ -12,11 +12,6 @@
 
 /* Dashboard Tab Group with Dropdown */
 
-.dashboard-tab-group.dropdown-open > .dashboard-tab::after {
-  transform: rotate(180deg);
-  opacity: 1;
-}
-
 .dashboard-dropdown {
   position: absolute;
   top: 100%;
@@ -31,7 +26,6 @@
   padding: 4px;
 }
 
-.dashboard-tab-group.dropdown-open .dashboard-dropdown,
 .dashboard-tab-group:hover .dashboard-dropdown {
   display: block;
 }
@@ -56,7 +50,7 @@
   color: #1f2937;
 }
 
-.dashboard-dropdown-item.selected {
+.dashboard-dropdown-item--selected {
   background-color: #eff6ff;
   color: #3b82f6;
   font-weight: 500;
