@@ -15,40 +15,40 @@ export const dashboardTabGroups = [
   {
     label: "Generation",
     items: [
-      { key: "generation", label: "Generation", features: ["production_type_selector", "prices_checkbox", "temps_checkbox", "load_checkbox", "transmission_checkbox"] },
-      { key: "generation_min_max", label: "Min/Max", features: ["production_type_selector"] },
-      { key: "generation_total", label: "Total", features: ["production_type_selector"] },
-      { key: "generation_yoy", label: "YoY", features: ["production_type_selector"] },
+      { key: "generation", label: "Generation", chartLibrary: "uplot", features: ["production_type_selector", "prices_checkbox", "temps_checkbox", "load_checkbox", "transmission_checkbox"] },
+      { key: "generation_min_max", label: "Min/Max", chartLibrary: "uplot", features: ["production_type_selector"] },
+      { key: "generation_total", label: "Total", chartLibrary: "uplot", features: ["production_type_selector"] },
+      { key: "generation_yoy", label: "YoY", chartLibrary: "uplot", features: ["production_type_selector"] },
     ],
   },
   {
     label: "Demand",
     items: [
-      { key: "demand", label: "Demand", features: [] },
-      { key: "demand_min_max", label: "Min/Max", features: [] },
-      { key: "demand_yoy", label: "YoY", features: [] },
+      { key: "demand", label: "Demand", chartLibrary: "uplot", features: [] },
+      { key: "demand_min_max", label: "Min/Max", chartLibrary: "uplot", features: [] },
+      { key: "demand_yoy", label: "YoY", chartLibrary: "uplot", features: [] },
     ],
   },
   {
     label: "Transmission",
     items: [
-      { key: "transmission", label: "Transmission", features: ["transmission_selector"] },
+      { key: "transmission", label: "Transmission", chartLibrary: "uplot", features: ["transmission_selector"] },
     ],
   },
   {
     label: "Per Unit",
     items: [
-      { key: "per_unit", label: "Per Unit", features: ["production_type_selector", "per_unit_selector"] },
+      { key: "per_unit", label: "Per Unit", chartLibrary: "uplot", features: ["production_type_selector", "per_unit_selector"] },
       { key: "per_unit_peak", label: "Heatmap", chartLibrary: "uplot", features: ["production_type_selector", "per_unit_selector"] },
-      { key: "per_unit_total", label: "Total", features: ["production_type_selector", "per_unit_selector"] },
-      { key: "per_unit_moving_capacity", label: "Moving Capacity", features: ["production_type_selector", "per_unit_selector"] },
-      { key: "per_unit_battery", label: "Battery", features: ["production_type_selector", "per_unit_selector"] },
+      { key: "per_unit_total", label: "Total", chartLibrary: "uplot", features: ["production_type_selector", "per_unit_selector"] },
+      { key: "per_unit_moving_capacity", label: "Moving Capacity", chartLibrary: "uplot", features: ["production_type_selector", "per_unit_selector"] },
+      { key: "per_unit_battery", label: "Battery", chartLibrary: "uplot", features: ["production_type_selector", "per_unit_selector"] },
     ],
   },
   {
     label: "Prices",
     items: [
-      { key: "prices", label: "Prices", features: [] },
+      { key: "prices", label: "Prices", chartLibrary: "uplot", features: [] },
       { key: "capture_price", label: "Capture Price", chartLibrary: "uplot", features: ["production_type_selector"] },
       { key: "price_map", label: "Price Map", features: [] },
     ],
