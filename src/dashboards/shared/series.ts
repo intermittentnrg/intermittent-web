@@ -137,7 +137,6 @@ export function buildBasicSeries(
   stacked: boolean,
   _unit: string,
   options: {
-    areaColors?: boolean;
     colorForMetric?: (metric: string) => string | undefined;
     stackForMetric?: (
       metric: string,

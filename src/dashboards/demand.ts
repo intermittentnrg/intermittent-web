@@ -6,7 +6,7 @@ import {
   buildPowerLineSeries,
   buildYoySeries,
 } from "./shared/series.ts";
-import { areaColor } from "./shared/colors.ts";
+import { cyclePalette } from "./shared/colors.ts";
 import { sendUplotResponse } from "./shared/chartResponse.ts";
 import type {
   AnyRow,
@@ -40,7 +40,7 @@ export async function demand(
   ]);
   const startTime = rows[0]?.time as number | undefined;
   const interval = ctx.interval;
-  const series = buildPowerLineSeries(rows, areaColor);
+  const series = buildPowerLineSeries(rows, cyclePalette());
 
   if (startTime == null || series.length === 0) {
     return sendUplotResponse(request, reply, {

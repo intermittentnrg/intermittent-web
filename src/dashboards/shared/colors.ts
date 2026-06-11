@@ -111,17 +111,3 @@ export function cyclePalette(): (metric: string) => string {
     return assigned.get(metric)!;
   };
 }
-
-export function areaColor(area: string) {
-  return (
-    (
-      {
-        SE: "rgba(0, 100, 200, 0.7)",
-        NO: "rgba(0, 150, 100, 0.7)",
-        DK: "rgba(200, 50, 50, 0.7)",
-        FI: "rgba(150, 0, 150, 0.7)",
-        DE: "rgba(200, 150, 0, 0.7)",
-      } as Record<string, string>
-    )[area] || "rgba(150,150,150,0.7)"
-  );
-}
