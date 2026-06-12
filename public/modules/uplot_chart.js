@@ -589,7 +589,7 @@ function renderPanel(chartTarget, panels, data, { applyZoomDateRange }) {
 
     const cell = document.createElement('div')
     cell.className = 'uplot-panel'
-    cell.style.cssText = `position:relative;min-height:100px`
+    cell.style.cssText = `position:relative;min-height:100px;min-width:0`
     if (panel.layout) {
       if (panel.layout.gridColumn) cell.style.gridColumn = panel.layout.gridColumn
       if (panel.layout.gridRow) cell.style.gridRow = panel.layout.gridRow
@@ -917,7 +917,7 @@ function resizeUplots(chartTarget) {
     if (parent) {
       p.setSize({
         width: parent.clientWidth,
-        height: parent.clientHeight,
+        height: p.height,
       })
     }
   }
