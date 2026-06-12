@@ -223,6 +223,16 @@ export function initEcharts(chartTarget, { applyZoomDateRange }) {
   const chart = echarts.init(chartTarget)
   chartTarget._echarts = chart
   connectDragZoom(chart, chartTarget, applyZoomDateRange)
+
+  // Set up window resize handler (only once per target)
+  if (!chartTarget._echartsResizeHandler) {
+    chartTarget._echartsResizeHandler = () => {
+      if (chartTarget._echarts) {
+        chartTarget._echarts.resize()
+      }
+    }
+    window.addEventListener('resize', chartTarget._echartsResizeHandler)
+  }
 }
 
 export function renderEcharts(chartTarget, data, { applyZoomDateRange }) {
@@ -274,5 +284,11 @@ export function disposeEcharts(chartTarget) {
   if (chartTarget._echarts) {
     chartTarget._echarts.dispose()
     chartTarget._echarts = null
+  }
+
+  // Clean up resize handler
+  if (chartTarget._echartsResizeHandler) {
+    window.removeEventListener('resize', chartTarget._echartsResizeHandler)
+    chartTarget._echartsResizeHandler = null
   }
 }

@@ -38,21 +38,6 @@ class ChartModule {
 
     this.fetchData()
     router.onChange(() => this.fetchData())
-
-    this.boundHandleResize = this.handleResize.bind(this)
-    window.addEventListener('resize', this.boundHandleResize)
-  }
-
-  destroyChart() {
-    if (this.chartTarget._echarts) {
-      import('./echarts_chart.js').then(m => m.disposeEcharts(this.chartTarget))
-    }
-  }
-
-  handleResize() {
-    if (this.chartTarget._echarts) {
-      this.chartTarget._echarts.resize()
-    }
   }
 
   showLoading() {
