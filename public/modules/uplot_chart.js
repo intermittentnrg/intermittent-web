@@ -110,7 +110,7 @@ function restack(rawData, uSeries, meta) {
 }
 
 /** Draw labels inside each segment of a vertical stacked bar. */
-function drawStackedBarLabels(u, labels) {
+function drawStackedBarLabels(u) {
   const { ctx } = u
   const n = u.data[0]?.length || 0
   if (n === 0) return
@@ -126,69 +126,43 @@ function drawStackedBarLabels(u, labels) {
 
     let prev = 0
     for (let si = 1; si < u.data.length; si++) {
+      if (u.series[si]?.show === false) continue
+
       const cum = u.data[si]?.[di]
       if (cum == null) continue
+
+      // Crossing zero means a new stack group — reset baseline
+      if ((prev > 0 && cum < 0) || (prev < 0 && cum > 0)) prev = 0
+
       const seg = cum - prev
       if (seg === 0) { prev = cum; continue }
 
-      const yStart = u.valToPos(prev, 'y', true)
-      const yEnd = u.valToPos(cum, 'y', true)
+      // Use the series' actual scale (may be "energy" instead of default "y")
+      const scaleKey = u.series[si]?.scale || 'y'
+      const yStart = u.valToPos(prev, scaleKey, true)
+      const yEnd = u.valToPos(cum, scaleKey, true)
       if (yStart == null || yEnd == null) { prev = cum; continue }
 
-      const yMid = (yStart + yEnd) / 2
-      const info = labels[si - 1]
+      const segHeight = Math.abs(yEnd - yStart)
+      const info = u.series[si]?.label
       if (!info) { prev = cum; continue }
 
-      ctx.fillStyle = '#111827'
       const lines = [info, formatEnergy(seg)]
       const lineH = 15
+      const blockH = lines.length * lineH
+
+      // Skip label if the segment is too small — text would overlap neighbours
+      if (segHeight < blockH) { prev = cum; continue }
+
+      const yMid = (yStart + yEnd) / 2
       const startY = yMid - ((lines.length - 1) * lineH) / 2
+
+      ctx.fillStyle = '#111827'
       for (let li = 0; li < lines.length; li++) {
         ctx.fillText(lines[li], xPos, startY + li * lineH)
       }
 
       prev = cum
-    }
-  }
-
-  ctx.restore()
-}
-
-/** Draw name+value labels on top of each bar for single-series or multi-series bar charts. */
-function drawBarValueLabels(u) {
-  const { ctx } = u
-  const n = u.data[0]?.length || 0
-  if (n < 2) return
-
-  ctx.save()
-  ctx.font = '11px system-ui, sans-serif'
-  ctx.textBaseline = 'bottom'
-  ctx.textAlign = 'center'
-
-  for (let si = 1; si < u.data.length; si++) {
-    for (let di = 0; di < n; di++) {
-      const yVal = u.data[si]?.[di]
-      if (yVal == null) continue
-
-      const xPos = u.valToPos(u.data[0][di], 'x', true)
-      // Use the series' actual scale to determine formatting
-      const scaleKey = u.series[si]?.scale || 'y'
-      const yPos = u.valToPos(yVal, scaleKey, true)
-      if (xPos == null || yPos == null) continue
-
-      const name = u.series[si]?.label || ''
-      let val
-      if (scaleKey === 'percent') val = Number(yVal).toFixed(0) + '%'
-      else if (scaleKey === 'price-l' || scaleKey === 'price-r') val = Number(yVal).toFixed(0)
-      else val = formatEnergy(yVal)
-
-      ctx.fillStyle = '#111827'
-      const lines = [name, val].filter(Boolean)
-      const lineH = 13
-      const startY = yPos - 4
-      for (let li = 0; li < lines.length; li++) {
-        ctx.fillText(lines[li], xPos, startY - (lines.length - 1 - li) * lineH)
-      }
     }
   }
 
@@ -223,25 +197,19 @@ function applyPanelOverrides(panel, result) {
   // Canvas padding
   if (panel.padding) result.opts.padding = panel.padding
 
-  // Draw hooks — bar labels
-  if (panel.barCenter) {
-    if (result.opts.axes?.[0]) result.opts.axes[0].show = false
+  // Draw hooks — bar labels (centered inside each segment)
+  if (panel.mainSeries?.some(s => s.type === 'bar')) {
+    result._noTooltip = true
     if (result.startTime != null && result.data?.[0]?.length === 1) {
+      // Single-bar chart: hide x-axis and center the bar
+      if (result.opts.axes?.[0]) result.opts.axes[0].show = false
       const half = Math.max(result.interval || 3600, 3600)
       result.opts.scales = result.opts.scales || {}
       result.opts.scales.x = { range: [result.startTime - half, result.startTime + half] }
     }
-    const labels = (panel.mainSeries || []).filter(s => s.label).map(s => s.label)
-    if (labels.length > 0) {
-      if (!result.opts.hooks) result.opts.hooks = {}
-      if (!result.opts.hooks.draw) result.opts.hooks.draw = []
-      result.opts.hooks.draw.push((u) => drawStackedBarLabels(u, labels))
-    }
-  } else if (panel.mainSeries?.some(s => s.type === 'bar')) {
-    result._noTooltip = true
     if (!result.opts.hooks) result.opts.hooks = {}
     if (!result.opts.hooks.draw) result.opts.hooks.draw = []
-    result.opts.hooks.draw.push((u) => drawBarValueLabels(u))
+    result.opts.hooks.draw.push((u) => drawStackedBarLabels(u))
   }
 }
 
@@ -692,6 +660,7 @@ function renderPanel(chartTarget, panels, data, { applyZoomDateRange }) {
     }
   }
 
+  // Legend allows toggling series visibility
   if (plots.length > 0) {
     buildLegend(plots, data, chartTarget)
   }

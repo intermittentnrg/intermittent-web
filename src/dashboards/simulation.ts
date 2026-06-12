@@ -17,7 +17,6 @@ type PanelDesc = {
   mainSeries: UplotSeriesDesc[];
   extraSeries?: UplotSeriesDesc[];
   axisScale?: string;
-  barCenter?: boolean;
 };
 
 
@@ -353,7 +352,6 @@ function buildSummaryPanel(data: AnyRow): PanelDesc {
       neg("Deficit", "rgb(224, 47, 68)", Number(data.cum_deficit || 0)),
     ],
     axisScale: "energy",
-    barCenter: true,
   };
 }
 
