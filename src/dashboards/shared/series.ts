@@ -146,6 +146,7 @@ export function buildBasicSeries(
 ): UplotSeriesDesc[] {
   const colorFn = options.colorForMetric ?? cyclePalette();
   const byKey = new Map<string, UplotSeriesDesc>();
+  const scale = _unit === "energy" ? "energy" : undefined;
 
   for (const row of rows) {
     if (row.time == null) continue;
@@ -164,6 +165,7 @@ export function buildBasicSeries(
             (type === "bar" ? "all" : "total"))
           : undefined,
         ...(type !== "line" ? { type } : {}),
+        ...(scale ? { scale } : {}),
       });
     }
 

@@ -11,7 +11,7 @@ import {
   getProductionTypeIds,
   getProductionTypeOptions,
 } from "./shared/productionTypes.ts";
-import { colorsFromQuery, cyclePalette } from "./shared/colors.ts";
+import { cyclePalette } from "./shared/colors.ts";
 import { sendUplotResponse } from "./shared/chartResponse.ts";
 import { getPriceSeries } from "./shared/prices.ts";
 import { getLoadSeries } from "./shared/load.ts";
@@ -64,9 +64,8 @@ export async function generation(
     ...priceArgs,
     ptIds,
   ]);
-  const colorFn = colorsFromQuery(request.query.colors);
   const palette = cyclePalette();
-  const mainSeries = buildPowerLineSeries(rows, (metric: string) => colorFn(metric) ?? palette(metric));
+  const mainSeries = buildPowerLineSeries(rows, (metric: string) => palette(metric));
   const loadSeries = request.query.load ? await getLoadSeries(request, priceArgs) : [];
   const priceSeries = request.query.prices ? await getPriceSeries(request, priceArgs, { scale: "price-r" }) : [];
   const startTime = rows[0]?.time as number | undefined;
@@ -135,10 +134,9 @@ export async function generationTotal(
     ptIds,
     `${DAILY} seconds`,
   ]);
-  const colorFn = colorsFromQuery(request.query.colors);
   const palette = cyclePalette();
   const series = buildBasicSeries(rows, "bar", true, "energy", {
-    colorForMetric: (metric: string) => colorFn(metric) ?? palette(metric),
+    colorForMetric: (metric: string) => palette(metric),
   });
   const startTime = rows[0]?.time as number | undefined;
 
