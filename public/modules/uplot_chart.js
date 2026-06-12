@@ -201,20 +201,22 @@ function applyPanelOverrides(panel, result) {
   if (panel.stackedSeries?.some(s => s.type === 'bar')) {
     result._noTooltip = true
 
+    // Tick marks are redundant when bars are present — remove them
+    if (result.opts?.axes) {
+      for (let i = 1; i < result.opts.axes.length; i++) {
+        result.opts.axes[i].ticks = { size: 0 }
+      }
+    }
+
     // Prevent first/last bar from being clipped at chart edges
     if (result.startTime != null && result.data?.[0]?.length >= 1) {
       const count = result.data[0].length
       const pad = (result.interval || 3600) * 0.5
+      const endTime = result.startTime + result.interval * (count - 1)
       result.opts.scales = result.opts.scales || {}
-      if (count === 1) {
-        // Single-bar chart: hide x-axis and center the bar
-        if (result.opts.axes?.[0]) result.opts.axes[0].show = false
-        result.opts.scales.x = { range: [result.startTime - pad, result.startTime + pad] }
-      } else {
-        // Multi-bar: extend range by less than one interval on each side
-        const endTime = result.startTime + result.interval * (count - 1)
-        result.opts.scales.x = { range: [result.startTime - pad, endTime + pad] }
-      }
+      result.opts.scales.x = { ...(result.opts.scales.x || {}), range: [result.startTime - pad, endTime + pad] }
+      // Single-bar: hide x-axis labels (no meaningful time span)
+      if (count === 1 && result.opts.axes?.[0]) result.opts.axes[0].show = false
     }
 
     // Draw labels inside each bar segment (unless opted out)
