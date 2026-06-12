@@ -95,6 +95,7 @@ export function buildUplotOpts(title, timestamps, uplotSeries, bands, currencySy
       stroke: "#888",
       grid: { stroke: "rgba(0,0,0,0.06)" },
       font: "12px system-ui, sans-serif",
+      gap: 0,
       scale,
       /** Dynamically size the axis to fit the widest label, +14px padding. */
       size: (self, values) => {
