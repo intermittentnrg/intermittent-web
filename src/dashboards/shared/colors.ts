@@ -24,7 +24,7 @@ const DEFAULT_COLORS: Record<string, string> = {
 
 function colorForMetric(metric: string, overrides?: Record<string, string>) {
   const key = (metric.split("/").at(-1) || metric)
-    .replace(/_negative$/, "")
+    
     .replace(/^\d+_/, "");
   return (overrides ?? DEFAULT_COLORS)[key] ?? DEFAULT_COLORS[key];
 }

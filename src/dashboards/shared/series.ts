@@ -69,7 +69,7 @@ export function buildMinMaxSeries(rows: AnyRow[]): UplotSeriesDesc[] {
       label: "Min",
       width: 0,
       stroke: "rgba(150, 150, 150, 0.01)",
-      stack: "confidence-band",
+      fill: "rgba(150, 150, 150, 0.01)",
       data: rows.map((row) => row.min_value as number),
     },
     {
@@ -77,7 +77,6 @@ export function buildMinMaxSeries(rows: AnyRow[]): UplotSeriesDesc[] {
       width: 0,
       stroke: "rgba(150, 150, 150, 0.3)",
       fill: "rgba(150, 150, 150, 0.3)",
-      stack: "confidence-band",
       data: rows.map((row) => (row.max_value as number) - (row.min_value as number)),
     },
     {
@@ -138,10 +137,6 @@ export function buildBasicSeries(
   _unit: string,
   options: {
     colorForMetric?: (metric: string) => string | undefined;
-    stackForMetric?: (
-      metric: string,
-      type: "line" | "bar",
-    ) => string | undefined;
   } = {},
 ): UplotSeriesDesc[] {
   const colorFn = options.colorForMetric ?? cyclePalette();
@@ -160,10 +155,6 @@ export function buildBasicSeries(
         stroke: color,
         width: type === "bar" ? 0 : (stacked ? 0 : 2),
         fill: stacked ? alphaColor(color, 0.75) : undefined,
-        stack: stacked
-          ? (options.stackForMetric?.(key, type) ??
-            (type === "bar" ? "all" : "total"))
-          : undefined,
         ...(type !== "line" ? { type } : {}),
         ...(scale ? { scale } : {}),
       });
@@ -183,10 +174,7 @@ export function buildPowerLineSeries(
 }
 
 export function buildStackedPowerLineSeries(rows: AnyRow[]): UplotSeriesDesc[] {
-  return buildBasicSeries(rows, "line", true, "power", {
-    stackForMetric: (metric) =>
-      metric.endsWith("_negative") ? "negative" : "total",
-  });
+  return buildBasicSeries(rows, "line", true, "power");
 }
 
 // ── Field-based series (for perUnit moving capacity) ──

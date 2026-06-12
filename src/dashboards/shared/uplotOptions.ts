@@ -29,7 +29,11 @@ export type UplotPayload = {
  * uPlot-native series descriptor produced by series helpers.
  *
  * Properties use uPlot naming conventions (stroke, fill, width, scale) directly.
- * `data` holds the raw (non-cumulative) values; `stack` controls accumulation.
+ * `data` holds the raw (non-cumulative) values.
+ *
+ * Stacking is determined by collection: series in `stackedSeries` are always
+ * stacked; series in `extraSeries` are never stacked. Internal plumbing may
+ * attach a `_stack` property for sub-grouping (e.g. pos/neg).
  */
 export type UplotSeriesDesc = {
   label: string;
@@ -39,8 +43,6 @@ export type UplotSeriesDesc = {
   fill?: string;
   /** Scale key: "y" (power), "price-l", "price-r", "percent", "energy". Defaults to "y" (power). */
   scale?: string;
-  /** Stack group name. Series in the same group are cumulatively stacked. */
-  stack?: string;
   dash?: number[];
   /** Rendering hint for the frontend: "line" (default for area/line), "bar", "scatter". */
   type?: "line" | "bar" | "scatter";

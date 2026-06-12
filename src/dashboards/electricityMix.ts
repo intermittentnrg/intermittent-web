@@ -129,7 +129,7 @@ export async function electricityMix(
   const startTime = allData.length > 0 ? allData[0].time : undefined;
   const interval = ctx.interval;
 
-  const mainSeries = buildSeriesFromData(allData, colorFn);
+  const stackedSeries = buildSeriesFromData(allData, colorFn);
   const loadSeries = request.query.load ? await getLoadSeries(request, baseArgs) : [];
   const priceSeries = request.query.prices ? await getPriceSeries(request, baseArgs, { scale: "price-r" }) : [];
 
@@ -137,10 +137,10 @@ export async function electricityMix(
   const currencySymbol = request.params.region === "australia" ? "$" : "€";
 
   // Build uPlot-compatible data and options
-  if (startTime == null || (mainSeries.length === 0 && loadSeries.length === 0 && priceSeries.length === 0)) {
+  if (startTime == null || (stackedSeries.length === 0 && loadSeries.length === 0 && priceSeries.length === 0)) {
     return sendUplotResponse(request, reply, {
       title: "Electricity Mix",
-      mainSeries: [],
+      stackedSeries: [],
       startTime: 0,
       interval: 0,
       timezone: ctx.timezone,
@@ -149,7 +149,7 @@ export async function electricityMix(
 
   return sendUplotResponse(request, reply, {
     title: "Electricity Mix",
-    mainSeries,
+    stackedSeries,
     extraSeries: [...loadSeries, ...priceSeries],
     startTime,
     interval,

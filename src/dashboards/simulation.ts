@@ -14,7 +14,7 @@ import type { UplotSeriesDesc } from "./shared/uplotOptions.ts";
 /** A panel descriptor sent to the frontend. */
 type PanelDesc = {
   title: string;
-  mainSeries: UplotSeriesDesc[];
+  stackedSeries: UplotSeriesDesc[];
   extraSeries?: UplotSeriesDesc[];
   axisScale?: string;
 };
@@ -217,7 +217,7 @@ ORDER BY 2,1
 const demandSql = `
 SELECT
   EXTRACT(EPOCH FROM time ) AS time,
-  'demand' AS metric,
+  'load' AS metric,
   SUM(value)*$4 AS value
 FROM (
   SELECT
@@ -308,9 +308,8 @@ async function buildGenPanelFromRows(
 
   const genSeries: UplotSeriesDesc[] = buildStackedPowerLineSeries(genRows).map((s: AnyRow) => applyColor(s, s.label));
   const demandSeries: UplotSeriesDesc[] = buildStackedPowerLineSeries(demandRows).map((s: AnyRow) => ({
-    label: "demand",
+    label: "load",
     data: s.data as number[],
-    stack: undefined,
     stroke: "rgb(36, 41, 46)",
     width: 2,
     fill: undefined,
@@ -319,9 +318,7 @@ async function buildGenPanelFromRows(
     ? buildStackedPowerLineSeries(transRows).map((s: AnyRow) => applyColor(s, "transmission"))
     : [];
 
-  const mainSeries = [...transSeries, ...genSeries, ...demandSeries];
-
-  return { title: "Generation", mainSeries };
+  return { title: "Generation", stackedSeries: [...transSeries, ...genSeries], extraSeries: demandSeries };
 }
 
 function buildSummaryPanel(data: AnyRow): PanelDesc {
@@ -332,7 +329,6 @@ function buildSummaryPanel(data: AnyRow): PanelDesc {
     fill: color,
     width: 0,
     type: "bar",
-    stack: "pos",
   });
   const neg = (name: string, color: string, value: number): UplotSeriesDesc => ({
     label: name,
@@ -341,12 +337,11 @@ function buildSummaryPanel(data: AnyRow): PanelDesc {
     fill: color,
     width: 0,
     type: "bar",
-    stack: "neg",
   });
 
   return {
     title: "Summary",
-    mainSeries: [
+    stackedSeries: [
       pos("Matched", "rgb(86, 166, 75)", Number(data.cum_matched || 0)),
       pos("Surplus", "rgb(242, 204, 12)", Number(data.cum_surplus || 0)),
       neg("Deficit", "rgb(224, 47, 68)", Number(data.cum_deficit || 0)),
@@ -358,7 +353,7 @@ function buildSummaryPanel(data: AnyRow): PanelDesc {
 function buildCumulativePanel(rows: AnyRow[]): PanelDesc {
   return {
     title: "Cumulative Deficit",
-    mainSeries: [{
+    extraSeries: [{
       label: "sum deficit",
       data: rows.map((r) => Number(r.sum_deficit || 0)),
       stroke: "rgb(224, 47, 68)",
@@ -372,7 +367,7 @@ function buildDifferencePanel(rows: AnyRow[]): PanelDesc {
   const fieldData = (field: string) => rows.map((r) => Number(r[field] || 0));
   return {
     title: "Difference",
-    mainSeries: [
+    extraSeries: [
       { label: "transmission", data: fieldData("transmission"), stroke: "rgb(124, 46, 163)", width: 1.5 },
       { label: "generation", data: fieldData("gen"), stroke: "rgb(0, 119, 255)", width: 1.5 },
       { label: "load", data: fieldData("load"), stroke: "rgb(36, 41, 46)", width: 1.5 },

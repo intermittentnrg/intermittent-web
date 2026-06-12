@@ -460,9 +460,6 @@ export async function sweden(
   const numAreas = areaCodes.length;
 
   // ── Build UplotSeriesDesc arrays per area ──
-  // Transmission + generation (stacked) and load go to mainSeries.
-  // Price goes to extraSeries (secondary axis).
-
   const stackedSeries: SeriesWithArea[] = [];
   const loadSeries: SeriesWithArea[] = [];
   const priceSeries: SeriesWithArea[] = [];
@@ -528,24 +525,23 @@ export async function sweden(
   // Split by area into per-panel main/extra series
   const allSeries = [...stackedSeries, ...loadSeries, ...priceSeries];
 
-  const panelSeries: { areaCode: string; mainSeries: UplotSeriesDesc[]; extraSeries: UplotSeriesDesc[] }[] = [];
+  const panelSeries: { areaCode: string; stackedSeries: UplotSeriesDesc[]; extraSeries: UplotSeriesDesc[] }[] = [];
   for (let i = 0; i < numAreas; i++) {
     const main: UplotSeriesDesc[] = [];
     const extra: UplotSeriesDesc[] = [];
     for (const s of allSeries) {
       if (s._areaIdx !== i) continue;
       const uS: UplotSeriesDesc = { label: s.label, data: s.data, stroke: s.stroke, width: s.width, fill: s.fill };
-      if (s.stack) uS.stack = `${s.stack}_${i}`;
-      if (s.scale === "price-r") { extra.push(uS); } else { main.push(uS); }
+      if (s.fill) { main.push(uS); } else { extra.push(uS); }
     }
-    panelSeries.push({ areaCode: areaCodes[i], mainSeries: main, extraSeries: extra });
+    panelSeries.push({ areaCode: areaCodes[i], stackedSeries: main, extraSeries: extra });
   }
 
   // Build shared legend from unique labels across all panels
   const legendGroups: { label: string; color: string; visible: boolean }[] = [];
   const seen = new Set<string>();
   for (const ps of panelSeries) {
-    for (const s of [...ps.mainSeries, ...ps.extraSeries]) {
+    for (const s of [...ps.stackedSeries, ...ps.extraSeries]) {
       if (!seen.has(s.label)) {
         seen.add(s.label);
         legendGroups.push({ label: s.label, color: s.stroke || "#888", visible: true });
@@ -559,7 +555,7 @@ export async function sweden(
 
   return sendUplotResponse(req, reply, {
     panels: panelSeries.map((ps, i) => ({
-      mainSeries: ps.mainSeries,
+      stackedSeries: ps.stackedSeries,
       extraSeries: ps.extraSeries,
       layout: { gridRow: `${i + 1}`, gridColumn: "1" },
       // Hide x-axis on all panels except the last (bottom) one

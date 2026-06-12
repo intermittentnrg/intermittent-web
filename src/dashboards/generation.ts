@@ -65,16 +65,16 @@ export async function generation(
     ptIds,
   ]);
   const palette = cyclePalette();
-  const mainSeries = buildPowerLineSeries(rows, (metric: string) => palette(metric));
+  const stackedSeries = buildPowerLineSeries(rows, (metric: string) => palette(metric));
   const loadSeries = request.query.load ? await getLoadSeries(request, priceArgs) : [];
   const priceSeries = request.query.prices ? await getPriceSeries(request, priceArgs, { scale: "price-r" }) : [];
   const startTime = rows[0]?.time as number | undefined;
   const interval = ctx.interval;
 
-  if (startTime == null || (mainSeries.length === 0 && loadSeries.length === 0 && priceSeries.length === 0)) {
+  if (startTime == null || (stackedSeries.length === 0 && loadSeries.length === 0 && priceSeries.length === 0)) {
     return sendUplotResponse(request, reply, {
       title: "Generation",
-      mainSeries: [],
+      stackedSeries: [],
       startTime: 0,
       interval: 0,
       timezone: ctx.timezone,
@@ -84,7 +84,7 @@ export async function generation(
   const currencySymbol = request.params.region === "australia" ? "$" : "€";
   return sendUplotResponse(request, reply, {
     title: "Generation",
-    mainSeries,
+    stackedSeries,
     extraSeries: [...loadSeries, ...priceSeries],
     startTime,
     interval,
@@ -98,21 +98,13 @@ const DAILY = 86400;
 const generationTotalSql = `
   SELECT EXTRACT(EPOCH FROM time_bucket($5::interval, time)) AS time, CONCAT_WS('/', area, production_type) AS metric, SUM(value) AS value
   FROM (
-    SELECT time_bucket_gapfill('1h', time) AS time, a.code AS area, pt.name AS production_type, AVG(GREATEST(0, value)) AS value
-    FROM generation
-    INNER JOIN areas a ON(area_id = a.id)
-    INNER JOIN production_types pt ON(production_type_id = pt.id)
-    WHERE time BETWEEN $1 AND $2 AND production_type_id = ANY($4::int[]) AND area_id = ANY($3::int[])
-    GROUP BY 1, 2, 3
-    UNION
-    SELECT time_bucket_gapfill('1h', time) AS time, a.code AS area, CONCAT(pt.name, '_negative') AS production_type, AVG(LEAST(0, value)) AS value
+    SELECT time_bucket_gapfill('1h', time) AS time, a.code AS area, pt.name AS production_type, AVG(value) AS value
     FROM generation
     INNER JOIN areas a ON(area_id = a.id)
     INNER JOIN production_types pt ON(production_type_id = pt.id)
     WHERE time BETWEEN $1 AND $2 AND production_type_id = ANY($4::int[]) AND area_id = ANY($3::int[])
     GROUP BY 1, 2, 3
   ) AS hourly_data
-  WHERE time BETWEEN $1 AND $2
   GROUP BY 1, 2
   HAVING SUM(value) <> 0
   ORDER BY 2, 1
@@ -143,7 +135,7 @@ export async function generationTotal(
   if (startTime == null || series.length === 0) {
     return sendUplotResponse(request, reply, {
       title: "Generation Total (Daily)",
-      mainSeries: [],
+      stackedSeries: [],
       startTime: 0,
       interval: 0,
       timezone: ctx.timezone,
@@ -152,7 +144,7 @@ export async function generationTotal(
   const productionTypes = await getProductionTypeOptions(ctx.areaIds);
   return sendUplotResponse(request, reply, {
     title: "Generation Total (Daily)",
-    mainSeries: series,
+    stackedSeries: series,
     startTime,
     interval: DAILY,
     timezone: ctx.timezone,
@@ -191,12 +183,12 @@ export async function generationMinMax(
   ]);
   const startTime = rows[0]?.time as number | undefined;
   const interval = ctx.interval;
-  const series = buildMinMaxSeries(rows);
+  const [min, max, avg] = buildMinMaxSeries(rows);
 
-  if (startTime == null || series.length === 0) {
+  if (startTime == null || !min || !max || !avg) {
     return sendUplotResponse(req, reply, {
       title: "Generation Min/Max",
-      mainSeries: [],
+      stackedSeries: [],
       startTime: 0,
       interval: 0,
       timezone: ctx.timezone,
@@ -205,7 +197,8 @@ export async function generationMinMax(
   const productionTypes = await getProductionTypeOptions(ctx.areaIds);
   return sendUplotResponse(req, reply, {
     title: "Generation Min/Max",
-    mainSeries: series,
+    stackedSeries: [min, max],
+    extraSeries: [avg],
     startTime,
     interval,
     timezone: ctx.timezone,
@@ -249,7 +242,7 @@ export async function generationYoy(
   if (startTime == null || series.length === 0) {
     return sendUplotResponse(req, reply, {
       title: "Generation Year over Year",
-      mainSeries: [],
+      stackedSeries: [],
       startTime: 0,
       interval: 0,
       timezone: ctx.timezone,
@@ -258,7 +251,7 @@ export async function generationYoy(
   const productionTypes = await getProductionTypeOptions(ctx.areaIds);
   return sendUplotResponse(req, reply, {
     title: "Generation Year over Year",
-    mainSeries: series,
+    extraSeries: series,
     startTime,
     interval,
     timezone: ctx.timezone,

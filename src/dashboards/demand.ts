@@ -45,7 +45,7 @@ export async function demand(
   if (startTime == null || series.length === 0) {
     return sendUplotResponse(request, reply, {
       title: "Demand",
-      mainSeries: [],
+      stackedSeries: [],
       startTime: 0,
       interval: 0,
       timezone: ctx.timezone,
@@ -53,7 +53,7 @@ export async function demand(
   }
   return sendUplotResponse(request, reply, {
     title: "Demand",
-    mainSeries: series,
+    stackedSeries: series,
     startTime,
     interval,
     timezone: ctx.timezone,
@@ -94,12 +94,12 @@ export async function demandMinMax(
   ]);
   const startTime = rows[0]?.time as number | undefined;
   const interval = ctx.interval;
-  const series = buildMinMaxSeries(rows);
+  const [min, max, avg] = buildMinMaxSeries(rows);
 
-  if (startTime == null || series.length === 0) {
+  if (startTime == null || !min || !max || !avg) {
     return sendUplotResponse(req, reply, {
       title: "Demand Min/Max",
-      mainSeries: [],
+      stackedSeries: [],
       startTime: 0,
       interval: 0,
       timezone: ctx.timezone,
@@ -107,7 +107,8 @@ export async function demandMinMax(
   }
   return sendUplotResponse(req, reply, {
     title: "Demand Min/Max",
-    mainSeries: series,
+    stackedSeries: [min, max],
+    extraSeries: [avg],
     startTime,
     interval,
     timezone: ctx.timezone,
@@ -134,7 +135,7 @@ export async function demandYoy(
   if (startTime == null || series.length === 0) {
     return sendUplotResponse(req, reply, {
       title: "Demand Year over Year",
-      mainSeries: [],
+      stackedSeries: [],
       startTime: 0,
       interval: 0,
       timezone: ctx.timezone,
@@ -142,7 +143,7 @@ export async function demandYoy(
   }
   return sendUplotResponse(req, reply, {
     title: "Demand Year over Year",
-    mainSeries: series,
+    extraSeries: series,
     startTime,
     interval,
     timezone: ctx.timezone,

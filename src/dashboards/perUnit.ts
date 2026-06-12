@@ -73,15 +73,12 @@ export async function perUnit(
   ]);
   const startTime = rows[0]?.time as number | undefined;
   const interval = ctx.interval;
-  const mainSeries = buildBasicSeries(rows, "line", true, "power", {
-    stackForMetric: (metric) =>
-      metric.endsWith("_negative") ? "negative" : "total",
-  });
+  const stackedSeries = buildBasicSeries(rows, "line", true, "power");
 
-  if (startTime == null || mainSeries.length === 0) {
+  if (startTime == null || stackedSeries.length === 0) {
     return sendUplotResponse(req, reply, {
       title: "Per Unit",
-      mainSeries: [],
+      stackedSeries: [],
       startTime: 0,
       interval: 0,
       timezone: ctx.timezone,
@@ -89,7 +86,7 @@ export async function perUnit(
   }
   return sendUplotResponse(req, reply, {
     title: "Per Unit",
-    mainSeries,
+    stackedSeries,
     startTime,
     interval,
     timezone: ctx.timezone,
@@ -98,7 +95,7 @@ export async function perUnit(
 
 const DAILY = 86400;
 
-const perUnitTotalSql = `SELECT EXTRACT(EPOCH FROM time_bucket($4::interval, time)) AS time, CONCAT_WS('/', a.code, pt.name, COALESCE(u.name, u.internal_id))||CASE WHEN SUM(value) < 0 THEN '_negative' ELSE '' END AS metric, SUM(value) AS value FROM (SELECT time_bucket_gapfill('1h', time) AS time, unit_id, AVG(value) AS value FROM generation_unit g WHERE time BETWEEN $1 AND $2 AND unit_id = ANY($3::int[]) GROUP BY 1,2 ORDER BY 1,2) s INNER JOIN units u ON(unit_id=u.id) INNER JOIN areas a ON(u.area_id=a.id) INNER JOIN production_types pt ON(u.production_type_id=pt.id) WHERE time BETWEEN $1 AND $2 GROUP BY 1,a.code,pt.name,u.name,u.internal_id HAVING SUM(value)<>0 ORDER BY 2,1`;
+const perUnitTotalSql = `SELECT EXTRACT(EPOCH FROM time_bucket($4::interval, time)) AS time, CONCAT_WS('/', a.code, pt.name, COALESCE(u.name, u.internal_id)) AS metric, SUM(value) AS value FROM (SELECT time_bucket_gapfill('1h', time) AS time, unit_id, AVG(value) AS value FROM generation_unit g WHERE time BETWEEN $1 AND $2 AND unit_id = ANY($3::int[]) GROUP BY 1,2 ORDER BY 1,2) s INNER JOIN units u ON(unit_id=u.id) INNER JOIN areas a ON(u.area_id=a.id) INNER JOIN production_types pt ON(u.production_type_id=pt.id) WHERE time BETWEEN $1 AND $2 GROUP BY 1,a.code,pt.name,u.name,u.internal_id HAVING SUM(value)<>0 ORDER BY 2,1`;
 
 export async function perUnitTotal(
   req: FastifyRequest<{ Params: DashboardParams; Querystring: DashboardQuery }>,
@@ -118,7 +115,7 @@ export async function perUnitTotal(
   if (startTime == null || series.length === 0) {
     return sendUplotResponse(req, reply, {
       title: "Per Unit Total (Daily)",
-      mainSeries: [],
+      stackedSeries: [],
       startTime: 0,
       interval: 0,
       timezone: ctx.timezone,
@@ -126,7 +123,7 @@ export async function perUnitTotal(
   }
   return sendUplotResponse(req, reply, {
     title: "Per Unit Total (Daily)",
-    mainSeries: series,
+    stackedSeries: series,
     startTime,
     interval: DAILY,
     timezone: ctx.timezone,
@@ -152,7 +149,7 @@ export async function perUnitPeak(
   if (rows.length === 0) {
     return sendUplotResponse(req, reply, {
       title: "Unit % of Peak Output",
-      mainSeries: [],
+      stackedSeries: [],
       startTime: 0,
       interval: 0,
       timezone: ctx.timezone,
@@ -231,7 +228,7 @@ export async function perUnitMovingCapacity(
   if (startTime == null || series.length === 0) {
     return sendUplotResponse(req, reply, {
       title: "Per Unit Moving Capacity Factor & Output",
-      mainSeries: [],
+      stackedSeries: [],
       startTime: 0,
       interval: 0,
       timezone: ctx.timezone,
@@ -239,7 +236,7 @@ export async function perUnitMovingCapacity(
   }
   return sendUplotResponse(req, reply, {
     title: "Per Unit Moving Capacity Factor & Output",
-    mainSeries: series,
+    stackedSeries: series,
     startTime,
     interval,
     timezone: ctx.timezone,
@@ -332,7 +329,7 @@ export async function perUnitBattery(
   if (startTime == null || series.length === 0) {
     return sendUplotResponse(req, reply, {
       title: "Battery Events",
-      mainSeries: [],
+      stackedSeries: [],
       startTime: 0,
       interval: 0,
       timezone: ctx.timezone,
@@ -340,7 +337,7 @@ export async function perUnitBattery(
   }
   return sendUplotResponse(req, reply, {
     title: "Battery Events",
-    mainSeries: series,
+    stackedSeries: series,
     startTime,
     interval,
     timezone: ctx.timezone,

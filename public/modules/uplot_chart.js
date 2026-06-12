@@ -46,7 +46,7 @@ function restack(rawData, uSeries, meta) {
   for (let si = 1; si < meta.length; si++) {
     const m = meta[si]
     if (!m) continue
-    const key = m.stack !== undefined ? m.stack : `__ns_${si}`
+    const key = m._stack !== undefined ? m._stack : `__ns_${si}`
     if (!groups.has(key)) groups.set(key, [])
     groups.get(key).push({ si, visible: uSeries[si].show !== false })
   }
@@ -198,7 +198,7 @@ function applyPanelOverrides(panel, result) {
   if (panel.padding) result.opts.padding = panel.padding
 
   // Draw hooks — bar labels (centered inside each segment)
-  if (panel.mainSeries?.some(s => s.type === 'bar')) {
+  if (panel.stackedSeries?.some(s => s.type === 'bar')) {
     result._noTooltip = true
     if (result.startTime != null && result.data?.[0]?.length === 1) {
       // Single-bar chart: hide x-axis and center the bar
@@ -222,29 +222,30 @@ function padTo(values, length) {
   return out
 }
 
-/** Normalize a panel entry from client-build (mainSeries) to server-build (opts/data). */
+/** Normalize a panel entry from client-build (stackedSeries) to server-build (opts/data). */
 function normalizePanel(panel, data) {
   let result
 
-  if (panel.mainSeries) {
-    const timestamps = rebuildTimestamps(data.startTime, data.interval, panel.mainSeries)
-    const series = panel.mainSeries.some(s => s.fill) ? divergentSeries(panel.mainSeries) : panel.mainSeries
-    const allSeries = [
-      ...series,
-      ...(panel.extraSeries || []),
-    ]
+  if (panel.stackedSeries || panel.extraSeries) {
+    // ── Client-built panel: normalize from series descriptors ──
+
+    const seriesList = panel.stackedSeries?.length ? panel.stackedSeries : panel.extraSeries
+    const timestamps = rebuildTimestamps(data.startTime, data.interval, seriesList)
     const length = timestamps.length
 
-    // Separate into stack groups and non-stacked
     const stackGroups = new Map()
     const nonStacked = []
-    for (const s of allSeries) {
-      if (s.stack) {
-        if (!stackGroups.has(s.stack)) stackGroups.set(s.stack, [])
-        stackGroups.get(s.stack).push(s)
-      } else {
-        nonStacked.push(s)
+
+    if (panel.stackedSeries?.length) {
+      const series = divergentSeries(panel.stackedSeries)
+      for (const s of series) {
+        if (!stackGroups.has(s._stack)) stackGroups.set(s._stack, [])
+        stackGroups.get(s._stack).push(s)
       }
+    }
+
+    if (panel.extraSeries?.length) {
+      nonStacked.push(...panel.extraSeries)
     }
 
     // Build cumulative data, raw data, and uPlot series descriptors
@@ -273,7 +274,7 @@ function normalizePanel(panel, data) {
         if (s.scale) uS.scale = s.scale
         if (s.type === "bar" ? s.fill : (gi === 0 && s.fill)) uS.fill = s.fill
         uplotSeries.push(uS)
-        _meta.push({ stack: s.stack, fill: s.fill, type: s.type })
+        _meta.push({ _stack: s._stack, fill: s.fill, type: s.type })
       }
     }
 
@@ -292,7 +293,7 @@ function normalizePanel(panel, data) {
       if (s.scale) uS.scale = s.scale
       if (s.fill) uS.fill = s.fill
       uplotSeries.push(uS)
-      _meta.push({ stack: s.stack, fill: s.fill, type: s.type })
+      _meta.push({ _stack: s._stack, fill: s.fill, type: s.type })
     }
 
     const built = buildUplotOpts(

@@ -36,7 +36,7 @@ export async function prices(
   if (startTime == null || series.length === 0) {
     return sendUplotResponse(request, reply, {
       title: "Prices",
-      mainSeries: [],
+      stackedSeries: [],
       startTime: 0,
       interval: 0,
       timezone: ctx.timezone,
@@ -44,7 +44,7 @@ export async function prices(
   }
   return sendUplotResponse(request, reply, {
     title: "Prices",
-    mainSeries: series,
+    extraSeries: series,
     startTime,
     interval,
     timezone: ctx.timezone,
@@ -216,33 +216,33 @@ export async function capturePrice(
     panels: [
       {
         title: "Capture Price",
-        mainSeries: rowsToPanelSeries(priceRows, "price"),
+        extraSeries: rowsToPanelSeries(priceRows, "price"),
         layout: { gridRow: "1", gridColumn: "1" },
         axisSide: 3,
         currencySymbol,
       },
       {
         title: "Capture Rate",
-        mainSeries: rowsToPanelSeries(rateRows, "percent"),
+        extraSeries: rowsToPanelSeries(rateRows, "percent"),
         layout: { gridRow: "1", gridColumn: "2" },
         axisSide: 3,
       },
       {
         title: "Rolling Capture Price (12M)",
-        mainSeries: rowsToPanelSeries(rollingPrice, "price"),
+        extraSeries: rowsToPanelSeries(rollingPrice, "price"),
         layout: { gridRow: "2", gridColumn: "1" },
         axisSide: 3,
         currencySymbol,
       },
       {
         title: "Rolling Capture Rate (12M)",
-        mainSeries: rowsToPanelSeries(rollingRate, "percent"),
+        extraSeries: rowsToPanelSeries(rollingRate, "percent"),
         layout: { gridRow: "2", gridColumn: "2" },
         axisSide: 3,
       },
       {
         title: "Summary Capture Price",
-        mainSeries: summaryRows.map((r, i) => {
+        stackedSeries: summaryRows.map((r, i) => {
           const val = r.capture_price == null ? null : Number(r.capture_price);
           const data = new Array(summaryRows.length).fill(null);
           data[i] = val;
@@ -255,7 +255,7 @@ export async function capturePrice(
       },
       {
         title: "Summary Capture Rate",
-        mainSeries: summaryRows.map((r, i) => {
+        stackedSeries: summaryRows.map((r, i) => {
           const raw = r.capture_rate;
           const val = raw == null ? null : Number(raw) * 100;
           const data = new Array(summaryRows.length).fill(null);

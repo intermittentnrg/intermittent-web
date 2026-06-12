@@ -162,7 +162,7 @@ class ChartModule {
 
   async renderChart(data) {
     // Show message for empty data instead of a blank chart
-    if (data.panels?.every(p => !p.mainSeries?.length && !p.data?.length && !p.heatmapMeta)) {
+    if (data.panels?.every(p => !p.stackedSeries?.length && !p.extraSeries?.length && !p.data?.length && !p.heatmapMeta)) {
       this.chartTarget.innerHTML = ''
       document.querySelector('.uplot-shared-legend')?.remove()
       if (this.hasErrorTarget) {

@@ -74,12 +74,12 @@ export async function transmission(
   );
   const startTime = rows[0]?.time as number | undefined;
   const interval = ctx.interval;
-  const mainSeries = buildTransmissionSeries(rows);
+  const stackedSeries = buildTransmissionSeries(rows);
 
-  if (startTime == null || mainSeries.length === 0) {
+  if (startTime == null || stackedSeries.length === 0) {
     return sendUplotResponse(req, reply, {
       title: "Transmission",
-      mainSeries: [],
+      stackedSeries: [],
       startTime: 0,
       interval: 0,
       timezone: ctx.timezone,
@@ -87,7 +87,7 @@ export async function transmission(
   }
   return sendUplotResponse(req, reply, {
     title: "Transmission",
-    mainSeries,
+    stackedSeries,
     startTime,
     interval,
     timezone: ctx.timezone,

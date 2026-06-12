@@ -2,7 +2,7 @@
  * Server-side uPlot PNG rendering for social preview cards.
  *
  * Handles:
- *  - Standard charts (mainSeries / extraSeries)
+ *  - Standard charts (stackedSeries / extraSeries)
  *  - Heatmap charts (heatmapMeta)
  *  - Multi-panel dashboards (uses first panel only)
  */
@@ -76,35 +76,35 @@ async function renderStandardChart(
   const interval = response.interval as number | undefined;
   const timezone = response.timezone as string | undefined;
 
-  const mainSeries = panel.mainSeries as any[] | undefined;
-  if (!mainSeries || mainSeries.length === 0) return renderBlankPng(width, height);
+  const stackedSeries = (panel.stackedSeries as any[] | undefined) ?? [];
+  const extraSeries = (panel.extraSeries as any[] | undefined) ?? [];
 
-  const extraSeries = panel.extraSeries as any[] | undefined;
+  if (stackedSeries.length === 0 && extraSeries.length === 0) return renderBlankPng(width, height);
+
   const title = panel.title as string || response.title as string || "";
   const currencySymbol = panel.currencySymbol as string | undefined;
 
-  const allSeries = [...mainSeries, ...(extraSeries || [])];
+  const allSeries = [...stackedSeries, ...extraSeries];
   const count = allSeries.reduce<number>((max, s) => Math.max(max, (s.data as any[])?.length ?? 0), 0);
   if (count === 0) return renderBlankPng(width, height);
 
   const timestamps = new Array<number>(count);
   for (let i = 0; i < count; i++) timestamps[i] = (startTime ?? 0) + i * (interval ?? 0);
 
-  const needsDivergent = mainSeries.some((s: any) => s.fill);
-  const processedMain = needsDivergent ? divergentSeries(mainSeries) : mainSeries;
-  const mergedSeries = [...processedMain, ...(extraSeries || [])];
-
-  // Separate into stack groups and non-stacked, then accumulate
-  const length = timestamps.length;
   const stackGroups = new Map<string, any[]>();
   const nonStacked: any[] = [];
-  for (const s of mergedSeries) {
-    if (s.stack) {
-      if (!stackGroups.has(s.stack)) stackGroups.set(s.stack, []);
-      stackGroups.get(s.stack)!.push(s);
-    } else {
-      nonStacked.push(s);
+
+  if (stackedSeries.length > 0) {
+    const processed = divergentSeries(stackedSeries);
+    for (const s of processed) {
+      const stack = (s as any)._stack;
+      if (!stackGroups.has(stack)) stackGroups.set(stack, []);
+      stackGroups.get(stack)!.push(s);
     }
+  }
+
+  if (extraSeries?.length) {
+    nonStacked.push(...extraSeries);
   }
 
   const data: (number | null)[][] = [];
