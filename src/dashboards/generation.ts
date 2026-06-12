@@ -148,6 +148,7 @@ export async function generationTotal(
     startTime,
     interval: DAILY,
     timezone: ctx.timezone,
+    noLabels: true,
   }, { production_types: productionTypes });
 }
 

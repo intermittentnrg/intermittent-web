@@ -197,19 +197,32 @@ function applyPanelOverrides(panel, result) {
   // Canvas padding
   if (panel.padding) result.opts.padding = panel.padding
 
-  // Draw hooks — bar labels (centered inside each segment)
+  // Bar chart adjustments
   if (panel.stackedSeries?.some(s => s.type === 'bar')) {
     result._noTooltip = true
-    if (result.startTime != null && result.data?.[0]?.length === 1) {
-      // Single-bar chart: hide x-axis and center the bar
-      if (result.opts.axes?.[0]) result.opts.axes[0].show = false
-      const half = Math.max(result.interval || 3600, 3600)
+
+    // Prevent first/last bar from being clipped at chart edges
+    if (result.startTime != null && result.data?.[0]?.length >= 1) {
+      const count = result.data[0].length
+      const pad = (result.interval || 3600) * 0.5
       result.opts.scales = result.opts.scales || {}
-      result.opts.scales.x = { range: [result.startTime - half, result.startTime + half] }
+      if (count === 1) {
+        // Single-bar chart: hide x-axis and center the bar
+        if (result.opts.axes?.[0]) result.opts.axes[0].show = false
+        result.opts.scales.x = { range: [result.startTime - pad, result.startTime + pad] }
+      } else {
+        // Multi-bar: extend range by less than one interval on each side
+        const endTime = result.startTime + result.interval * (count - 1)
+        result.opts.scales.x = { range: [result.startTime - pad, endTime + pad] }
+      }
     }
-    if (!result.opts.hooks) result.opts.hooks = {}
-    if (!result.opts.hooks.draw) result.opts.hooks.draw = []
-    result.opts.hooks.draw.push((u) => drawStackedBarLabels(u))
+
+    // Draw labels inside each bar segment (unless opted out)
+    if (!panel.noLabels) {
+      if (!result.opts.hooks) result.opts.hooks = {}
+      if (!result.opts.hooks.draw) result.opts.hooks.draw = []
+      result.opts.hooks.draw.push((u) => drawStackedBarLabels(u))
+    }
   }
 }
 
@@ -582,7 +595,7 @@ function renderPanel(chartTarget, panels, data, { applyZoomDateRange }) {
         const s = opts.series[j + 1]
         if (!s || !meta) continue
         if (meta.type === 'bar' && !s.paths) {
-          s.paths = uplot.paths.bars({ gap: 4 })
+          s.paths = uplot.paths.bars()
         }
       }
     }
