@@ -90,6 +90,14 @@ class ChartModule {
 
     this.chartLibrary = this.getChartLibrary()
 
+    const pathParams = parsePath()
+
+    // About page — no chart, just static content
+    if (pathParams?.dashboard === 'about') {
+      this.renderAbout()
+      return
+    }
+
     this.abortController = new AbortController()
     const currentAbortController = this.abortController
     const renderToken = ++this._renderToken
@@ -165,6 +173,52 @@ class ChartModule {
       console.warn('Failed to calculate chart resolution:', error)
       return '15m'
     }
+  }
+
+  renderAbout() {
+    this.showLoading()
+    if (this.hasErrorTarget) this.errorTarget.hidden = true
+    this.chartTarget.innerHTML = ''
+    document.querySelector('.uplot-shared-legend')?.remove()
+    if (this.chartTarget._echarts) {
+      import('../vendor/echarts_client.bundle.js').then(m => m.disposeEcharts(this.chartTarget))
+    }
+    this.hideLoading()
+
+    this.chartTarget.innerHTML = `
+      <div style="max-width: 600px; margin: 40px auto; padding: 0 20px; line-height: 1.7;">
+        <h2 style="margin-top: 0;">About</h2>
+        <p>
+          High resolution graphs of electricity grid data — because monthly
+          averages hide the intra-day and intra-month intermittency that
+          matters. Full visibility into the real behaviour of the grid.
+        </p>
+        <p>
+          Built with public grid data feeds and
+          <a href="https://www.timescale.com/" target="_blank" rel="noopener"
+             style="color: #0077FF;">TimescaleDB</a>.
+        </p>
+        <p>
+          Feedback, questions, feature requests? DMs are open.
+        </p>
+        <div style="display: flex; gap: 12px; margin-top: 24px;">
+          <a href="https://x.com/IntermittentNRG" target="_blank" rel="noopener"
+             style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px;
+                    background: #000; color: #fff; border-radius: 6px; text-decoration: none;
+                    font-size: 14px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+            @IntermittentNRG
+          </a>
+          <a href="https://bsky.app/profile/intermittent.energy" target="_blank" rel="noopener"
+             style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px;
+                    background: #1185fe; color: #fff; border-radius: 6px; text-decoration: none;
+                    font-size: 14px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm3.75 14.25a.75.75 0 01-.75.75h-6a.75.75 0 01-.75-.75v-8.5a.75.75 0 01.75-.75h6a.75.75 0 01.75.75v8.5z"/></svg>
+            @intermittent.energy
+          </a>
+        </div>
+      </div>
+    `
   }
 
   async renderChart(data) {

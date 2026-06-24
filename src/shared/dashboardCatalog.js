@@ -10,6 +10,7 @@ export const dashboardTabGroups = [
     items: [
       { key: "electricity_mix", label: "Electricity Mix", chartLibrary: "uplot", features: ["prices_checkbox", "load_checkbox", "transmission_checkbox", "production_type_group_selector"] },
       { key: "simulation", label: "Simulation", chartLibrary: "uplot", features: ["production_type_selector", "transmission_checkbox", "simulation_multipliers"] },
+      { key: "about", label: "About", chartLibrary: "none", features: [] },
     ],
   },
   {
@@ -95,6 +96,7 @@ for (const group of dashboardTabGroups) {
 }
 
 labelsByKey.generation_of_peak_map = "Generation of Peak Map";
+labelsByKey.about = "About";
 
 function capitalize(value) {
   return value.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
