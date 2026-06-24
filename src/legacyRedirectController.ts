@@ -16,6 +16,10 @@ const legacyDashboardUidMappings: Record<string, string> = {
   bdkf9e861xu68a: "per_unit_total",
   "c2471171-d24f-4dee-a364-c28d412d3457": "per_unit_moving_capacity",
   K9D5N7Jnz: "prices",
+  "c563789e-77f2-44be-945e-c3b452532cd1": "capture_price",
+  "f0aa6f8a-b182-4548-94ee-2b5281d119a5": "capture_price",
+  // da5dd0d3-c7e8-4e17-b187-19f7e12bbdf7 = prices-heatmap (horizontal price-per-country tracks) — not ported to new site
+  "fa529e06-ff34-415d-adf1-dde1a6f28350": "price_map",
 };
 
 type LegacyDashboardQuery = Record<string, string | string[] | undefined>;
@@ -46,7 +50,9 @@ export async function legacyDashboardRedirect(request: FastifyRequest<{ Params: 
   setQuery(targetQuery, "solar_multiplier", stringQuery(query["var-solar_multiply"]));
   setQuery(targetQuery, "demand_multiplier", stringQuery(query["var-demand_multiply"]));
 
-  const queryString = targetQuery.toString();
+  let queryString = targetQuery.toString();
+  // Commas are valid in query values; URLSearchParams over-encodes them
+  queryString = queryString.replace(/%2C/g, ",");
   return reply.redirect(`/${region}/${areaType}/${area}/${dateRange}/${dashboard}${queryString ? `?${queryString}` : ""}`, 302);
 }
 
@@ -72,15 +78,76 @@ function truthyLegacyFlag(value: string | undefined) {
   return value === "1" || value === "true";
 }
 
+function legacyOffsetRound(amount: number, offsetUnit: string, roundUnit: string, now: Date): Date {
+  const d = new Date(now);
+  if (offsetUnit === "y") d.setUTCFullYear(d.getUTCFullYear() - amount);
+  else if (offsetUnit === "M") d.setUTCMonth(d.getUTCMonth() - amount);
+  else if (offsetUnit === "w") d.setUTCDate(d.getUTCDate() - amount * 7);
+  else if (offsetUnit === "d") d.setUTCDate(d.getUTCDate() - amount);
+  else if (offsetUnit === "h") d.setUTCHours(d.getUTCHours() - amount);
+  else if (offsetUnit === "m") d.setUTCMinutes(d.getUTCMinutes() - amount);
+
+  if (roundUnit === "y") {
+    d.setUTCMonth(0, 1);
+    d.setUTCHours(0, 0, 0, 0);
+  } else if (roundUnit === "M") {
+    d.setUTCDate(1);
+    d.setUTCHours(0, 0, 0, 0);
+  } else if (roundUnit === "d") {
+    d.setUTCHours(0, 0, 0, 0);
+  } else if (roundUnit === "w") {
+    // Round to Monday of the ISO week
+    const isoDow = d.getUTCDay() === 0 ? 7 : d.getUTCDay(); // Mon=1 … Sun=7
+    d.setUTCDate(d.getUTCDate() - (isoDow - 1));
+    d.setUTCHours(0, 0, 0, 0);
+  } else if (roundUnit === "h") {
+    d.setUTCMinutes(0, 0, 0);
+  } else if (roundUnit === "m") {
+    d.setUTCSeconds(0, 0);
+  }
+  return d;
+}
+
 function legacyDatePart(value: string | undefined, side: "from" | "to") {
   if (!value || value === "now") return side === "to" ? "now" : "7_days_ago";
-  const match = value.match(/^now-(\d+)([mhdwMy])$/);
-  if (!match) return value.replace(/\s+/g, "_").replace(/-/g, "_");
 
-  const [, amount, unit] = match;
-  const units: Record<string, string> = { m: "minutes", h: "hours", d: "days", w: "weeks", M: "months", y: "years" };
-  const unitName = units[unit] || "days";
-  return `${amount}_${amount === "1" ? unitName.replace(/s$/, "") : unitName}_ago`;
+  // now-<n><offsetUnit>/<roundUnit>  e.g. now-1y/y, now-6M/M
+  const combined = value.match(/^now-(\d+)([mhdwMy])\/([mhdwMy])$/);
+  if (combined) {
+    const now = new Date();
+    const rounded = legacyOffsetRound(
+      Number(combined[1]), combined[2], combined[3], now,
+    );
+    const u = combined[3];
+    if (u === "y") return String(rounded.getUTCFullYear());
+    if (u === "M") return `${rounded.getUTCFullYear()}-${String(rounded.getUTCMonth() + 1).padStart(2, "0")}`;
+    if (u === "d" || u === "w") {
+      return `${rounded.getUTCFullYear()}-${String(rounded.getUTCMonth() + 1).padStart(2, "0")}-${String(rounded.getUTCDate()).padStart(2, "0")}`;
+    }
+    return rounded.toISOString();
+  }
+
+  const match = value.match(/^now-(\d+)([mhdwMy])$/);
+  if (match) {
+    const [, amount, unit] = match;
+    const units: Record<string, string> = { m: "minutes", h: "hours", d: "days", w: "weeks", M: "months", y: "years" };
+    const unitName = units[unit] || "days";
+    return `${amount}_${amount === "1" ? unitName.replace(/s$/, "") : unitName}_ago`;
+  }
+
+  // Grafana now-relative macros: now/y (round to year), now/M (month), now/d (day), etc.
+  const nowMacro = value.match(/^now\/([mhdwMy])$/);
+  if (nowMacro) {
+    const now = new Date();
+    const unit = nowMacro[1];
+    if (unit === "y") return String(now.getUTCFullYear());
+    if (unit === "M") return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+    if (unit === "d") return "today";
+    if (unit === "w") return "today";
+    // hour/minute rounding – default to now
+    return side === "to" ? "now" : "today";
+  }
+  return value.replace(/\s+/g, "_");
 }
 
 async function legacyAreaTarget(request: FastifyRequest<{ Querystring: LegacyDashboardQuery }>) {
