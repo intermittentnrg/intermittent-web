@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import {
+  areasJs,
   dashboardSpa,
   health,
 } from "./controllers.ts";
@@ -27,6 +28,7 @@ import { generationOfPeakMap, priceMap, sweden } from "./dashboards/misc.ts";
 
 export async function registerRoutes(app: FastifyInstance) {
   app.get("/health", health);
+  app.get("/api/areas.js", areasJs);
   app.get("/d/:uid/:dashboard", legacyDashboardRedirect as never);
 
   const dataHandlers = {

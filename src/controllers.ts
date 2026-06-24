@@ -42,6 +42,13 @@ async function loadAreasData() {
   }
 }
 
+export async function areasJs(_request: FastifyRequest, reply: FastifyReply) {
+  const { areasData, regions } = await loadAreasData();
+  reply.type('application/javascript; charset=utf-8');
+  reply.header('Cache-Control', 'public, max-age=3600');
+  return reply.view('api/areas.js.ejs', { regions, areasData });
+}
+
 export async function health(_request: FastifyRequest, reply: FastifyReply) {
   return reply.send({ ok: true });
 }
@@ -50,7 +57,6 @@ export async function dashboardSpa(request: FastifyRequest<{ Params: DashboardPa
   const params = request.params;
   const query = request.query;
   const dashboardType = params.dashboard || "electricity_mix";
-  const areas = await loadAreasData();
 
   const [fromPath = "7_days_ago", toPath = "now"] = params.date_range.split("_to_");
   const fromRaw = fromPath.replace(/_/g, " ");
@@ -77,7 +83,6 @@ export async function dashboardSpa(request: FastifyRequest<{ Params: DashboardPa
     dashboardTabGroups,
     dashboardHasFeature,
     resolutions: ["5m", "15m", "30m", "1h", "6h", "12h", "1d", "1w", "1M"],
-    ...areas,
   });
 }
 

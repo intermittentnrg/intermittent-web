@@ -1,0 +1,212 @@
+import { router, onChange, parsePath } from '/assets/router.js';
+import { closeAllDropdowns, toggleMenu } from '/assets/dropdown_utils.js';
+
+const root = document.getElementById('topnav-area');
+const panel = root.querySelector('.area-selector__panel');
+const selectorButton = root.querySelector('.area-selector__trigger');
+const selectionText = root.querySelector('.area-selector__trigger .dropdown__value');
+
+// Populate the entire panel (tree + actions bar) from the server payload
+panel.innerHTML = <%- JSON.stringify(include('../shared/area_tree', { regions, areasData })) %>;
+
+const tree = root.querySelector('[data-area-tree]');
+
+let region = null;
+let areaType = null;
+let urlAreas = [];
+
+function directChildNodes(parent, selector) {
+  return Array.from(parent.children).filter(child => child.matches(selector));
+}
+
+function topLevelRegionNodes() {
+  return directChildNodes(tree, '.area-selector__node[data-node-type="region"]');
+}
+
+function areaTypeNodesForRegion(regionNode) {
+  const childTree = regionNode?.querySelector(':scope > .area-selector__child-tree');
+  return childTree ? directChildNodes(childTree, '.area-selector__node[data-node-type="area-type"]') : [];
+}
+
+function findRegionNode(regionName = region) {
+  return topLevelRegionNodes().find(node => node.dataset.region === regionName) || null;
+}
+
+function findAreaTypeNode(regionName = region, type = areaType) {
+  const regionNode = findRegionNode(regionName);
+  return areaTypeNodesForRegion(regionNode).find(node => node.dataset.areaType === type) || null;
+}
+
+function setNodeOpen(node, open) {
+  if (!node) return;
+  node.classList.toggle('area-selector__node--open', open);
+  const button = node.querySelector(':scope > .area-selector__node-button');
+  if (button) button.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+function selectRegion(selectedRegion) {
+  region = selectedRegion;
+  const selectedRegionNode = findRegionNode();
+  const areaTypeNodes = areaTypeNodesForRegion(selectedRegionNode);
+  areaType = areaTypeNodes.length === 1 ? areaTypeNodes[0].dataset.areaType : null;
+  urlAreas = ['all'];
+
+  topLevelRegionNodes().forEach(node => {
+    const selected = node.dataset.region === region;
+    node.classList.toggle('area-selector__node--selected', selected);
+    setNodeOpen(node, selected);
+    areaTypeNodesForRegion(node).forEach(typeNode => {
+      const typeSelected = selected && typeNode.dataset.areaType === areaType;
+      typeNode.classList.toggle('area-selector__node--selected', typeSelected);
+      setNodeOpen(typeNode, typeSelected);
+    });
+  });
+
+  if (areaType) setCheckedAreas(urlAreas);
+}
+
+function selectAreaType(selectedAreaType) {
+  areaType = selectedAreaType;
+  urlAreas = ['all'];
+
+  const regionNode = findRegionNode();
+  areaTypeNodesForRegion(regionNode).forEach(node => {
+    const selected = node.dataset.areaType === areaType;
+    node.classList.toggle('area-selector__node--selected', selected);
+    setNodeOpen(node, selected);
+  });
+
+  setCheckedAreas(urlAreas);
+}
+
+function toggleArea(checkbox) {
+  const areaTypeNode = checkbox.closest('.area-selector__node[data-node-type="area-type"]');
+  if (!areaTypeNode) return;
+
+  const allCheckbox = areaTypeNode.querySelector('.area-selector__checkbox[value="all"]');
+  if (checkbox.value === 'all') {
+    if (checkbox.checked) {
+      areaTypeNode.querySelectorAll('.area-selector__checkbox').forEach(cb => {
+        if (cb !== checkbox) cb.checked = false;
+      });
+    }
+  } else if (checkbox.checked && allCheckbox) {
+    allCheckbox.checked = false;
+  }
+
+  areaTypeNode.querySelectorAll('.dropdown__option').forEach(option => {
+    const cb = option.querySelector('.area-selector__checkbox');
+    if (cb) option.classList.toggle('dropdown__option--selected', cb.checked);
+  });
+}
+
+function getSelectedAreas() {
+  const areaTypeNode = findAreaTypeNode();
+  if (!areaTypeNode) return ['all'];
+
+  const allCheckbox = areaTypeNode.querySelector('.area-selector__checkbox[value="all"]');
+  if (allCheckbox?.checked) return ['all'];
+
+  return Array.from(areaTypeNode.querySelectorAll('.area-selector__checkbox:checked'))
+    .map(cb => cb.value)
+    .filter(Boolean);
+}
+
+function setCheckedAreas(areas = urlAreas) {
+  root.querySelectorAll('.area-selector__checkbox').forEach(cb => { cb.checked = false; });
+
+  const areaTypeNode = findAreaTypeNode();
+  if (!areaTypeNode) return;
+
+  const selected = areas.length ? areas : ['all'];
+  if (selected.includes('all')) {
+    const allCheckbox = areaTypeNode.querySelector('.area-selector__checkbox[value="all"]');
+    if (allCheckbox) allCheckbox.checked = true;
+    areaTypeNode.querySelectorAll('.dropdown__option').forEach(option => {
+      const cb = option.querySelector('.area-selector__checkbox');
+      if (cb) option.classList.toggle('dropdown__option--selected', cb.checked);
+    });
+    return;
+  }
+
+  areaTypeNode.querySelectorAll('.area-selector__checkbox').forEach(cb => {
+    cb.checked = selected.includes(cb.value);
+    const option = cb.closest('.dropdown__option');
+    if (option) option.classList.toggle('dropdown__option--selected', cb.checked);
+  });
+}
+
+function applySelection() {
+  if (!region) region = topLevelRegionNodes()[0]?.dataset.region || 'default';
+  if (!areaType) areaType = areaTypeNodesForRegion(findRegionNode())[0]?.dataset.areaType || 'country';
+
+  const areas = getSelectedAreas();
+  urlAreas = areas.length ? areas : ['all'];
+  setCheckedAreas(urlAreas);
+  updateSelectionText();
+  closeAllDropdowns();
+  router.updatePath({ region, areaType, area: urlAreas.join(',') });
+}
+
+function syncOpenState() {
+  topLevelRegionNodes().forEach(regionNode => {
+    const regionSelected = regionNode.dataset.region === region;
+    regionNode.classList.toggle('area-selector__node--selected', regionSelected);
+    setNodeOpen(regionNode, regionSelected);
+
+    areaTypeNodesForRegion(regionNode).forEach(typeNode => {
+      const typeSelected = regionSelected && typeNode.dataset.areaType === areaType;
+      typeNode.classList.toggle('area-selector__node--selected', typeSelected);
+      setNodeOpen(typeNode, typeSelected);
+    });
+  });
+
+  setCheckedAreas(urlAreas);
+}
+
+function labelize(str) {
+  return str.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function updateSelectionText() {
+  const regionLabel = findRegionNode()
+    ?.querySelector(':scope > .area-selector__node-button .option-text')
+    ?.textContent?.trim()
+    || labelize(region || '');
+  const selected = urlAreas.length ? urlAreas : ['all'];
+  const areasText = selected.includes('all') ? 'All areas' : selected.join(', ');
+  selectionText.textContent = `${regionLabel} • ${areasText}`;
+}
+
+root.addEventListener('click', event => {
+  if (event.target.closest('.area-selector__trigger')) return toggleMenu(panel, selectorButton);
+
+  const regionButton = event.target.closest('.area-selector__node[data-node-type="region"] > .area-selector__node-button');
+  if (regionButton) return selectRegion(regionButton.closest('.area-selector__node').dataset.region);
+
+  const areaTypeButton = event.target.closest('.area-selector__node[data-node-type="area-type"] > .area-selector__node-button');
+  if (areaTypeButton) return selectAreaType(areaTypeButton.closest('.area-selector__node').dataset.areaType);
+
+  if (event.target.closest('.dropdown__apply')) return applySelection();
+});
+
+root.addEventListener('change', event => {
+  const checkbox = event.target.closest('.area-selector__checkbox');
+  if (checkbox) toggleArea(checkbox);
+});
+
+function syncFromUrl({ params } = {}) {
+  if (params?.region) region = params.region;
+  if (params?.areaType) areaType = params.areaType;
+  if (params?.area) urlAreas = params.area.split(',').filter(Boolean);
+
+  if (!findRegionNode() && topLevelRegionNodes()[0]) region = topLevelRegionNodes()[0].dataset.region;
+  const areaTypeNodes = areaTypeNodesForRegion(findRegionNode());
+  if (!findAreaTypeNode()) areaType = areaTypeNodes.length === 1 ? areaTypeNodes[0]?.dataset.areaType : areaType;
+
+  syncOpenState();
+  updateSelectionText();
+}
+
+syncFromUrl({ params: parsePath() });
+onChange(syncFromUrl);

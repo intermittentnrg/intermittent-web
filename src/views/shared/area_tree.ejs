@@ -1,0 +1,44 @@
+<ul class="area-selector__tree" data-area-tree>
+<% regions.forEach((region) => { %>
+  <% const regionLabel = region.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) %>
+  <li class="area-selector__node" data-node-type="region" data-region="<%= region %>">
+    <button type="button" class="area-selector__node-button" aria-expanded="false">
+      <span class="option-text"><%= regionLabel %></span>
+      <span class="area-selector__node-arrow">›</span>
+    </button>
+
+    <ul class="area-selector__child-tree">
+      <% Object.keys(areasData[region] || {}).forEach((areaType) => { %>
+        <% const areaTypeLabel = areaType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) %>
+        <li class="area-selector__node" data-node-type="area-type" data-region="<%= region %>" data-area-type="<%= areaType %>">
+          <button type="button" class="area-selector__node-button" aria-expanded="false">
+            <span class="option-text"><%= areaTypeLabel %></span>
+            <span class="area-selector__node-arrow">›</span>
+          </button>
+
+          <ul class="area-selector__child-tree">
+            <li class="area-selector__node area-selector__node--leaf" data-node-type="area" data-region="<%= region %>" data-area-type="<%= areaType %>" data-area="all">
+              <label class="dropdown__option">
+                <input type="checkbox" class="area-selector__checkbox" value="all">
+                <span class="dropdown__label">All areas</span>
+              </label>
+            </li>
+
+            <% (areasData[region][areaType] || []).forEach((area) => { %>
+              <li class="area-selector__node area-selector__node--leaf" data-node-type="area" data-region="<%= region %>" data-area-type="<%= areaType %>" data-area="<%= area.code %>">
+                <label class="dropdown__option">
+                  <input type="checkbox" class="area-selector__checkbox" value="<%= area.code %>">
+                  <span class="dropdown__label"><%= area.label %></span>
+                </label>
+              </li>
+            <% }) %>
+          </ul>
+        </li>
+      <% }) %>
+    </ul>
+  </li>
+<% }) %>
+</ul>
+<div class="dropdown__actions">
+  <button type="button" class="dropdown__apply">Apply</button>
+</div>
