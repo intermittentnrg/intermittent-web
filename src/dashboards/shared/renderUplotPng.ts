@@ -114,7 +114,7 @@ async function renderStandardChart(
   // Stack each group
   for (const group of stackGroups.values()) {
     const startUplotIdx = uplotSeries.length;
-    const stacked = stackGroup(group, length, startUplotIdx);
+    const stacked = stackGroup(group, count, startUplotIdx);
     data.push(...stacked.cols);
     bands.push(...stacked.bands);
 
@@ -135,7 +135,7 @@ async function renderStandardChart(
   // Non-stacked series
   for (const s of nonStacked) {
     const vals: (number | null)[] = [];
-    for (let i = 0; i < length; i++) {
+    for (let i = 0; i < count; i++) {
       vals.push(i < (s.data as any[])?.length ? (s.data[i] ?? null) : null);
     }
     data.push(vals);
