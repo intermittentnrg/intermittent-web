@@ -28,6 +28,7 @@ import { generationOfPeakMap, priceMap, sweden } from "./dashboards/misc.ts";
 
 export async function registerRoutes(app: FastifyInstance) {
   app.get("/health", health);
+  app.get("/api/areas-:hash.js", areasJs);
   app.get("/api/areas.js", areasJs);
   app.get("/d/:uid/:dashboard", legacyDashboardRedirect as never);
 

@@ -56,6 +56,7 @@ const clientEntryPoints = [
   "public/topnav-area.css",
   "public/topnav-dashboard.css",
   "public/topnav-date.css",
+  "public/vendor/uplot_client.bundle.css",
 ];
 
 const clientOptions = {

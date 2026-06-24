@@ -1,5 +1,7 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { AreaRow, DashboardParams } from "./dashboards/shared/types.ts";
+import fs from "node:fs";
+import crypto from "node:crypto";
 import { querySmall } from "./lib/db.ts";
 import { dashboardPageTitle, dashboardTabGroups, dashboardHasFeature } from "./shared/dashboardCatalog.ts";
 
@@ -17,6 +19,21 @@ const datePresets = [
 ];
 
 const resolutions = ["5m", "15m", "30m", "1h", "6h", "12h", "1d", "1w", "1M"];
+
+async function getAreasHash(): Promise<string> {
+  const [dataRow, templateHash] = await Promise.all([
+    querySmall<{ md5: string }>(
+      "SELECT MD5(string_agg(CONCAT(region, type, code, source), ',' ORDER BY region, type, code)) AS md5 FROM areas WHERE enabled='t'",
+    ),
+    // Include template content hash so cache busts on code deploy too
+    fs.promises.readFile('src/views/api/areas.js.ejs', 'utf8').then(
+      c => crypto.createHash('md5').update(c).digest('hex'),
+      () => '',
+    ),
+  ]);
+  const dataMd5 = dataRow[0]?.md5 || '';
+  return crypto.createHash('md5').update(dataMd5 + templateHash).digest('hex');
+}
 
 async function loadAreasData() {
   try {
@@ -47,7 +64,7 @@ async function loadAreasData() {
 export async function areasJs(_request: FastifyRequest, reply: FastifyReply) {
   const { areasData, regions } = await loadAreasData();
   reply.type('application/javascript; charset=utf-8');
-  reply.header('Cache-Control', 'public, max-age=3600');
+  reply.header('Cache-Control', 'public, max-age=31536000, immutable');
   return reply.view('api/areas.js.ejs', { regions, areasData });
 }
 
@@ -59,6 +76,7 @@ export async function dashboardSpa(request: FastifyRequest<{ Params: DashboardPa
   const params = request.params;
   const query = request.query;
   const dashboardType = params.dashboard || "electricity_mix";
+  const areasHash = await getAreasHash();
 
   const [fromPath = "7_days_ago", toPath = "now"] = params.date_range.split("_to_");
   const fromRaw = fromPath.replace(/_/g, " ");
@@ -85,6 +103,7 @@ export async function dashboardSpa(request: FastifyRequest<{ Params: DashboardPa
     dashboardTabGroups,
     dashboardHasFeature,
     resolutions,
+    areasHash,
   });
 }
 
