@@ -15,6 +15,19 @@ import { formatPower, formatPrice, formatEnergy } from "../../shared/chart_forma
 import { HEATMAP_COLORS, heatmapPlugin } from "../../shared/uplotHeatmap.ts";
 
 const LEGEND_HEIGHT = 44;
+const TITLE_HEIGHT = 40;
+
+function drawTitle(ctx: any, title: string, canvasWidth: number, titleHeight: number): void {
+  if (!title) return;
+  const font = 'bold 20px "DejaVu Sans", sans-serif';
+  ctx.save();
+  ctx.font = font;
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#333333";
+  ctx.fillText(title, canvasWidth / 2, titleHeight / 2);
+  ctx.restore();
+}
 
 function drawLegend(u: any, ctx: any, canvasWidth: number, canvasHeight: number): void {
   const groups = new Map<string, string>();
@@ -82,6 +95,7 @@ async function renderStandardChart(
   if (stackedSeries.length === 0 && extraSeries.length === 0) return renderBlankPng(width, height);
 
   const title = panel.title as string || response.title as string || "";
+  const titleHeight = title ? TITLE_HEIGHT : 0;
   const currencySymbol = panel.currencySymbol as string | undefined;
 
   const allSeries = [...stackedSeries, ...extraSeries];
@@ -198,9 +212,9 @@ async function renderStandardChart(
     height,
     padding: opts.padding
       ? (Array.isArray(opts.padding)
-        ? [opts.padding[0], opts.padding[1], Math.max(opts.padding[2] || 0, LEGEND_HEIGHT), opts.padding[3]]
-        : [opts.padding, opts.padding, Math.max(opts.padding, LEGEND_HEIGHT), opts.padding])
-      : [8, 8, LEGEND_HEIGHT, 8],
+        ? [(opts.padding[0] ?? 0) + titleHeight, opts.padding[1], Math.max(opts.padding[2] || 0, LEGEND_HEIGHT), opts.padding[3]]
+        : [(opts.padding ?? 0) + titleHeight, opts.padding, Math.max(opts.padding, LEGEND_HEIGHT), opts.padding])
+      : [8 + titleHeight, 8, LEGEND_HEIGHT, 8],
     axes,
     cursor: { show: false },
     select: { show: false },
@@ -211,7 +225,13 @@ async function renderStandardChart(
         canvas.getContext("2d").fillStyle = "white";
         canvas.getContext("2d").fillRect(0, 0, canvas.width, canvas.height);
       }],
-      draw: [(u: any) => drawLegend(u, canvas.getContext("2d"), width, height)],
+      draw: [
+        (u: any) => {
+          const ctx = canvas.getContext("2d");
+          drawTitle(ctx, title, width, titleHeight);
+          drawLegend(u, ctx, width, height);
+        },
+      ],
     },
   };
 
@@ -236,6 +256,8 @@ async function renderHeatmapChart(
   height: number,
 ): Promise<Buffer> {
   const timezone = response.timezone as string | undefined;
+  const title = panel.title as string || response.title as string || "";
+  const titleHeight = title ? TITLE_HEIGHT : 0;
   const heatmapMeta = panel.heatmapMeta as {
     timestamps: number[];
     unitNames: string[];
@@ -259,7 +281,7 @@ async function renderHeatmapChart(
   const chartOpts: Record<string, any> = {
     width,
     height,
-    padding: [0, 0, 0, 0],
+    padding: [titleHeight, 0, 0, 0],
     scales: {
       x: { time: true },
       y: { range: [-0.5, Math.max(0.5, unitCount - 0.5)] },
@@ -280,8 +302,13 @@ async function renderHeatmapChart(
     plugins: [heatmapPlugin(timestamps, unitNames, values)],
     hooks: {
       drawClear: [() => {
-        canvas.getContext("2d").fillStyle = "white";
-        canvas.getContext("2d").fillRect(0, 0, canvas.width, canvas.height);
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }],
+      draw: [(u: any) => {
+        const ctx = canvas.getContext("2d");
+        drawTitle(ctx, title, width, titleHeight);
       }],
     },
   };
