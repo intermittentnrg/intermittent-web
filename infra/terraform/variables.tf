@@ -1,7 +1,17 @@
-variable "function_name" {
-  description = "Lambda function name."
+# ------------------------------------------------------------------
+# Global / shared variables
+# ------------------------------------------------------------------
+
+variable "cloudflare_api_token" {
+  description = "Cloudflare API token."
   type        = string
-  default     = "intermittent-web"
+  sensitive   = true
+}
+
+variable "cloudflare_zone_id" {
+  description = "Cloudflare zone ID for DNS records."
+  type        = string
+  default     = "a4e4efd14989cfcf69416bfb4bfe2a6a"
 }
 
 variable "memory_size" {
@@ -23,10 +33,40 @@ variable "log_retention_in_days" {
 }
 
 variable "environment_variables" {
-  description = "Environment variables to set on the Lambda function."
+  description = "Environment variables to set on both Lambda functions."
   type        = map(string)
   default     = {}
   sensitive   = true
 }
 
-variable "cloudflare_api_token" {}
+# ------------------------------------------------------------------
+# Preview environment
+# ------------------------------------------------------------------
+
+variable "preview_function_name" {
+  description = "Lambda function name for the preview environment."
+  type        = string
+  default     = "intermittent-web"
+}
+
+variable "preview_domain_name" {
+  description = "Custom domain name for the preview environment."
+  type        = string
+  default     = "preview.intermittent.energy"
+}
+
+# ------------------------------------------------------------------
+# Production environment
+# ------------------------------------------------------------------
+
+variable "production_function_name" {
+  description = "Lambda function name for the production environment."
+  type        = string
+  default     = "intermittent-web-prod"
+}
+
+variable "production_domain_name" {
+  description = "Custom domain name for the production environment."
+  type        = string
+  default     = "intermittent.energy"
+}
