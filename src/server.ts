@@ -6,7 +6,7 @@ import view from "@fastify/view";
 import staticFiles from "@fastify/static";
 import ejs from "ejs";
 import { registerRoutes } from "./routes.ts";
-import { entrypointUrl, scriptTags } from "./lib/assets.ts";
+import { entrypointUrl, importMap, scriptTags } from "./lib/assets.ts";
 
 export async function buildApp() {
   const app = Fastify({
@@ -26,6 +26,7 @@ export async function buildApp() {
     root: path.join(process.cwd(), "src/views"),
     defaultContext: {
       entrypointUrl,
+      importMap,
       scriptTags,
       googleAnalyticsEnabled: !isDevelopment,
     },

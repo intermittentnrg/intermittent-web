@@ -1,4 +1,4 @@
-import { router, parsePath } from "../router.js"
+import { router, parsePath } from "/assets/router.js"
 import { calculateResolution, parseDateRange } from "../../src/shared/dateParsing.js"
 import { dashboardChartLibrary } from "../../src/shared/dashboardCatalog.js"
 

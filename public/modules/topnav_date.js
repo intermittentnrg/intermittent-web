@@ -1,5 +1,5 @@
-import { router, parsePath, getQuery, updateQuery } from "../router.js"
-import { closeAllDropdowns, toggleMenu } from "../dropdown_utils.js"
+import { router, parsePath, getQuery, updateQuery } from "/assets/router.js"
+import { closeAllDropdowns, toggleMenu } from "/assets/dropdown_utils.js"
 
 export function initTopnavDate() {
   const root = document.getElementById('topnav-date')

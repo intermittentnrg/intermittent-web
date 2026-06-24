@@ -54,3 +54,24 @@ export function scriptTags(entrypoint = "public/app.js") {
   return productionAssetTags(entrypoint)
     ?? `<script>window.process = window.process || { env: { NODE_ENV: "development" } };</script>\n<script type="module" src="${assetUrl(entrypoint)}" defer></script>`;
 }
+
+const sharedModules = [
+  { logical: '/assets/router.js', entry: 'public/router.js' },
+  { logical: '/assets/dropdown_utils.js', entry: 'public/dropdown_utils.js' },
+];
+
+export function importMap() {
+  if (isDevelopment) return '<script type="importmap">{}</script>\n';
+
+  const manifest = loadManifest();
+  if (!manifest) return '';
+
+  const imports: Record<string, string> = {};
+  for (const mod of sharedModules) {
+    const hashed = manifest[mod.entry]?.file;
+    if (hashed) imports[mod.logical] = `${base}${hashed}`;
+  }
+
+  if (Object.keys(imports).length === 0) return '';
+  return `<script type="importmap">${JSON.stringify({ imports })}\n</script>\n`;
+}

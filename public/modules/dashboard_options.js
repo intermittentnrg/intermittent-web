@@ -1,5 +1,5 @@
-import { router } from "../router.js"
-import { closeAllDropdowns, toggleMenu } from "../dropdown_utils.js"
+import { router } from "/assets/router.js"
+import { closeAllDropdowns, toggleMenu } from "/assets/dropdown_utils.js"
 import { dashboardHasFeature } from "../../src/shared/dashboardCatalog.js"
 
 const targetNames = ["productionTypeMenu", "productionTypeSelectedText", "productionTypeSection", "productionTypeGroupSection", "productionTypeGroupOptions", "productionTypeGroupSelectedText", "productionTypeGroupMenu", "simulationSection", "electricityMixSection", "tempsSection", "loadSection", "transmissionCheckboxSection", "productionTypeOptions", "unitSection", "unitOptions", "unitSelectedText", "unitMenu", "transmissionSection", "transmissionOptions", "transmissionSelectedText", "transmissionMenu", "multiplierMenu", "multiplierSelectedText", "nuclearInput", "windInput", "solarInput", "demandInput"]

@@ -23,6 +23,7 @@
     <link rel="preload" href="<%= entrypointUrl('public/topnav-dashboard.css') %>" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="preload" href="<%= entrypointUrl('public/topnav-date.css') %>" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="preload" href="/assets/vendor/uplot_client.bundle.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <%- importMap() %>
     <script type="module" src="/api/areas.js"></script>
     <%- scriptTags('public/app.js') %>
     <%- include('google_analytics') %>

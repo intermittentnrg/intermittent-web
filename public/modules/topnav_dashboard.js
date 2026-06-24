@@ -1,5 +1,5 @@
-import { router } from "../router.js"
-import { closeAllDropdowns } from "../dropdown_utils.js"
+import { router } from "/assets/router.js"
+import { closeAllDropdowns } from "/assets/dropdown_utils.js"
 import { dashboardTabGroups } from "../../src/shared/dashboardCatalog.js"
 
 /**
