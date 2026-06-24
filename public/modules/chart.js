@@ -115,8 +115,15 @@ class ChartModule {
     }
 
     responsePromise
-      .then(response => {
-        if (!response.ok) throw new Error('Network response was not ok')
+      .then(async response => {
+        if (!response.ok) {
+          let detail = `HTTP ${response.status}`
+          try {
+            const body = await response.json()
+            if (body.message) detail = body.message
+          } catch {}
+          throw new Error(detail)
+        }
         return response.json()
       })
       .then(data => {
@@ -131,7 +138,7 @@ class ChartModule {
         if (error.name !== 'AbortError') {
           console.error('Error fetching chart data:', error)
           if (this.hasErrorTarget) {
-            this.errorTarget.textContent = 'Failed to load data. Please try again.'
+            this.errorTarget.textContent = error.message
             this.errorTarget.hidden = false
           }
         }
