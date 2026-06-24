@@ -17,12 +17,12 @@
       <% } %>
     <% } %>
     <%- include('critical_css') %>
-    <link rel="stylesheet" href="<%= entrypointUrl('public/application.css') %>">
-    <link rel="stylesheet" href="<%= entrypointUrl('public/topnav.css') %>">
-    <link rel="stylesheet" href="<%= entrypointUrl('public/topnav-area.css') %>">
-    <link rel="stylesheet" href="<%= entrypointUrl('public/topnav-dashboard.css') %>">
-    <link rel="stylesheet" href="<%= entrypointUrl('public/topnav-date.css') %>">
-    <link rel="stylesheet" href="/assets/vendor/uplot_client.bundle.css">
+    <link rel="preload" href="<%= entrypointUrl('public/application.css') %>" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="<%= entrypointUrl('public/topnav.css') %>" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="<%= entrypointUrl('public/topnav-area.css') %>" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="<%= entrypointUrl('public/topnav-dashboard.css') %>" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="<%= entrypointUrl('public/topnav-date.css') %>" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="/assets/vendor/uplot_client.bundle.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <%- scriptTags('public/app.js') %>
     <%- include('google_analytics') %>
   </head>
