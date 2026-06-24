@@ -58,6 +58,8 @@ export function scriptTags(entrypoint = "public/app.js") {
 const sharedModules = [
   { logical: '/assets/router.js', entry: 'public/router.js' },
   { logical: '/assets/dropdown_utils.js', entry: 'public/dropdown_utils.js' },
+  { logical: '/assets-build/vendor/uplot_client.bundle.js', entry: 'public/vendor/uplot_client.bundle.js' },
+  { logical: '/assets-build/vendor/echarts_client.bundle.js', entry: 'public/vendor/echarts_client.bundle.js' },
 ];
 
 export function importMap() {

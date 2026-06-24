@@ -91,14 +91,15 @@ async function writeManifest(result) {
 async function hashAndCopyModule(src, outDir) {
   const content = await readFile(src, 'utf8');
   const hash = crypto.createHash('sha256').update(content).digest('hex').slice(0, 8);
-  const basename = path.basename(src, '.js');
-  const dest = path.join(outDir, 'assets', `${basename}-${hash}.js`);
+  const ext = path.extname(src);
+  const name = src.replace(/^public\//, '').replace(new RegExp(`${ext}$`), '');
+  const dest = path.join(outDir, 'assets', `${path.basename(name)}-${hash}${ext}`);
   await mkdir(path.dirname(dest), { recursive: true });
   await copyFile(src, dest);
 
   const manifestPath = path.join(outDir, 'manifest.json');
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
-  manifest[`public/${basename}.js`] = { file: `assets/${basename}-${hash}.js` };
+  manifest[`public/${name}${ext}`] = { file: `assets/${path.basename(name)}-${hash}${ext}` };
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 }
 
@@ -116,6 +117,8 @@ async function buildClient() {
   if (production) {
     await hashAndCopyModule("public/router.js", "dist/public/client");
     await hashAndCopyModule("public/dropdown_utils.js", "dist/public/client");
+    await hashAndCopyModule("public/vendor/uplot_client.bundle.js", "dist/public/client");
+    await hashAndCopyModule("public/vendor/echarts_client.bundle.js", "dist/public/client");
   }
 }
 
