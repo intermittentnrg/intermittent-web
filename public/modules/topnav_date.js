@@ -5,9 +5,49 @@ export function initTopnavDate() {
   const root = document.getElementById('topnav-date')
   if (!root) return null
 
+  const datePanel = root.querySelector('.date-range-selector__panel')
+  if (datePanel) {
+    datePanel.innerHTML = `<div class="date-range-selector__panes">
+      <div class="date-range-selector__presets">
+        <button type="button" class="dropdown__option" data-preset="today" data-from="today" data-to="today"><span class="option-text">Today</span></button>
+        <button type="button" class="dropdown__option" data-preset="yesterday" data-from="yesterday" data-to="yesterday"><span class="option-text">Yesterday</span></button>
+        <button type="button" class="dropdown__option" data-preset="last_7_days" data-from="7 days ago" data-to="now"><span class="option-text">Last 7 Days</span></button>
+        <button type="button" class="dropdown__option" data-preset="last_30_days" data-from="30 days ago" data-to="now"><span class="option-text">Last 30 Days</span></button>
+        <button type="button" class="dropdown__option" data-preset="last_90_days" data-from="90 days ago" data-to="now"><span class="option-text">Last 90 Days</span></button>
+        <button type="button" class="dropdown__option" data-preset="previous_week" data-from="last week" data-to="last week"><span class="option-text">Previous Week</span></button>
+        <button type="button" class="dropdown__option" data-preset="previous_month" data-from="last month" data-to="last month"><span class="option-text">Previous Month</span></button>
+        <button type="button" class="dropdown__option" data-preset="previous_year" data-from="last year" data-to="last year"><span class="option-text">Previous Year</span></button>
+        <button type="button" class="dropdown__option" data-preset="last_year" data-from="1 year ago" data-to="now"><span class="option-text">Last Year</span></button>
+        <button type="button" class="dropdown__option" data-preset="last_5_years" data-from="5 years ago" data-to="now"><span class="option-text">Last 5 Years</span></button>
+      </div>
+      <div class="date-range-selector__custom">
+        <div class="date-range-selector__custom-body">
+          <div class="date-range-selector__input-group"><label>From</label><input type="text" id="date-from" class="date-range-selector__input" placeholder="yesterday"></div>
+          <div class="date-range-selector__input-group"><label>To</label><input type="text" id="date-to" class="date-range-selector__input" placeholder="today"></div>
+          <div class="date-range-selector__hint"><span class="date-range-selector__hint-label">Try:</span><span>2024-01-15</span><span>7 days ago</span><span>yesterday &middot; now</span></div>
+        </div>
+        <div class="dropdown__actions"><button type="button" class="dropdown__apply">Apply</button></div>
+      </div>
+    </div>`
+  }
+
+  const resolutionPanel = root.querySelector('.resolution-selector__panel')
+  if (resolutionPanel) {
+    resolutionPanel.innerHTML = `
+      <button type="button" class="dropdown__option" data-resolution="5m"><span class="option-text">5m</span></button>
+      <button type="button" class="dropdown__option" data-resolution="15m"><span class="option-text">15m</span></button>
+      <button type="button" class="dropdown__option" data-resolution="30m"><span class="option-text">30m</span></button>
+      <button type="button" class="dropdown__option" data-resolution="1h"><span class="option-text">1h</span></button>
+      <button type="button" class="dropdown__option" data-resolution="6h"><span class="option-text">6h</span></button>
+      <button type="button" class="dropdown__option" data-resolution="12h"><span class="option-text">12h</span></button>
+      <button type="button" class="dropdown__option" data-resolution="1d"><span class="option-text">1d</span></button>
+      <button type="button" class="dropdown__option" data-resolution="1w"><span class="option-text">1w</span></button>
+      <button type="button" class="dropdown__option" data-resolution="1M"><span class="option-text">1M</span></button>`
+  }
+
+  const menu = root.querySelector('.date-range-selector__panel')
   const fromInput = document.getElementById('date-from')
   const toInput = document.getElementById('date-to')
-  const menu = root.querySelector('.date-range-selector__panel')
   const presetText = root.querySelector('.date-range-selector__trigger .dropdown__value')
   const resolutionMenu = root.querySelector('.resolution-selector__panel')
   const resolutionSelectedText = root.querySelector('.resolution-selector__trigger .dropdown__value')

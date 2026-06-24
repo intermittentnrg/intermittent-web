@@ -96,6 +96,16 @@ class DashboardOptions {
   }
 
   init() {
+    const multiplierPanel = document.getElementById('dashboard-options-multiplier-menu')
+    if (multiplierPanel) {
+      multiplierPanel.innerHTML = `<div class="multiplier-options">
+          <div class="multiplier-row"><label>Demand</label><input type="number" class="multiplier-input dashboard-options-demand-input" value="1.0" step="0.1" min="0" max="10" id="dashboard-options-demand-input"></div>
+          <div class="multiplier-row"><label>Nuclear</label><input type="number" class="multiplier-input dashboard-options-nuclear-input" value="1.0" step="0.1" min="0" max="10" id="dashboard-options-nuclear-input"></div>
+          <div class="multiplier-row"><label>Wind</label><input type="number" class="multiplier-input dashboard-options-wind-input" value="1.0" step="0.1" min="0" max="10" id="dashboard-options-wind-input"></div>
+          <div class="multiplier-row"><label>Solar</label><input type="number" class="multiplier-input dashboard-options-solar-input" value="1.0" step="0.1" min="0" max="10" id="dashboard-options-solar-input"></div>
+        </div>
+        <div class="dropdown__actions"><button type="button" class="dropdown__apply">Apply</button></div>`
+    }
     this.updateVisibility()
     router.onChange(() => this.updateVisibilityFromRouter())
 

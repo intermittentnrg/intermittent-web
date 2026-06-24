@@ -16,6 +16,8 @@ const datePresets = [
   { preset: "last_5_years", from: "5 years ago", to: "now", label: "Last 5 Years" },
 ];
 
+const resolutions = ["5m", "15m", "30m", "1h", "6h", "12h", "1d", "1w", "1M"];
+
 async function loadAreasData() {
   try {
     const rows = await querySmall<AreaRow>(
@@ -82,7 +84,7 @@ export async function dashboardSpa(request: FastifyRequest<{ Params: DashboardPa
     currentPreset,
     dashboardTabGroups,
     dashboardHasFeature,
-    resolutions: ["5m", "15m", "30m", "1h", "6h", "12h", "1d", "1w", "1M"],
+    resolutions,
   });
 }
 
