@@ -30,7 +30,7 @@ class ChartModule {
 
     // Eagerly initialize the renderer so showLoading etc. work before data arrives
     if (this.chartLibrary === 'echarts') {
-      const { initEcharts } = await import('./echarts_chart.js')
+      const { initEcharts } = await import('../vendor/echarts_client.bundle.js')
       initEcharts(this.chartTarget, {
         applyZoomDateRange: (fromMs, toMs) => this.applyZoomDateRange(fromMs, toMs),
       })
@@ -176,10 +176,10 @@ class ChartModule {
 
     if (data.chartLibrary === 'uplot') {
       if (this.chartTarget._echarts) {
-        const { disposeEcharts } = await import('./echarts_chart.js')
+        const { disposeEcharts } = await import('../vendor/echarts_client.bundle.js')
         disposeEcharts(this.chartTarget)
       }
-      const { renderUplot } = await import('./uplot_chart.js')
+      const { renderUplot } = await import('../vendor/uplot_client.bundle.js')
       renderUplot(this.chartTarget, data, {
         applyZoomDateRange: (fromMs, toMs) => this.applyZoomDateRange(fromMs, toMs),
       })
@@ -187,7 +187,7 @@ class ChartModule {
     }
 
     // ECharts path (default)
-    const { renderEcharts } = await import('./echarts_chart.js')
+    const { renderEcharts } = await import('../vendor/echarts_client.bundle.js')
     renderEcharts(this.chartTarget, data, {
       applyZoomDateRange: (fromMs, toMs) => this.applyZoomDateRange(fromMs, toMs),
     })

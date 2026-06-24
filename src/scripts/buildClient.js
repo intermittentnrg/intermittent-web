@@ -8,20 +8,20 @@ const production = process.env.NODE_ENV === "production" || process.argv.include
 
 const supportBundles = [
   {
-    entryPoints: ["public/echarts_client.js"],
-    outfile: "public/vendor/echarts_client.bundle.js",
-  },
-  {
-    entryPoints: ["public/uplot_client.js"],
-    outfile: "public/vendor/uplot_client.bundle.js",
-  },
-  {
     entryPoints: ["src/shared/chart_formatters.ts"],
     outfile: "public/vendor/chart_formatters.js",
   },
   {
     entryPoints: ["src/shared/echartsFormatters.ts"],
     outfile: "public/vendor/echarts_formatters.js",
+  },
+  {
+    entryPoints: ["public/echarts_client.js"],
+    outfile: "public/vendor/echarts_client.bundle.js",
+  },
+  {
+    entryPoints: ["public/uplot_client.js"],
+    outfile: "public/vendor/uplot_client.bundle.js",
   },
 ];
 
@@ -44,10 +44,9 @@ async function cleanSupportBundles() {
 
 async function buildSupportBundles() {
   await cleanSupportBundles();
-  await Promise.all(supportBundles.map((bundle) => esbuild.build({
-    ...commonOptions,
-    ...bundle,
-  })));
+  for (const bundle of supportBundles) {
+    await esbuild.build({ ...commonOptions, ...bundle });
+  }
 }
 
 const clientEntryPoints = [
@@ -61,6 +60,7 @@ const clientEntryPoints = [
 
 const clientOptions = {
   ...commonOptions,
+  splitting: true,
   entryPoints: clientEntryPoints,
   outdir: "dist/public/client",
   entryNames: production ? "assets/[name]-[hash]" : "[dir]/[name]",
